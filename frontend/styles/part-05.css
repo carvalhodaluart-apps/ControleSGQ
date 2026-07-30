@@ -1,0 +1,548 @@
+.material-editor-fields input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+
+.material-editor-fields textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  max-height: 110px;
+  resize: vertical;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 0.86rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.item-legend-row button {
+  min-width: 40px;
+  padding: 0 6px;
+  font-size: 1rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.item-legend-row > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.item-legend-row strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+.item-legend-row small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.procedure-table-wrap.item-table {
+  padding-top: 0;
+}
+
+.missing-page {
+  max-width: 680px;
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.missing-page p {
+  margin-bottom: 18px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.empty-state {
+  padding: 44px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin-bottom: 8px;
+  font-size: 1.35rem;
+}
+
+.empty-state p {
+  color: var(--muted);
+}
+
+.creator-home {
+  width: min(980px, calc(100% - 32px));
+}
+.creator-hero {
+  margin-bottom: 22px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(23, 32, 51, 0.04);
+}
+.creator-hero h1 {
+  max-width: 760px;
+}
+.creator-hero p {
+  max-width: 680px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.creator-module-card {
+  position: relative;
+  padding: 28px 32px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgba(23, 32, 51, 0.06);
+  overflow: hidden;
+}
+.creator-module-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 7px;
+  background: #f37021;
+}
+.creator-module-kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: #b94a00;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.creator-module-card > h2 {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+}
+.creator-module-description {
+  max-width: 700px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.creator-module-actions {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+  margin-top: 22px;
+}
+.creator-import-button {
+  position: relative;
+  justify-self: stretch;
+  overflow: hidden;
+  color: #fff;
+  background: var(--primary);
+}
+.creator-start-button,
+.creator-import-button {
+  appearance: none;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 0 14px;
+  width: 100%;
+  min-width: 0;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+.creator-start-button:hover,
+.creator-import-button:hover {
+  border-color: var(--primary-dark);
+  background: var(--primary-dark);
+  color: #fff;
+}
+.creator-import-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.creator-import-error {
+  min-height: 0;
+  margin: 12px 0 0;
+  color: #a32522;
+  font-size: 0.9rem;
+}
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.confirm-dialog {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 16px;
+  width: min(430px, 100%);
+  padding: 22px;
+  border: 1px solid #f1b7b5;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.confirm-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: #a32522;
+  background: #fff1f0;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.confirm-dialog h2 {
+  margin-bottom: 6px;
+  font-size: 1.12rem;
+}
+
+.confirm-dialog p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.password-dialog-input {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.password-dialog-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(21, 94, 239, 0.12);
+}
+
+.password-dialog-error {
+  display: block;
+  min-height: 18px;
+  margin-top: 6px;
+  color: #a32522;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.new-procedure-dialog label {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.new-procedure-dialog input,
+.new-procedure-dialog select,
+.new-procedure-dialog textarea {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.new-procedure-dialog textarea {
+  min-height: 88px;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.new-procedure-dialog input:focus,
+.new-procedure-dialog select:focus,
+.new-procedure-dialog textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(21, 94, 239, 0.12);
+}
+
+.confirm-dialog-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.confirm-dialog-actions button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.confirm-dialog-actions .confirm-danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.confirm-dialog-actions .confirm-danger:hover {
+  border-color: var(--danger-dark);
+  background: var(--danger-dark);
+}
+
+.confirm-dialog-actions .confirm-primary {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.confirm-dialog-actions .confirm-primary:hover {
+  border-color: var(--primary-dark);
+  background: var(--primary-dark);
+}
+
+.confirm-dialog-actions .confirm-cancel:hover {
+  border-color: rgba(21, 94, 239, 0.46);
+  color: var(--primary-dark);
+}
+
+@media (max-width: 760px) {
+  .page {
+    width: min(100% - 24px, 1180px);
+    padding: 24px 0;
+  }
+
+  .page-header {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .procedure-title-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .equipment-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .equipment-card {
+    min-height: 246px;
+  }
+
+  .equipment-image {
+    height: 150px;
+    padding: 12px;
+  }
+
+  .procedure-hero,
+  .procedure-layout,
+  .procedure-summary,
+  .item-board,
+  .sgq-field-grid,
+  .sgq-text-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .procedure-nav {
+    position: static;
+    margin-top: 0;
+    max-height: none;
+  }
+
+  .procedure-hero-image {
+    min-height: 190px;
+  }
+
+  .procedure-hero-image img {
+    height: 170px;
+  }
+
+  .procedure-section-header {
+    display: grid;
+  }
+
+  .section-kind {
+    justify-self: start;
+  }
+
+  .instruction-card {
+    grid-template-columns: 1fr;
+  }
+
+  .procedure-images,
+  .procedure-step-images {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .procedure-image-link,
+  .procedure-step-images .procedure-image-link {
+    min-height: 260px;
+  }
+
+  .procedure-image-link img,
+  .procedure-step-images .procedure-image-link img {
+    height: 260px;
+  }
+
+  .item-board {
+    padding: 16px;
+  }
+
+  .item-image-toolbar { justify-content: flex-start; }
+
+  .item-board-image {
+    min-height: 330px;
+  }
+
+  .item-board-image img {
+    height: 330px;
+  }
+
+  .item-image-placeholder,
+  .item-board-main-image {
+    min-height: 330px;
+  }
+
+  .item-board-main-image img {
+    height: 330px;
+  }
+
+  .item-image-placeholder span {
+    width: 60px;
+    height: 60px;
+    font-size: 2rem;
+  }
+
+  .item-board-images .procedure-image-link {
+    min-height: 330px;
+  }
+
+  .item-board-images .procedure-image-link img {
+    height: 330px;
+  }
+
+  .item-legend {
+    max-height: none;
+  }
+
+  .step-card-right {
+    grid-template-columns: 1fr;
+  }
+
+  .step-card-canvas {
+    min-height: 420px;
+  }
+
+  .step-layout-block {
+    min-width: 140px;
+  }
+
+  .material-editor-fields > div,
+  .revision-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .page,
+  .procedure-page {
+    width: 100%;
+    padding: 0;
+  }
+
+  .back-link,
+  .procedure-actions,
+  .procedure-action-bar,
+  .procedure-nav,
+  .bottom-editor-actions,
+  .section-editor-toolbar,
+  .image-editor-toolbar,
+  .item-image-toolbar,
+  .canvas-toolbar,
+  .canvas-object-controls,
+  .step-block-editor,
+  .step-block-drag,
+  .step-block-delete,
+  .drag-handle,
+  .section-header-actions,
+  .annotation-delete,
+  .material-remove-button,
+  .resize-handle {
+    display: none !important;
+  }
+
+  .procedure-hero,
+  .procedure-layout,
+  .procedure-summary {
+    display: block;
+  }
+
+  .procedure-content {
+    display: block;
+  }
+
+  .procedure-card,
+  .procedure-section,
+  .procedure-table-wrap,
+  .step-card-canvas,
+  .procedure-image-link,
+  .item-board {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  .step-card-canvas {
+    background-image: none !important;
+  }
+
+  input,
+  textarea,
+  .step-rich-text {
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+}

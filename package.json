@@ -1,0 +1,17 @@
+{
+  "name": "criador-procedimentos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Webapp para criar procedimentos internos e exportar PDF/JSON.",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js",
+    "check": "node scripts/check-file-size.js && node scripts/check-js-syntax.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pdfkit": "^0.19.1",
+    "sharp": "^0.35.3"
+  }
+}

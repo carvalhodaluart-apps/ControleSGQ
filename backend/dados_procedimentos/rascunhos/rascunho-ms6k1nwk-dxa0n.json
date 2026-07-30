@@ -1,0 +1,45 @@
+{
+  "equipmentCode": "NOVO",
+  "equipmentName": "NOVO",
+  "procedureId": "rascunho-ms6k1nwk-dxa0n",
+  "procedureType": "",
+  "procedureDescription": "",
+  "documentStatus": "Em elaboração",
+  "title": "Novo procedimento",
+  "documentCode": "IT_NOVO_00",
+  "revision": [
+    [
+      "Rev.",
+      "Data",
+      "Alterações",
+      "Elaboração",
+      "Aprovação"
+    ],
+    [
+      "00",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "sections": [],
+  "qualityInfo": {
+    "documentType": "Instrução de trabalho",
+    "status": "Em elaboração",
+    "area": "Produção / Qualidade",
+    "executionOwner": "Operador de montagem",
+    "objective": "Orientar a montagem do equipamento NOVO com sequência padronizada, materiais identificados e pontos de atenção.",
+    "application": "Aplicável à montagem interna do equipamento NOVO.",
+    "responsibilities": "Operador executa a montagem; líder ou qualidade verifica; responsável do SGQ aprova alterações do documento.",
+    "relatedDocs": "Procedimento de controle de documentos; registros de inspeção e teste aplicáveis.",
+    "records": "Registro de montagem, inspeção e liberação do equipamento.",
+    "acceptanceCriteria": "Montagem concluída conforme etapas, materiais corretos, conexões verificadas e aprovação nos testes aplicáveis.",
+    "deviationTreatment": "Desvios devem ser registrados, segregados quando aplicável e tratados conforme controle de não conformidade.",
+    "traceability": "Manter vínculo entre número de série ou lote, revisão do procedimento, registros de montagem e responsável pela execução.",
+    "retention": "Reter os registros conforme tabela de retenção definida pelo SGQ.",
+    "climateConsideration": "Não identificado impacto direto no procedimento. Reavaliar quando houver alteração de material, processo, fornecedor, armazenamento ou condição ambiental relevante.",
+    "approvalDate": ""
+  },
+  "documentCodeMiddle": "NOVO"
+}

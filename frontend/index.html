@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criador de Procedimentos</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page creator-home">
+    <header class="creator-hero">
+      <div>
+        <span class="eyebrow">Qualidade</span>
+        <h1>Criador de Procedimentos</h1>
+        <p>Monte procedimentos internos, edite imagens e etapas, depois baixe o PDF final e o JSON para futuras alterações.</p>
+      </div>
+    </header>
+
+    <section class="creator-module-card" aria-labelledby="creator-module-title">
+      <span class="creator-module-kicker">Módulo</span>
+      <h2 id="creator-module-title">Procedimentos</h2>
+      <p class="creator-module-description">Crie novos procedimentos ou edite arquivos existentes para manter os documentos internos atualizados.</p>
+      <div class="creator-module-actions">
+        <button type="button" class="primary-link creator-start-button" data-create-procedure>Criar novo procedimento</button>
+        <label class="secondary-button creator-import-button">
+          Editar procedimento
+          <input id="procedureJsonInput" type="file" accept="application/json">
+        </label>
+      </div>
+      <p class="creator-import-error" id="creatorImportError" role="alert"></p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

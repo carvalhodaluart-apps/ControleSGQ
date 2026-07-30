@@ -1,0 +1,45 @@
+{
+  "equipmentCode": "NOVO",
+  "equipmentName": "NOVO",
+  "procedureId": "rascunho-ms7j9034-ao7sq",
+  "procedureType": "",
+  "procedureDescription": "",
+  "documentStatus": "Em elaboração",
+  "title": "Novo procedimento",
+  "documentCode": "IT_NOVO_00",
+  "revision": [
+    [
+      "Rev.",
+      "Data",
+      "Alterações",
+      "Elaboração",
+      "Aprovação"
+    ],
+    [
+      "00",
+      "",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "sections": [],
+  "qualityInfo": {
+    "documentType": "Instrução de trabalho",
+    "status": "Em elaboração",
+    "area": "Produção / Qualidade",
+    "executionOwner": "Operador de montagem",
+    "objective": "",
+    "application": "",
+    "responsibilities": "",
+    "relatedDocs": "",
+    "records": "",
+    "acceptanceCriteria": "",
+    "deviationTreatment": "",
+    "traceability": "",
+    "retention": "",
+    "climateConsideration": "",
+    "approvalDate": ""
+  },
+  "documentCodeMiddle": "NOVO"
+}
