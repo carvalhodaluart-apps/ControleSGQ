@@ -89,6 +89,10 @@
   width: min(980px, calc(100% - 32px));
 }
 .creator-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   margin-bottom: 22px;
   padding: 28px;
   border: 1px solid var(--line);
@@ -103,6 +107,25 @@
   max-width: 680px;
   color: var(--muted);
   line-height: 1.55;
+}
+.creator-master-link {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+.creator-master-link:hover {
+  background: var(--primary-dark);
+  color: #fff;
 }
 .creator-module-card {
   position: relative;

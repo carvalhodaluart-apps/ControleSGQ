@@ -6,7 +6,7 @@
   "procedureDescription": "Descrição ainda não informada.",
   "documentStatus": "Em elaboração",
   "title": "Montagem e Calibração da Bobina",
-  "documentCode": "IT_NOVO_00",
+  "documentCode": "IT_PR0000_00",
   "sourceFile": "",
   "revision": [
     [
@@ -428,7 +428,7 @@
   "qualityInfo": {
     "documentType": "Instrução de trabalho",
     "status": "Em elaboração",
-    "area": "Produção / Qualidade",
+    "area": "Produção",
     "executionOwner": "Operador de montagem",
     "objective": "Orientar a montagem do equipamento ABI100 com sequência padronizada, materiais identificados e pontos de atenção.",
     "application": "Aplicável à montagem interna do equipamento ABI100.",
@@ -442,5 +442,6 @@
     "climateConsideration": "Não identificado impacto direto no procedimento. Reavaliar quando houver alteração de material, processo, fornecedor, armazenamento ou condição ambiental relevante.",
     "approvalDate": ""
   },
-  "documentCodeMiddle": "NOVO"
+  "documentCodeMiddle": "PR0000",
+  "documentNumber": ""
 }

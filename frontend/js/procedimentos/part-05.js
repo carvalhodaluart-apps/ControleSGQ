@@ -533,15 +533,6 @@ procedureRoot.addEventListener("input", (event) => {
     return;
   }
 
-  const documentCodeMiddle = event.target.closest("[data-document-code-middle]");
-  if (documentCodeMiddle) {
-    activeProcedure.documentCodeMiddle = sanitizeDocumentCodePart(documentCodeMiddle.value, "");
-    documentCodeMiddle.value = activeProcedure.documentCodeMiddle;
-    refreshDocumentCodeDisplays();
-    saveProcedure();
-    return;
-  }
-
   const revisionCell = event.target.closest("[data-revision-cell]");
   if (revisionCell) {
     const [rowIndex, cellIndex] = revisionCell.dataset.revisionCell.split(":").map(Number);

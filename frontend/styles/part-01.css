@@ -573,7 +573,7 @@ h1 {
 
 .procedure-summary .document-code-editor {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
   min-height: 0;

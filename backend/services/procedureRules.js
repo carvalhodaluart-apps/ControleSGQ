@@ -34,6 +34,7 @@ const documentTypes = [
   { label: "Manual", prefix: "MA" },
   { label: "Plano", prefix: "PL" },
 ];
+const sectors = [{ label: "Produção", prefix: "PR" }, { label: "Qualidade", prefix: "QL" }, { label: "Engenharia", prefix: "EN" }, { label: "Manutenção", prefix: "MN" }, { label: "Administrativo", prefix: "AD" }];
 
 function sanitizeDocumentCodePart(value) {
   return String(value || "NOVO")
@@ -47,6 +48,8 @@ function sanitizeDocumentCodePart(value) {
 function getDocumentTypeConfig(type) {
   return documentTypes.find((item) => item.label === type) || documentTypes[0];
 }
+function getSectorConfig(value) { return sectors.find((item) => item.label === value) || sectors.find((item) => String(value || "").startsWith(item.label)) || sectors[0]; }
+function sanitizeDocumentNumber(value) { return String(value || "").replace(/\D/g, "").slice(0, 8); }
 
 function getDocumentRevision(procedure) {
   const rows = Array.isArray(procedure.revision) ? procedure.revision.slice(1) : [];
@@ -75,11 +78,20 @@ function getDocumentCodeMiddle(procedure) {
   if (parts.length >= 3) return sanitizeDocumentCodePart(parts.slice(1, -1).join("_"));
   return "NOVO";
 }
+function getDocumentNumber(procedure) {
+  if (Object.prototype.hasOwnProperty.call(procedure, "documentNumber")) return sanitizeDocumentNumber(procedure.documentNumber);
+  const middle = getDocumentCodeMiddle(procedure);
+  const sector = sectors.find((item) => middle.startsWith(item.prefix));
+  return sanitizeDocumentNumber(sector ? middle.slice(sector.prefix.length) : middle);
+}
 
 function syncDocumentCode(procedure) {
   const type = getDocumentTypeConfig(procedure.qualityInfo?.documentType);
+  const sector = getSectorConfig(procedure.qualityInfo?.area);
   procedure.qualityInfo.documentType = type.label;
-  procedure.documentCodeMiddle = getDocumentCodeMiddle(procedure);
+  procedure.qualityInfo.area = sector.label;
+  procedure.documentNumber = getDocumentNumber(procedure);
+  procedure.documentCodeMiddle = `${sector.prefix}${procedure.documentNumber || "0000"}`;
   procedure.documentCode = `${type.prefix}_${procedure.documentCodeMiddle}_${getDocumentRevision(procedure)}`;
 }
 
@@ -168,7 +180,7 @@ function normalizeProcedure(input) {
   procedure.qualityInfo = {
     documentType: "Instrução de trabalho",
     status: "Em elaboração",
-    area: "Produção / Qualidade",
+    area: "Produção",
     executionOwner: "Operador de montagem",
     objective: `Orientar a montagem do equipamento ${procedure.equipmentName} com sequência padronizada, materiais identificados e pontos de atenção.`,
     application: `Aplicável à montagem interna do equipamento ${procedure.equipmentName}.`,

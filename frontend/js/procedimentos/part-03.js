@@ -103,13 +103,17 @@ function renderQualityInfo(procedure) {
   const docTypeOptions = documentTypes
     .map((item) => `<option value="${escapeHtml(item.label)}" ${item.label === docType.label ? "selected" : ""}>${escapeHtml(item.label)}</option>`)
     .join("");
+  const sector = getSectorConfig(info.area);
+  const sectorOptions = sectors
+    .map((item) => `<option value="${escapeHtml(item.label)}" ${item.label === sector.label ? "selected" : ""}>${escapeHtml(item.label)}</option>`)
+    .join("");
   const fields = [
     ["Tipo de documento", "documentType", info.documentType],
     ["Revisão vigente", "revision", revision.revision, true],
     ["Elaboração", "elaboration", revision.elaboration, true],
     ["Data da revisão", "revisionDate", revision.date, true],
     ["Status", "documentStatus", procedure.documentStatus || "Em elaboração", true],
-    ["Setor / processo", "area", info.area],
+    ["Setor", "area", info.area],
     ["Aprovação", "approval", revision.approval, true],
     ["Data da aprovação", "approvalDate", approvalDate, true],
   ];
@@ -142,6 +146,9 @@ function renderQualityInfo(procedure) {
   function renderSgqValue(key, value, readonly) {
     if (editMode && key === "documentType") {
       return `<select data-document-type>${docTypeOptions}</select>`;
+    }
+    if (editMode && key === "area") {
+      return `<select data-sector>${sectorOptions}</select>`;
     }
     if (editMode && !readonly) {
       return `<input type="text" value="${escapeHtml(value || "")}" data-quality-field="${key}">`;
@@ -263,7 +270,8 @@ function renderProcedure(procedure) {
         ${editMode
           ? `<div class="document-code-editor document-code-summary">
               <span data-document-code-prefix>${escapeHtml(docType.prefix)}_</span>
-              <input type="text" value="${escapeHtml(getDocumentCodeMiddle(procedure) === "NOVO" ? "" : getDocumentCodeMiddle(procedure))}" placeholder="Nome do documento" data-document-code-middle aria-label="Código editável do documento">
+              <span data-document-code-sector-prefix>${escapeHtml(getSectorConfig(procedure.qualityInfo?.area).prefix)}</span>
+              <span data-document-code-number>${escapeHtml(getDocumentNumber(procedure) || "0000")}</span>
               <span data-document-code-revision>_${escapeHtml(getDocumentRevision(procedure))}</span>
             </div>`
           : `<strong data-document-code-value>${escapeHtml(procedure.documentCode)}</strong>`}

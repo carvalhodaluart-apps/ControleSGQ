@@ -12,6 +12,7 @@
   "dependencies": {
     "express": "^4.19.2",
     "pdfkit": "^0.19.1",
+    "pg": "^8.22.0",
     "sharp": "^0.35.3"
   }
 }

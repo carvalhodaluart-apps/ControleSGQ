@@ -1,3 +1,5 @@
 node_modules/
 npm-debug.log*
-dados_procedimentos/rascunhos/
+.env
+backend/dados_procedimentos/rascunhos/
+temp-video-frame.png

@@ -13,6 +13,15 @@ if not defined QUALITY_PASSWORD (
     exit /b 1
   )
 )
+if not defined DATABASE_URL (
+  set /p "DATABASE_URL=Digite a URL do PostgreSQL (DATABASE_URL): "
+  echo.
+  if not defined DATABASE_URL (
+    echo Nenhuma URL de banco foi informada.
+    pause
+    exit /b 1
+  )
+)
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -32,7 +41,7 @@ if not exist "node_modules\express" (
 )
 
 echo Iniciando backend em %APP_URL%
-start "Backend - Procedimentos" cmd /k "cd /d ""%~dp0"" && set PORT=%APP_PORT%&& set QUALITY_PASSWORD=%QUALITY_PASSWORD%&& npm start"
+start "Backend - Procedimentos" cmd /k "cd /d ""%~dp0"" && set ""PORT=%APP_PORT%"" && set ""QUALITY_PASSWORD=%QUALITY_PASSWORD%"" && set ""DATABASE_URL=%DATABASE_URL%"" && npm start"
 
 echo Aguardando o backend responder...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:%APP_PORT%/api/procedures/health'; for ($i=0; $i -lt 40; $i++) { try { $r=Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } } catch {}; Start-Sleep -Milliseconds 500 }; exit 1"

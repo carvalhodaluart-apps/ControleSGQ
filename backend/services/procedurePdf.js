@@ -377,7 +377,7 @@ async function createProcedurePdf(procedure) {
       ["Status", source.documentStatus],
       ["Data da aprovação", info.approvalDate],
       ["Responsável pela execução", info.executionOwner],
-      ["Setor / processo", info.area],
+      ["Setor", info.area],
     ]);
     heading("Histórico de revisões", "Registro das alterações e responsáveis pelo documento");
     revisionTable();

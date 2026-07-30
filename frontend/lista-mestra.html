@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lista mestra | Criador de Procedimentos</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="styles/master-list.css">
+</head>
+<body>
+  <main class="page master-page">
+    <a class="back-link" href="index.html">Voltar para o criador</a>
+    <header class="master-header">
+      <div>
+        <span class="eyebrow">Controle de documentos</span>
+        <h1>Lista mestra</h1>
+        <p>Consulte os documentos cadastrados, suas revisões, responsáveis e situação atual.</p>
+      </div>
+      <button type="button" class="secondary-button" id="masterRefresh">Atualizar</button>
+    </header>
+
+    <section class="master-card" aria-labelledby="masterTitle">
+      <div class="master-card-heading">
+        <div>
+          <h2 id="masterTitle">Documentos controlados</h2>
+          <p id="masterCount">Carregando documentos...</p>
+        </div>
+        <span class="master-sync-state" id="masterSyncState"></span>
+      </div>
+      <p class="master-error" id="masterError" role="alert"></p>
+      <div class="master-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Título do documento</th>
+              <th>Rev.</th>
+              <th>Elaboração</th>
+              <th>Data</th>
+              <th>Aprovação</th>
+              <th>Data</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="masterTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="master-auth-backdrop is-hidden" id="masterAuth" role="dialog" aria-modal="true" aria-labelledby="masterAuthTitle">
+    <form class="master-auth-dialog" id="masterAuthForm">
+      <div class="master-auth-icon">#</div>
+      <div>
+        <h2 id="masterAuthTitle">Senha da qualidade</h2>
+        <p>Digite a senha para acessar a lista mestra.</p>
+        <input id="masterPassword" type="password" autocomplete="current-password" placeholder="Senha" required>
+        <p class="master-error" id="masterAuthError" role="alert"></p>
+      </div>
+      <div class="master-auth-actions">
+        <a class="secondary-button" href="index.html">Cancelar</a>
+        <button class="primary-link" type="submit">Entrar</button>
+      </div>
+    </form>
+  </div>
+  <script src="master-lista.js"></script>
+</body>
+</html>

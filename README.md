@@ -2,16 +2,17 @@
 
 Webapp para criar procedimentos internos e exportar o resultado em PDF e JSON.
 
-O sistema nao usa banco de dados. O backend aplica as regras de negocio,
-normaliza o documento e salva os rascunhos como arquivos JSON em
-`backend/dados_procedimentos/rascunhos`. Para editar depois, importe o arquivo
-JSON baixado anteriormente.
+O PostgreSQL armazena a lista mestra e controla a numeracao automatica dos
+documentos. O backend aplica as regras de negocio, normaliza o documento e
+salva o conteudo completo como JSON em `backend/dados_procedimentos/rascunhos`.
+Para editar depois, importe o arquivo JSON baixado anteriormente.
 
 ## Como Rodar
 
 ```bash
 npm install
 set QUALITY_PASSWORD=sua_senha_da_qualidade
+set DATABASE_URL=postgresql://usuario:senha@servidor:5432/controle_sgq
 npm start
 ```
 
@@ -41,9 +42,11 @@ Backend:
 - `backend/services/procedureRules.js`
 - `backend/services/procedureAuth.js`
 - `backend/services/procedureStorage.js`
+- `backend/services/procedureDatabase.js`
+- `backend/database/schema.sql`
 - `backend/services/procedurePdf.js`
 - Cria procedimentos, autentica a qualidade, normaliza dados, valida estrutura,
-  salva arquivos e gera o PDF para download.
+  salva arquivos, atualiza a lista mestra PostgreSQL e gera o PDF para download.
 
 ## Qualidade
 

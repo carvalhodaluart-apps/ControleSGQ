@@ -10,6 +10,13 @@ const { createQualitySession, requireQuality } = require("../services/procedureA
 const { deleteProcedure, loadProcedure, saveProcedure, storageExists } = require("../services/procedureStorage");
 const { createProcedurePdf } = require("../services/procedurePdf");
 const { createProcedureBundle } = require("../services/procedureBundle");
+const {
+  databaseConfigured,
+  deleteMasterDocument,
+  listMasterDocuments,
+  reserveNextDocumentNumber,
+  upsertMasterDocument,
+} = require("../services/procedureDatabase");
 
 const router = express.Router();
 
@@ -33,7 +40,7 @@ function markStatus(procedure, status) {
 }
 
 router.get("/health", (_req, res) => {
-  res.json({ ok: true, storage: storageExists() ? "files" : "files-not-created" });
+  res.json({ ok: true, storage: storageExists() ? "files" : "files-not-created", database: databaseConfigured() ? "postgresql" : "not-configured" });
 });
 
 router.post("/auth/quality", (req, res) => {
@@ -47,8 +54,22 @@ router.post("/auth/quality", (req, res) => {
 router.post("/new", async (req, res) => {
   try {
     const procedure = createBlankProcedure({ ...(req.body || {}), procedureId: createProcedureId() });
+    procedure.documentNumber = await reserveNextDocumentNumber(procedure.qualityInfo.documentType, procedure.qualityInfo.area);
+    normalizeProcedure(procedure);
     await saveProcedure(procedure);
+    await upsertMasterDocument(procedure);
     res.status(201).json({ procedure });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post("/next-number", async (req, res) => {
+  try {
+    const documentType = String(req.body?.documentType || "Instrução de trabalho");
+    const sector = String(req.body?.sector || "Produção");
+    const documentNumber = await reserveNextDocumentNumber(documentType, sector);
+    res.json({ documentNumber });
   } catch (error) {
     handleError(res, error);
   }
@@ -60,6 +81,7 @@ router.post("/import", async (req, res) => {
     procedure.procedureId = procedure.procedureId || createProcedureId();
     markStatus(procedure, STATUS_DRAFT);
     await saveProcedure(procedure);
+    await upsertMasterDocument(procedure);
     res.status(201).json({ procedure });
   } catch (error) {
     handleError(res, error);
@@ -76,10 +98,19 @@ router.get("/load", requireQuality, async (req, res) => {
   }
 });
 
+router.get("/master", requireQuality, async (_req, res) => {
+  try {
+    res.json({ documents: await listMasterDocuments() });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
 router.post("/save", requireQuality, async (req, res) => {
   try {
     const procedure = markStatus(normalizeProcedure(getProcedureBody(req)), STATUS_DRAFT);
     await saveProcedure(procedure);
+    await upsertMasterDocument(procedure);
     res.json({ ok: true, procedure });
   } catch (error) {
     handleError(res, error);
@@ -91,6 +122,7 @@ router.post("/publish", requireQuality, async (req, res) => {
     const procedure = markStatus(normalizeProcedure(getProcedureBody(req)), STATUS_PUBLISHED);
     procedure.qualityInfo.approvalDate = getPublicationDate();
     await saveProcedure(procedure);
+    await upsertMasterDocument(procedure);
     res.json({ ok: true, procedure });
   } catch (error) {
     handleError(res, error);
@@ -100,6 +132,7 @@ router.post("/publish", requireQuality, async (req, res) => {
 router.delete("/delete", requireQuality, async (req, res) => {
   try {
     await deleteProcedure(req.query.id || req.body?.procedureId);
+    await deleteMasterDocument(req.query.id || req.body?.procedureId);
     res.json({ ok: true });
   } catch (error) {
     handleError(res, error);

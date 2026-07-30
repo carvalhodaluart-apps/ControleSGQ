@@ -1,10 +1,28 @@
+async function reserveAutomaticDocumentNumber() {
+  try {
+    const data = await apiRequest("/api/procedures/next-number", { method: "POST", body: JSON.stringify({ documentType: activeProcedure.qualityInfo.documentType, sector: activeProcedure.qualityInfo.area }) });
+    activeProcedure.documentNumber = data.documentNumber;
+    refreshDocumentCodeDisplays();
+    saveProcedure();
+    renderProcedure(activeProcedure);
+  } catch (error) {
+    console.error("Falha ao reservar número do documento:", error);
+    updateSaveState("error", "Número não reservado");
+  }
+}
+
 procedureRoot.addEventListener("change", async (event) => {
   const documentType = event.target.closest("[data-document-type]");
   if (documentType) {
     activeProcedure.qualityInfo.documentType = documentType.value;
-    refreshDocumentCodeDisplays();
-    saveProcedure();
-    renderProcedure(activeProcedure);
+    await reserveAutomaticDocumentNumber();
+    return;
+  }
+
+  const sector = event.target.closest("[data-sector]");
+  if (sector) {
+    activeProcedure.qualityInfo.area = sector.value;
+    await reserveAutomaticDocumentNumber();
     return;
   }
 

@@ -1,11 +1,9 @@
 const procedureRoot = document.querySelector("#procedureRoot");
-
 const procedureTypes = {
   mecanica: "Montagem mecânica",
   placa: "Montagem de placa",
   acessorios: "Montagem de acessórios",
 };
-
 const documentTypes = [
   { label: "Instrução de trabalho", prefix: "IT" },
   { label: "Procedimento", prefix: "PR" },
@@ -14,7 +12,7 @@ const documentTypes = [
   { label: "Manual", prefix: "MA" },
   { label: "Plano", prefix: "PL" },
 ];
-
+const sectors = [{ label: "Produção", prefix: "PR" }, { label: "Qualidade", prefix: "QL" }, { label: "Engenharia", prefix: "EN" }, { label: "Manutenção", prefix: "MN" }, { label: "Administrativo", prefix: "AD" }];
 const equipmentProcedures = {
   JAU200: [
     {
@@ -24,7 +22,6 @@ const equipmentProcedures = {
     },
   ],
 };
-
 const equipmentImages = {
   ABI100: "assets/equipamentos/ABI100.png",
   ABI200: "assets/equipamentos/ABI200.png",
@@ -50,21 +47,17 @@ const equipmentImages = {
   TIN100: "assets/equipamentos/TIN100.png",
   TQC110: "assets/equipamentos/TQC110.png",
 };
-
 const equipmentLabels = {
   "PULMAO-DE-TESTE": "Pulmao de Teste",
   OUTROS: "Outros",
 };
-
 function getEquipmentName(code) {
   return equipmentLabels[code] || code;
 }
-
 function getEquipmentImage(procedure) {
   if (procedure.equipmentCode === "OUTROS") return procedure.customEquipmentImage || "";
   return equipmentImages[procedure.equipmentCode] || "";
 }
-
 const params = new URLSearchParams(window.location.search);
 const builderMode = params.get("criador") === "1" || params.get("novo") === "1";
 const equipmentCode = (params.get("equipamento") || (builderMode ? "NOVO" : "")).toUpperCase();
@@ -88,7 +81,6 @@ let selectedStepBlock = null;
 let saveTimer = null;
 let savePromise = Promise.resolve();
 let saveState = "saved";
-
 function updateSaveState(state, message) {
   saveState = state;
   document.querySelectorAll("[data-save-state]").forEach((element) => {
@@ -96,7 +88,6 @@ function updateSaveState(state, message) {
     element.textContent = message || ({ pending: "Salvando...", error: "Erro ao salvar", saved: "Alterações salvas" }[state] || "");
   });
 }
-
 function selectStepBlock(blockKey) {
   selectedStepBlock = blockKey;
   procedureRoot.querySelectorAll("[data-step-block].is-selected").forEach((element) => {
@@ -106,7 +97,6 @@ function selectStepBlock(blockKey) {
     procedureRoot.querySelector(`[data-step-block="${blockKey}"]`)?.classList.add("is-selected");
   }
 }
-
 async function apiRequest(path, options = {}) {
   const { headers: optionHeaders, ...requestOptions } = options;
   const headers = {
@@ -124,7 +114,6 @@ async function apiRequest(path, options = {}) {
   }
   return response.json();
 }
-
 if (activeProcedure) {
   activeProcedure.procedureId = activeProcedure.procedureId || procedureId;
   activeProcedure.procedureType = activeProcedure.procedureType || selectedProcedure?.type || "";
@@ -141,15 +130,12 @@ if (activeProcedure) {
     activeProcedure.documentStatus = "Em elaboração";
   }
 }
-
 function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
 }
-
 function getCatalogKey() {
   return `procedure-catalog:v1:${equipmentCode || "default"}`;
 }
-
 function getEditUnlockKey() {
   return `procedure-edit-unlock:${equipmentCode}:${procedureId}`;
 }
@@ -238,6 +224,8 @@ function sanitizeDocumentCodePart(value, fallback = "NOVO") {
 function getDocumentTypeConfig(type) {
   return documentTypes.find((item) => item.label === type) || documentTypes[0];
 }
+function getSectorConfig(value) { return sectors.find((item) => item.label === value) || sectors.find((item) => String(value || "").startsWith(item.label)) || sectors[0]; }
+function sanitizeDocumentNumber(value) { return String(value || "").replace(/\D/g, "").slice(0, 8); }
 
 function getDocumentRevision(procedure) {
   const rows = Array.isArray(procedure.revision) ? procedure.revision.slice(1) : [];
@@ -268,11 +256,20 @@ function getDocumentCodeMiddle(procedure) {
   if (parts.length >= 3) return sanitizeDocumentCodePart(parts.slice(1, -1).join("_"));
   return "NOVO";
 }
+function getDocumentNumber(procedure) {
+  if (Object.prototype.hasOwnProperty.call(procedure, "documentNumber")) return sanitizeDocumentNumber(procedure.documentNumber);
+  const middle = getDocumentCodeMiddle(procedure);
+  const sector = sectors.find((item) => middle.startsWith(item.prefix));
+  return sanitizeDocumentNumber(sector ? middle.slice(sector.prefix.length) : middle);
+}
 
 function syncDocumentCode(procedure) {
   const type = getDocumentTypeConfig(procedure.qualityInfo?.documentType);
+  const sector = getSectorConfig(procedure.qualityInfo?.area);
   procedure.qualityInfo.documentType = type.label;
-  procedure.documentCodeMiddle = getDocumentCodeMiddle(procedure);
+  procedure.qualityInfo.area = sector.label;
+  procedure.documentNumber = getDocumentNumber(procedure);
+  procedure.documentCodeMiddle = `${sector.prefix}${procedure.documentNumber || "0000"}`;
   procedure.documentCode = `${type.prefix}_${procedure.documentCodeMiddle}_${getDocumentRevision(procedure)}`;
 }
 
@@ -286,6 +283,8 @@ function refreshDocumentCodeDisplays() {
   procedureRoot.querySelectorAll("[data-document-code-prefix]").forEach((item) => {
     item.textContent = `${type.prefix}_`;
   });
+  procedureRoot.querySelectorAll("[data-document-code-sector-prefix]").forEach((item) => { item.textContent = getSectorConfig(activeProcedure.qualityInfo?.area).prefix; });
+  procedureRoot.querySelectorAll("[data-document-code-number]").forEach((item) => { item.textContent = activeProcedure.documentNumber || "0000"; });
   procedureRoot.querySelectorAll("[data-document-code-revision]").forEach((item) => {
     item.textContent = `_${getDocumentRevision(activeProcedure)}`;
   });
@@ -299,7 +298,7 @@ function normalizeProcedure(procedure) {
   procedure.qualityInfo = {
     documentType: "Instrução de trabalho",
     status: "Em elaboração",
-    area: "Produção / Qualidade",
+    area: "Produção",
     executionOwner: "Operador de montagem",
     objective: `Orientar a montagem do equipamento ${procedure.equipmentName || procedure.equipmentCode} com sequência padronizada, materiais identificados e pontos de atenção.`,
     application: `Aplicável à montagem interna do equipamento ${procedure.equipmentName || procedure.equipmentCode}.`,
