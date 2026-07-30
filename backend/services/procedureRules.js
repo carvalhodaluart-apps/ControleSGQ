@@ -26,15 +26,59 @@ function createBlockId(type) {
 const STATUS_DRAFT = "Em elabora\u00e7\u00e3o";
 const STATUS_PUBLISHED = "Publicado";
 
-const documentTypes = [
-  { label: "Instrução de trabalho", prefix: "IT" },
-  { label: "Procedimento", prefix: "PR" },
-  { label: "Formulário", prefix: "FM" },
-  { label: "Registro", prefix: "RG" },
-  { label: "Manual", prefix: "MA" },
-  { label: "Plano", prefix: "PL" },
+const DEFAULT_DOCUMENT_TYPES = [
+  { key: "it", label: "Instru\u00e7\u00e3o de trabalho", prefix: "IT", active: true },
+  { key: "pop", label: "Procedimento operacional padr\u00e3o", prefix: "POP", active: true },
+  { key: "mbp", label: "Manual de boas pr\u00e1ticas", prefix: "MBP", active: true },
+  { key: "for", label: "Formul\u00e1rio", prefix: "FOR", active: true },
+  { key: "rdt", label: "Registro de desvio tempor\u00e1rio", prefix: "RDT", active: true },
+  { key: "pr", label: "Procedimento", prefix: "PR", active: true },
+  { key: "rg", label: "Registro", prefix: "RG", active: true },
+  { key: "ma", label: "Manual", prefix: "MA", active: true },
+  { key: "pl", label: "Plano", prefix: "PL", active: true },
 ];
-const sectors = [{ label: "Produção", prefix: "PR" }, { label: "Qualidade", prefix: "QL" }, { label: "Engenharia", prefix: "EN" }, { label: "Manutenção", prefix: "MN" }, { label: "Administrativo", prefix: "AD" }];
+const DEFAULT_SECTORS = [
+  { key: "producao", label: "Produ\u00e7\u00e3o", prefix: "PR", active: true },
+  { key: "qualidade", label: "Qualidade", prefix: "QL", active: true },
+  { key: "engenharia", label: "Engenharia", prefix: "EN", active: true },
+  { key: "manutencao", label: "Manuten\u00e7\u00e3o", prefix: "MN", active: true },
+  { key: "administrativo", label: "Administrativo", prefix: "AD", active: true },
+  { key: "projeto-desenvolvimento", label: "Projeto e Desenvolvimento", prefix: "PD", active: true },
+  { key: "almoxarifado", label: "Almoxarifado", prefix: "AL", active: true },
+  { key: "geral", label: "Geral", prefix: "GE", active: true },
+];
+const DEFAULT_QUALITY_FIELDS = [
+  { key: "objective", label: "Objetivo", active: true },
+  { key: "application", label: "Aplica\u00e7\u00e3o", active: true },
+  { key: "responsibilities", label: "Responsabilidades", active: true },
+  { key: "relatedDocs", label: "Materiais, sistemas ou documentos relacionados", active: true },
+  { key: "records", label: "Registros gerados", active: true },
+  { key: "acceptanceCriteria", label: "Crit\u00e9rios de aceita\u00e7\u00e3o", active: true },
+  { key: "deviationTreatment", label: "Tratamento de desvios", active: true },
+  { key: "traceability", label: "Rastreabilidade", active: true },
+  { key: "retention", label: "Reten\u00e7\u00e3o de registros", active: true },
+  { key: "climateConsideration", label: "Mudan\u00e7as clim\u00e1ticas", active: true },
+];
+const DEFAULT_COVER = {
+  imageData: "",
+  overlayPosition: "center",
+  overlayX: 0.5,
+  overlayY: 0.5,
+};
+let documentTypes = cloneData(DEFAULT_DOCUMENT_TYPES);
+let sectors = cloneData(DEFAULT_SECTORS);
+
+function getDefaultConfiguration() {
+  return cloneData({ documentTypes: DEFAULT_DOCUMENT_TYPES, sectors: DEFAULT_SECTORS, qualityFields: DEFAULT_QUALITY_FIELDS, cover: DEFAULT_COVER });
+}
+
+function setProcedureConfiguration(configuration) {
+  if (Array.isArray(configuration?.documentTypes) && configuration.documentTypes.length) documentTypes = cloneData(configuration.documentTypes);
+  if (Array.isArray(configuration?.sectors) && configuration.sectors.length) sectors = cloneData(configuration.sectors);
+}
+
+function getActiveDocumentType() { return documentTypes.find((item) => item.active !== false) || documentTypes[0]; }
+function getActiveSector() { return sectors.find((item) => item.active !== false) || sectors[0]; }
 
 function sanitizeDocumentCodePart(value) {
   return String(value || "NOVO")
@@ -144,7 +188,7 @@ function createBlankProcedure(input = {}) {
 }
 
 function clearUntouchedBlankQualityInfo(procedure) {
-  if (procedure.title !== "Novo procedimento" || procedure.documentCode !== "IT_NOVO_00" || procedure.sections?.length) return;
+  if (procedure.title !== "Novo procedimento" || procedure.sections?.some(sectionHasContent)) return;
   const info = procedure.qualityInfo || {};
   const templateStarts = [
     ["objective", "Orientar a montagem"], ["application", "Aplic"],
@@ -178,9 +222,9 @@ function normalizeProcedure(input) {
   normalizeRevisionNumbers(procedure);
 
   procedure.qualityInfo = {
-    documentType: "Instrução de trabalho",
+    documentType: getActiveDocumentType().label,
     status: "Em elaboração",
-    area: "Produção",
+    area: getActiveSector().label,
     executionOwner: "Operador de montagem",
     objective: `Orientar a montagem do equipamento ${procedure.equipmentName} com sequência padronizada, materiais identificados e pontos de atenção.`,
     application: `Aplicável à montagem interna do equipamento ${procedure.equipmentName}.`,
@@ -260,11 +304,46 @@ function validateProcedure(procedure) {
   }
 }
 
+function hasProcedureContent(procedure) {
+  if (String(procedure.title || "").trim() && procedure.title !== "Novo procedimento") return true;
+  if (Array.isArray(procedure.sections) && procedure.sections.some(sectionHasContent)) return true;
+  const info = procedure.qualityInfo || {};
+  return ["objective", "application", "responsibilities", "relatedDocs", "records", "acceptanceCriteria", "deviationTreatment", "traceability", "retention", "climateConsideration"]
+    .some((key) => String(info[key] || "").trim());
+}
+
+function sectionHasContent(section) {
+  if (!section || typeof section !== "object") return false;
+  const title = String(section.title || "").trim();
+  if (title && !["Nova etapa", "Itens necessários"].includes(title)) return true;
+  return [section.instructions, section.images, section.tables, section.materials, section.itemMarkers]
+    .some((items) => Array.isArray(items) && items.some(itemHasContent))
+    || (Array.isArray(section.stepCards) && section.stepCards.some(cardHasContent));
+}
+
+function cardHasContent(card) {
+  if (!card || typeof card !== "object") return false;
+  if (String(card.text || "").trim() || String(card.title || "").trim()) return true;
+  return Array.isArray(card.blocks) && card.blocks.some((block) => {
+    if (!block || typeof block !== "object") return false;
+    return String(block.text || "").trim() || String(block.html || "").trim() || String(block.image || "").trim();
+  });
+}
+
+function itemHasContent(item) {
+  if (typeof item === "string") return Boolean(item.trim());
+  if (!item || typeof item !== "object") return Boolean(item);
+  return Object.values(item).some((value) => typeof value === "string" ? value.trim() : Boolean(value));
+}
+
 module.exports = {
   createBlankProcedure,
+  getDefaultConfiguration,
   getPublicationDate,
+  hasProcedureContent,
   normalizeProcedure,
   normalizeSectionNumbers,
+  setProcedureConfiguration,
   STATUS_DRAFT,
   STATUS_PUBLISHED,
   slugify,

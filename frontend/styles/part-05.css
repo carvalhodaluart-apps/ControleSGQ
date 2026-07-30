@@ -123,6 +123,29 @@
   font-weight: 800;
   text-decoration: none;
 }
+.creator-settings-icon {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 1.45rem;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: var(--shadow-soft);
+}
+.creator-settings-icon:hover {
+  border-color: var(--primary);
+  background: #e2edff;
+  color: var(--primary);
+}
 .creator-master-link:hover {
   background: var(--primary-dark);
   color: #fff;

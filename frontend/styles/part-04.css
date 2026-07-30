@@ -90,7 +90,7 @@
 .step-layout-text textarea {
   min-height: 0;
   resize: none;
-  text-align: justify;
+  text-align: center;
 }
 
 .step-layout-image .step-card-image {

@@ -101,10 +101,12 @@ function renderQualityInfo(procedure) {
   const approvalDate = info.approvalDate || "Não informado";
   const docType = getDocumentTypeConfig(info.documentType);
   const docTypeOptions = documentTypes
+    .filter((item) => item.active !== false || item.label === docType.label)
     .map((item) => `<option value="${escapeHtml(item.label)}" ${item.label === docType.label ? "selected" : ""}>${escapeHtml(item.label)}</option>`)
     .join("");
   const sector = getSectorConfig(info.area);
   const sectorOptions = sectors
+    .filter((item) => item.active !== false || item.label === sector.label)
     .map((item) => `<option value="${escapeHtml(item.label)}" ${item.label === sector.label ? "selected" : ""}>${escapeHtml(item.label)}</option>`)
     .join("");
   const fields = [
@@ -117,18 +119,9 @@ function renderQualityInfo(procedure) {
     ["Aprovação", "approval", revision.approval, true],
     ["Data da aprovação", "approvalDate", approvalDate, true],
   ];
-  const textAreas = [
-    ["Objetivo", "objective", info.objective],
-    ["Aplicação", "application", info.application],
-    ["Responsabilidades", "responsibilities", info.responsibilities],
-    ["Materiais, sistemas ou documentos relacionados", "relatedDocs", info.relatedDocs],
-    ["Registros gerados", "records", info.records],
-    ["Critérios de aceitação", "acceptanceCriteria", info.acceptanceCriteria],
-    ["Tratamento de desvios", "deviationTreatment", info.deviationTreatment],
-    ["Rastreabilidade", "traceability", info.traceability],
-    ["Retenção de registros", "retention", info.retention],
-    ["Mudanças climáticas", "climateConsideration", info.climateConsideration],
-  ];
+  const textAreas = qualityFieldConfiguration
+    .filter(isConfiguredFieldActive)
+    .map((field) => [field.label, field.key, info[field.key]]);
 
   const textAreaHints = {
     objective: "Descreva a finalidade do procedimento e o resultado esperado.",

@@ -14,15 +14,34 @@ if not defined QUALITY_PASSWORD (
   )
 )
 if not defined DATABASE_URL (
-  set /p "DATABASE_URL=Digite a URL do PostgreSQL (DATABASE_URL): "
-  echo.
-  if not defined DATABASE_URL (
-    echo Nenhuma URL de banco foi informada.
+  set "DATABASE_URL=postgresql://controle_sgq:controle_sgq_dev@127.0.0.1:5432/controle_sgq"
+  echo Usando o PostgreSQL local do Docker: %DATABASE_URL%
+  where docker >nul 2>nul
+  if errorlevel 1 (
+    echo Docker Desktop nao foi encontrado.
+    echo Instale e abra o Docker Desktop antes de continuar.
     pause
     exit /b 1
   )
+  docker compose up -d postgres
+  if errorlevel 1 (
+    echo Nao foi possivel iniciar o PostgreSQL no Docker.
+    pause
+    exit /b 1
+  )
+  echo Aguardando o PostgreSQL ficar pronto...
+  for /L %%I in (1,1,30) do (
+    docker compose exec -T postgres pg_isready -U controle_sgq -d controle_sgq >nul 2>nul
+    if not errorlevel 1 goto database_ready
+    timeout /t 1 /nobreak >nul
+  )
+  echo O PostgreSQL nao respondeu dentro do tempo esperado.
+  docker compose ps
+  pause
+  exit /b 1
 )
 
+:database_ready
 where node >nul 2>nul
 if errorlevel 1 (
   echo Node.js nao encontrado. Instale o Node.js antes de iniciar o app.
@@ -38,6 +57,14 @@ if not exist "node_modules\express" (
     pause
     exit /b 1
   )
+)
+
+echo PostgreSQL pronto. Atualizando a lista mestra...
+call npm run import:master
+if errorlevel 1 (
+  echo Falha ao importar a lista mestra.
+  pause
+  exit /b 1
 )
 
 echo Iniciando backend em %APP_URL%

@@ -16,11 +16,42 @@ set DATABASE_URL=postgresql://usuario:senha@servidor:5432/controle_sgq
 npm start
 ```
 
+Para usar o Docker Desktop no Windows, abra o Docker e execute
+`iniciar_app.bat`; ele iniciara o container PostgreSQL automaticamente. O banco
+usa PostgreSQL 16, a porta `5432` e um volume persistente chamado
+`controle_sgq_pgdata`. O script separado `iniciar_banco_docker.bat` também pode
+ser usado para iniciar somente o banco.
+
+```text
+postgresql://controle_sgq:controle_sgq_dev@127.0.0.1:5432/controle_sgq
+```
+
 Acesse:
 
 ```text
 http://localhost:3000
 ```
+
+O `iniciar_app.bat` tambem importa a lista mestra antes de iniciar o backend.
+O arquivo `iniciar_banco_docker.bat` permanece disponivel para iniciar somente
+o PostgreSQL quando necessario.
+
+## Importar Lista Mestra
+
+Os registros iniciais da planilha `Lista mestra.xlsx` foram convertidos para
+`backend/database/master-list-import.json`. Com o PostgreSQL em funcionamento,
+execute o importador sempre que precisar atualizar essa carga:
+
+```bash
+npm run import:master
+```
+
+O processo e idempotente, inclui os documentos do Almoxarifado e atualiza as
+sequencias automaticas por tipo e setor sem duplicar os registros importados.
+Na planilha, a coluna `Data última revisão` foi usada como data de aprovação
+somente para documentos com status `Ativo`.
+As colunas de localização da planilha alimentam os campos `Publicado` e
+`Qualidade` editáveis na Lista Mestra.
 
 ## Estrutura
 

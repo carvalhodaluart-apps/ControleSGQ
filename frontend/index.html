@@ -30,7 +30,24 @@
       </div>
       <p class="creator-import-error" id="creatorImportError" role="alert"></p>
     </section>
+    <button type="button" class="creator-settings-icon" data-open-configuration aria-label="Configurações" title="Configurações">&#9881;</button>
   </main>
+
+  <div class="home-auth-backdrop is-hidden" id="configurationAccess" role="dialog" aria-modal="true" aria-labelledby="configurationAccessTitle">
+    <form class="home-auth-dialog" id="configurationAccessForm">
+      <div class="home-auth-icon">#</div>
+      <div>
+        <h2 id="configurationAccessTitle">Acesso da qualidade</h2>
+        <p>Digite a senha para abrir as configurações administrativas.</p>
+        <input id="configurationAccessPassword" type="password" autocomplete="current-password" placeholder="Senha" required>
+        <p class="home-auth-error" id="configurationAccessError" role="alert"></p>
+      </div>
+      <div class="home-auth-actions">
+        <button type="button" class="secondary-button" data-close-configuration>Cancelar</button>
+        <button type="submit" class="primary-button">Confirmar</button>
+      </div>
+    </form>
+  </div>
 
   <script src="script.js"></script>
 </body>

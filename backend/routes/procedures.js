@@ -2,6 +2,7 @@ const express = require("express");
 const {
   createBlankProcedure,
   getPublicationDate,
+  hasProcedureContent,
   normalizeProcedure,
   STATUS_DRAFT,
   STATUS_PUBLISHED,
@@ -13,8 +14,10 @@ const { createProcedureBundle } = require("../services/procedureBundle");
 const {
   databaseConfigured,
   deleteMasterDocument,
+  getMasterDocument,
   listMasterDocuments,
   reserveNextDocumentNumber,
+  updateMasterDocumentLocations,
   upsertMasterDocument,
 } = require("../services/procedureDatabase");
 
@@ -30,6 +33,19 @@ function getProcedureBody(req) {
 
 function createProcedureId() {
   return `rascunho-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+async function ensureDocumentNumber(procedure) {
+  const documentType = procedure.qualityInfo.documentType;
+  const sector = procedure.qualityInfo.area;
+  const master = await getMasterDocument(procedure.procedureId);
+  const sameClassification = master && master.documentType === documentType && master.sector === sector;
+  if (sameClassification && Number(master.documentNumber) > 0) {
+    procedure.documentNumber = String(master.documentNumber);
+    return;
+  }
+  if (!master && Number(procedure.documentNumber) > 0 && !String(procedure.procedureId || "").startsWith("rascunho-")) return;
+  procedure.documentNumber = await reserveNextDocumentNumber(documentType, sector);
 }
 
 function markStatus(procedure, status) {
@@ -54,10 +70,8 @@ router.post("/auth/quality", (req, res) => {
 router.post("/new", async (req, res) => {
   try {
     const procedure = createBlankProcedure({ ...(req.body || {}), procedureId: createProcedureId() });
-    procedure.documentNumber = await reserveNextDocumentNumber(procedure.qualityInfo.documentType, procedure.qualityInfo.area);
     normalizeProcedure(procedure);
     await saveProcedure(procedure);
-    await upsertMasterDocument(procedure);
     res.status(201).json({ procedure });
   } catch (error) {
     handleError(res, error);
@@ -80,8 +94,12 @@ router.post("/import", async (req, res) => {
     const procedure = normalizeProcedure(getProcedureBody(req));
     procedure.procedureId = procedure.procedureId || createProcedureId();
     markStatus(procedure, STATUS_DRAFT);
+    if (hasProcedureContent(procedure)) {
+      await ensureDocumentNumber(procedure);
+      normalizeProcedure(procedure);
+    }
     await saveProcedure(procedure);
-    await upsertMasterDocument(procedure);
+    if (hasProcedureContent(procedure)) await upsertMasterDocument(procedure);
     res.status(201).json({ procedure });
   } catch (error) {
     handleError(res, error);
@@ -106,11 +124,31 @@ router.get("/master", requireQuality, async (_req, res) => {
   }
 });
 
+router.patch("/master/locations", requireQuality, async (req, res) => {
+  try {
+    const procedureId = String(req.body?.procedureId || "").trim();
+    if (!procedureId) return res.status(400).json({ error: "Identificador do documento é obrigatório." });
+    const locations = {
+      documentOriginalLocation: String(req.body?.documentOriginalLocation || "").trim().slice(0, 1000),
+      documentPublicLocation: String(req.body?.documentPublicLocation || "").trim().slice(0, 1000),
+    };
+    res.json({ document: await updateMasterDocumentLocations(procedureId, locations) });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
 router.post("/save", requireQuality, async (req, res) => {
   try {
     const procedure = markStatus(normalizeProcedure(getProcedureBody(req)), STATUS_DRAFT);
+    const hasContent = hasProcedureContent(procedure);
+    if (hasContent) {
+      await ensureDocumentNumber(procedure);
+      normalizeProcedure(procedure);
+    }
     await saveProcedure(procedure);
-    await upsertMasterDocument(procedure);
+    if (hasContent) await upsertMasterDocument(procedure);
+    else await deleteMasterDocument(procedure.procedureId);
     res.json({ ok: true, procedure });
   } catch (error) {
     handleError(res, error);
@@ -120,6 +158,9 @@ router.post("/save", requireQuality, async (req, res) => {
 router.post("/publish", requireQuality, async (req, res) => {
   try {
     const procedure = markStatus(normalizeProcedure(getProcedureBody(req)), STATUS_PUBLISHED);
+    if (!hasProcedureContent(procedure)) return res.status(400).json({ error: "Preencha o procedimento antes de publicar." });
+    await ensureDocumentNumber(procedure);
+    normalizeProcedure(procedure);
     procedure.qualityInfo.approvalDate = getPublicationDate();
     await saveProcedure(procedure);
     await upsertMasterDocument(procedure);

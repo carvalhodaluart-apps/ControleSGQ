@@ -2,7 +2,8 @@ const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
 const { Pool } = require("pg");
-const { normalizeProcedure } = require("./procedureRules");
+const { hasProcedureContent, normalizeProcedure } = require("./procedureRules");
+const { ensureProcedureConfiguration } = require("./procedureConfiguration");
 
 const SCHEMA_PATH = path.resolve(__dirname, "..", "database", "schema.sql");
 const DRAFTS_PATH = path.resolve(__dirname, "..", "dados_procedimentos", "rascunhos");
@@ -47,6 +48,8 @@ function metadataFromProcedure(procedure) {
     approvalDate: procedure.qualityInfo?.approvalDate || "",
     status: procedure.documentStatus || "Em elaboração",
     equipmentCode: procedure.equipmentCode || "",
+    documentOriginalLocation: procedure.documentOriginalLocation || "",
+    documentPublicLocation: procedure.documentPublicLocation || "",
   };
 }
 
@@ -57,15 +60,18 @@ async function upsertMasterDocument(procedure) {
     await client.query("BEGIN");
     await client.query(`
       INSERT INTO master_documents
-        (procedure_id, document_code, document_type, sector, document_number, title, revision, elaborator, elaboration_date, approver, approval_date, status, equipment_code)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        (procedure_id, document_code, document_type, sector, document_number, title, revision, elaborator, elaboration_date, approver, approval_date, status, equipment_code, document_original_location, document_public_location)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       ON CONFLICT (procedure_id) DO UPDATE SET
         document_code = EXCLUDED.document_code, document_type = EXCLUDED.document_type,
         sector = EXCLUDED.sector, document_number = EXCLUDED.document_number,
         title = EXCLUDED.title, revision = EXCLUDED.revision, elaborator = EXCLUDED.elaborator,
         elaboration_date = EXCLUDED.elaboration_date, approver = EXCLUDED.approver,
         approval_date = EXCLUDED.approval_date, status = EXCLUDED.status,
-        equipment_code = EXCLUDED.equipment_code, updated_at = NOW()
+        equipment_code = EXCLUDED.equipment_code,
+        document_original_location = COALESCE(NULLIF(EXCLUDED.document_original_location, ''), master_documents.document_original_location),
+        document_public_location = COALESCE(NULLIF(EXCLUDED.document_public_location, ''), master_documents.document_public_location),
+        updated_at = NOW()
     `, Object.values(data));
     if (data.documentNumber > 0) await updateSequence(client, data.documentType, data.sector, data.documentNumber + 1);
     await client.query("COMMIT");
@@ -88,24 +94,21 @@ async function updateSequence(client, documentType, sector, nextNumber) {
 }
 
 async function reserveNextDocumentNumber(documentType, sector) {
-  const client = await getPool().connect();
-  try {
-    await client.query("BEGIN");
-    const result = await client.query(`
-      INSERT INTO document_number_sequences (document_type, sector, next_number)
-      VALUES ($1, $2, 2)
-      ON CONFLICT (document_type, sector) DO UPDATE
-      SET next_number = document_number_sequences.next_number + 1
-      RETURNING next_number - 1 AS allocated_number
-    `, [documentType, sector]);
-    await client.query("COMMIT");
-    return String(result.rows[0].allocated_number).padStart(4, "0");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  const result = await getPool().query(`
+    SELECT COALESCE(MAX(document_number), 0) + 1 AS next_number
+    FROM master_documents
+    WHERE document_type = $1 AND sector = $2 AND document_number > 0
+  `, [documentType, sector]);
+  return String(result.rows[0].next_number).padStart(4, "0");
+}
+
+async function getMasterDocument(procedureId) {
+  const result = await getPool().query(`
+    SELECT document_type AS "documentType", sector, document_number AS "documentNumber"
+    FROM master_documents
+    WHERE procedure_id = $1
+  `, [procedureId]);
+  return result.rows[0] || null;
 }
 
 async function listMasterDocuments() {
@@ -113,11 +116,28 @@ async function listMasterDocuments() {
     SELECT procedure_id AS "procedureId", document_code AS "documentCode", title,
       revision, elaborator, elaboration_date AS "elaborationDate", approver,
       approval_date AS "approvalDate", status, document_type AS "documentType", sector,
-      equipment_code AS "equipmentCode"
+      equipment_code AS "equipmentCode", document_original_location AS "documentOriginalLocation",
+      document_public_location AS "documentPublicLocation"
     FROM master_documents
     ORDER BY document_code, title
   `);
   return result.rows;
+}
+
+async function updateMasterDocumentLocations(procedureId, locations) {
+  const result = await getPool().query(`
+    UPDATE master_documents
+    SET document_original_location = $2, document_public_location = $3, updated_at = NOW()
+    WHERE procedure_id = $1
+    RETURNING procedure_id AS "procedureId", document_original_location AS "documentOriginalLocation",
+      document_public_location AS "documentPublicLocation"
+  `, [procedureId, locations.documentOriginalLocation, locations.documentPublicLocation]);
+  if (!result.rows.length) {
+    const error = new Error("Documento não encontrado.");
+    error.status = 404;
+    throw error;
+  }
+  return result.rows[0];
 }
 
 async function deleteMasterDocument(procedureId) {
@@ -130,21 +150,46 @@ async function migrateDrafts() {
   for (const file of files) {
     try {
       const procedure = JSON.parse(await fsp.readFile(path.join(DRAFTS_PATH, file), "utf8"));
-      if (procedure.procedureId) await upsertMasterDocument(procedure);
+      if (procedure.procedureId) {
+        const normalized = normalizeProcedure(procedure);
+        if (hasProcedureContent(normalized)) await upsertMasterDocument(normalized);
+        else await deleteMasterDocument(normalized.procedureId);
+      }
     } catch (error) {
       console.warn(`Não foi possível migrar ${file} para a lista mestra: ${error.message}`);
     }
   }
 }
 
+async function synchronizeDocumentNumberSequences() {
+  await getPool().query(`
+    UPDATE document_number_sequences AS sequences
+    SET next_number = COALESCE((
+      SELECT MAX(document_number) + 1
+      FROM master_documents
+      WHERE document_type = sequences.document_type AND sector = sequences.sector
+    ), 1)
+  `);
+  await getPool().query(`
+    INSERT INTO document_number_sequences (document_type, sector, next_number)
+    SELECT document_type, sector, MAX(document_number) + 1
+    FROM master_documents
+    WHERE document_number > 0
+    GROUP BY document_type, sector
+    ON CONFLICT (document_type, sector) DO UPDATE SET next_number = EXCLUDED.next_number
+  `);
+}
+
 async function initDatabase() {
   const schema = await fsp.readFile(SCHEMA_PATH, "utf8");
   await getPool().query(schema);
+  await ensureProcedureConfiguration();
   await migrateDrafts();
+  await synchronizeDocumentNumberSequences();
 }
 
 function databaseConfigured() {
   return Boolean(process.env.DATABASE_URL);
 }
 
-module.exports = { databaseConfigured, deleteMasterDocument, initDatabase, listMasterDocuments, reserveNextDocumentNumber, upsertMasterDocument };
+module.exports = { databaseConfigured, deleteMasterDocument, getMasterDocument, initDatabase, listMasterDocuments, reserveNextDocumentNumber, updateMasterDocumentLocations, upsertMasterDocument };

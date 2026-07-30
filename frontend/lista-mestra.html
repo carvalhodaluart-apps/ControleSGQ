@@ -16,16 +16,25 @@
         <h1>Lista mestra</h1>
         <p>Consulte os documentos cadastrados, suas revisões, responsáveis e situação atual.</p>
       </div>
-      <button type="button" class="secondary-button" id="masterRefresh">Atualizar</button>
+      <div class="master-header-actions">
+        <button type="button" class="secondary-button" id="masterEdit">Editar</button>
+        <button type="button" class="secondary-button" id="masterRefresh">Atualizar</button>
+      </div>
     </header>
 
     <section class="master-card" aria-labelledby="masterTitle">
       <div class="master-card-heading">
-        <div>
-          <h2 id="masterTitle">Documentos controlados</h2>
-          <p id="masterCount">Carregando documentos...</p>
-        </div>
+      <div>
+        <h2 id="masterTitle">Documentos controlados</h2>
+        <p id="masterCount">Carregando documentos...</p>
+      </div>
+      <div class="master-card-tools">
+        <label class="master-search">
+          <span>Pesquisar</span>
+          <input id="masterSearch" type="search" placeholder="Código ou título" autocomplete="off">
+        </label>
         <span class="master-sync-state" id="masterSyncState"></span>
+      </div>
       </div>
       <p class="master-error" id="masterError" role="alert"></p>
       <div class="master-table-wrap">
@@ -40,6 +49,8 @@
               <th>Aprovação</th>
               <th>Data</th>
               <th>Status</th>
+              <th>Localiza&ccedil;&atilde;o dos arquivos</th>
+              <th id="masterActionHead" hidden>A&ccedil;&atilde;o</th>
             </tr>
           </thead>
           <tbody id="masterTableBody"></tbody>
@@ -53,7 +64,7 @@
       <div class="master-auth-icon">#</div>
       <div>
         <h2 id="masterAuthTitle">Senha da qualidade</h2>
-        <p>Digite a senha para acessar a lista mestra.</p>
+        <p id="masterAuthMessage">Digite a senha para acessar a lista mestra.</p>
         <input id="masterPassword" type="password" autocomplete="current-password" placeholder="Senha" required>
         <p class="master-error" id="masterAuthError" role="alert"></p>
       </div>

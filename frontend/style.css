@@ -4,3 +4,15 @@
 @import url("styles/part-04.css");
 @import url("styles/part-05.css");
 @import url("styles/part-06.css");
+
+.home-auth-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .42); }
+.home-auth-backdrop.is-hidden { display: none; }
+.home-auth-dialog { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 16px; width: min(460px, 100%); padding: 26px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow); }
+.home-auth-dialog h2, .home-auth-dialog p { margin-top: 0; }
+.home-auth-dialog p { color: var(--muted); line-height: 1.45; }
+.home-auth-dialog input { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); color: var(--text); font: inherit; box-sizing: border-box; }
+.home-auth-dialog input:focus { outline: 3px solid rgba(21, 94, 239, .14); border-color: var(--primary); }
+.home-auth-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #e2edff; color: var(--primary); font-weight: 900; }
+.home-auth-error { min-height: 22px; margin-bottom: 0; color: var(--danger-dark) !important; font-weight: 700; }
+.home-auth-actions { grid-column: 2; display: flex; justify-content: end; gap: 10px; }
+@media (max-width: 560px) { .home-auth-actions { grid-column: 1 / -1; } }

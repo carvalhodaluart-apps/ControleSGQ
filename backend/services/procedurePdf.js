@@ -1,5 +1,6 @@
 const PDFDocument = require("pdfkit");
 const sharp = require("sharp");
+const { getProcedureConfiguration } = require("./procedureConfiguration");
 
 const COLORS = {
   navy: "#17233d",
@@ -74,6 +75,50 @@ function richInlineSegments(value) {
   return segments;
 }
 
+function wrapRichText(document, segments, width, fontSize) {
+  const words = segments.flatMap((segment) => String(segment.text || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((text) => ({ text, bold: segment.bold })));
+  const lines = [];
+  let current = [];
+  let currentWidth = 0;
+  const spaceWidth = () => {
+    document.font("Helvetica").fontSize(fontSize);
+    return document.widthOfString(" ");
+  };
+  words.forEach((word) => {
+    document.font(word.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fontSize);
+    const wordWidth = document.widthOfString(word.text);
+    const nextWidth = currentWidth + (current.length ? spaceWidth() : 0) + wordWidth;
+    if (current.length && nextWidth > width) {
+      lines.push({ words: current, width: currentWidth, containerWidth: width });
+      current = [];
+      currentWidth = 0;
+    }
+    current.push(word);
+    currentWidth += (current.length > 1 ? spaceWidth() : 0) + wordWidth;
+  });
+  if (current.length) lines.push({ words: current, width: currentWidth, containerWidth: width });
+  return lines;
+}
+
+function drawRichCenteredText(document, lines, x, y, fontSize, lineHeight, color) {
+  lines.forEach((line, lineIndex) => {
+    let cursorX = x + (line.containerWidth - line.width) / 2;
+    line.words.forEach((word, wordIndex) => {
+      document.font(word.bold ? "Helvetica-Bold" : "Helvetica").fontSize(fontSize).fillColor(color);
+      document.text(word.text, cursorX, y + lineIndex * lineHeight, { lineBreak: false });
+      cursorX += document.widthOfString(word.text);
+      if (wordIndex < line.words.length - 1) {
+        document.font("Helvetica").fontSize(fontSize);
+        cursorX += document.widthOfString(" ");
+      }
+    });
+  });
+}
+
 function dataUriToBuffer(value) {
   const match = String(value || "").match(/^data:image\/(png|jpe?g);base64,(.+)$/i);
   return match ? Buffer.from(match[2], "base64") : null;
@@ -107,6 +152,7 @@ function toneColors(tone) {
 
 async function createProcedurePdf(procedure) {
   const source = await convertLegacyImages(procedure);
+  const configuration = await convertLegacyImages(await getProcedureConfiguration());
   return new Promise((resolve, reject) => {
     const document = new PDFDocument({ size: "A4", margin: 36, autoFirstPage: true });
     const chunks = [];
@@ -117,6 +163,7 @@ async function createProcedurePdf(procedure) {
     const contentBottom = pageHeight - 72;
     const revision = currentRevision(source);
     const info = source.qualityInfo || {};
+    const cover = configuration.cover || {};
     let y = 0;
     let pageNumber = 0;
 
@@ -127,13 +174,15 @@ async function createProcedurePdf(procedure) {
     const setFont = (name, size, color = COLORS.text) => {
       document.font(name).fontSize(size).fillColor(color);
     };
-    const startPage = () => {
+    const startPage = (withHeader = true) => {
       pageNumber += 1;
-      document.save().fillColor(COLORS.orange).rect(margin, 24, contentWidth, 4).fill().restore();
-      setFont("Helvetica-Bold", 8, COLORS.muted);
-      document.text("PROCEDIMENTO INTERNO", margin, 36, { width: 220 });
-      document.text(`${cleanText(source.documentCode || "") || "Sem código"} | Rev. ${cleanText(revision[0] || "00")}`, margin, 36, { width: contentWidth, align: "right" });
-      y = 68;
+      if (withHeader) {
+        document.save().fillColor(COLORS.orange).rect(margin, 24, contentWidth, 4).fill().restore();
+        setFont("Helvetica-Bold", 8, COLORS.muted);
+        document.text("PROCEDIMENTO INTERNO", margin, 36, { width: 220 });
+        document.text(`${cleanText(source.documentCode || "") || "Sem código"} | Rev. ${cleanText(revision[0] || "00")}`, margin, 36, { width: contentWidth, align: "right" });
+        y = 68;
+      } else y = 36;
     };
     const finishPage = () => {
       const footerLineY = pageHeight - 56;
@@ -331,40 +380,65 @@ async function createProcedurePdf(procedure) {
         } else {
           const colors = toneColors(block.tone);
           const sourceText = block.html || block.text;
-          const text = inlineText(sourceText);
           const richSegments = richInlineSegments(sourceText);
           const canvasScale = canvasHeight / 560;
           const textPadding = 8 * canvasScale;
           const fontSize = Math.max(7, Number(block.fontSize || 14) * canvasScale);
-          setFont("Helvetica", fontSize, COLORS.text);
           const textWidth = Math.max(12, blockWidth - textPadding * 2);
-          const textHeight = document.heightOfString(text, { width: textWidth, lineGap: 1 });
+          const richLines = wrapRichText(document, richSegments, textWidth, fontSize);
+          const lineHeight = fontSize * 1.35;
+          const textHeight = Math.max(lineHeight, richLines.length * lineHeight);
           const visibleHeight = Math.max(blockHeight, textHeight + textPadding * 2);
           document.save().roundedRect(blockX, blockY, blockWidth, visibleHeight, 5).fillColor(colors.fill).fill().lineWidth(2).strokeColor(colors.line).stroke().restore();
-          richSegments.forEach((segment, index) => {
-            setFont(segment.bold ? "Helvetica-Bold" : "Helvetica", fontSize, COLORS.text);
-            const options = { width: textWidth, lineGap: 1, align: "justify", continued: index < richSegments.length - 1 };
-            if (index === 0) {
-              document.text(segment.text, blockX + textPadding, blockY + textPadding, options);
-              return;
-            }
-            document.text(segment.text, options);
-          });
+          drawRichCenteredText(document, richLines, blockX + textPadding, blockY + textPadding, fontSize, lineHeight, COLORS.text);
         }
       });
       y += canvasHeight + 12;
     };
 
-    startPage();
-    setFont("Helvetica-Bold", 21, COLORS.navy);
-    const title = cleanText(source.title || "Procedimento interno");
-    const titleHeight = document.heightOfString(title, { width: contentWidth, lineGap: 2 });
-    document.text(title, margin, y, { width: contentWidth, lineGap: 2 });
-    y += titleHeight + 8;
-    setFont("Helvetica", 10, COLORS.muted);
-    document.text(`${cleanText(source.documentCode) || "Sem código"}  |  ${cleanText(source.equipmentName || source.equipmentCode) || "Equipamento não informado"}`, margin, y, { width: contentWidth });
-    y += 24;
-    paragraph(source.procedureDescription || "Procedimento interno do Sistema de Gestão da Qualidade.", 10, COLORS.muted, 14);
+    const coverImage = dataUriToBuffer(cover.imageData);
+    if (coverImage) {
+      startPage(false);
+      const coverX = 0;
+      const coverY = 0;
+      const coverWidth = pageWidth;
+      const coverHeight = pageHeight;
+      document.image(coverImage, coverX, coverY, { fit: [coverWidth, coverHeight], align: "center", valign: "center" });
+      // Keep the PDF cover proportional to the A4 preview used in the editor.
+      const overlayWidth = coverWidth * 0.68;
+      const overlayHeight = 124;
+      const coverPaddingX = coverWidth * (16 / 520);
+      const coverPaddingY = coverHeight * (16 / 842);
+      const position = String(cover.overlayPosition || "center");
+      const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+      const horizontal = position === "custom"
+        ? clamp(coverX + coverWidth * Number(cover.overlayX || 0.5) - overlayWidth / 2, coverX + coverPaddingX, coverX + coverWidth - overlayWidth - coverPaddingX)
+        : position.endsWith("left") ? coverX + coverPaddingX : position.endsWith("right") ? coverX + coverWidth - overlayWidth - coverPaddingX : coverX + (coverWidth - overlayWidth) / 2;
+      const vertical = position === "custom"
+        ? clamp(coverY + coverHeight * Number(cover.overlayY || 0.5) - overlayHeight / 2, coverY + coverPaddingY, coverY + coverHeight - overlayHeight - coverPaddingY)
+        : position.startsWith("top") ? coverY + coverPaddingY : position.startsWith("bottom") ? coverY + coverHeight - overlayHeight - coverPaddingY : coverY + (coverHeight - overlayHeight) / 2;
+      document.save().roundedRect(horizontal, vertical, overlayWidth, overlayHeight, 6).fillOpacity(0.9).fillColor("#ffffff").fill().restore();
+      setFont("Helvetica-Bold", 9, COLORS.orange);
+      document.text("PROCEDIMENTO INTERNO", horizontal + 14, vertical + 13, { width: overlayWidth - 28 });
+      setFont("Helvetica-Bold", 20, COLORS.navy);
+      const coverTitle = cleanText(source.title || "Procedimento interno");
+      document.text(coverTitle, horizontal + 14, vertical + 30, { width: overlayWidth - 28, lineGap: 2 });
+      setFont("Helvetica", 9, COLORS.muted);
+      document.text(`${cleanText(source.documentCode) || "Sem código"}  |  ${cleanText(source.equipmentName || source.equipmentCode) || "Equipamento não informado"}`, horizontal + 14, vertical + 78, { width: overlayWidth - 28 });
+      document.addPage();
+      startPage();
+    } else {
+      startPage();
+      setFont("Helvetica-Bold", 21, COLORS.navy);
+      const title = cleanText(source.title || "Procedimento interno");
+      const titleHeight = document.heightOfString(title, { width: contentWidth, lineGap: 2 });
+      document.text(title, margin, y, { width: contentWidth, lineGap: 2 });
+      y += titleHeight + 8;
+      setFont("Helvetica", 10, COLORS.muted);
+      document.text(`${cleanText(source.documentCode) || "Sem código"}  |  ${cleanText(source.equipmentName || source.equipmentCode) || "Equipamento não informado"}`, margin, y, { width: contentWidth });
+      y += 24;
+      paragraph(source.procedureDescription || "Procedimento interno do Sistema de Gestão da Qualidade.", 10, COLORS.muted, 14);
+    }
 
     heading("Controle do documento", "Identificação, revisão, aprovação e responsabilidades");
     infoGrid([
@@ -384,18 +458,9 @@ async function createProcedurePdf(procedure) {
 
     nextPage();
     heading("Informações do SGQ", "Contexto de uso, responsabilidades e evidências esperadas");
-    infoGrid([
-      ["Objetivo", info.objective],
-      ["Aplicação", info.application],
-      ["Responsabilidades", info.responsibilities],
-      ["Materiais, sistemas ou documentos relacionados", info.relatedDocs],
-      ["Registros gerados", info.records],
-      ["Critérios de aceitação", info.acceptanceCriteria],
-      ["Tratamento de desvios", info.deviationTreatment],
-      ["Rastreabilidade", info.traceability],
-      ["Retenção de registros", info.retention],
-      ["Mudanças climáticas", info.climateConsideration],
-    ]);
+    infoGrid(configuration.qualityFields
+      .filter((field) => field.active !== false && field.active !== 0 && String(field.active).toLowerCase() !== "false")
+      .map((field) => [field.label, info[field.key]]));
 
     (source.sections || []).forEach((section) => {
       const itemCount = section.materials?.length || 0;

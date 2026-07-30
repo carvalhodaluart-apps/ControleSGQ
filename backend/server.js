@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const procedureRoutes = require("./routes/procedures");
+const configurationRoutes = require("./routes/configuration");
 const { initDatabase } = require("./services/procedureDatabase");
 
 const app = express();
@@ -9,6 +10,7 @@ const FRONTEND_DIR = path.resolve(__dirname, "..", "frontend");
 
 app.use(express.json({ limit: "100mb" }));
 app.use("/api/procedures", procedureRoutes);
+app.use("/api/configuration", configurationRoutes);
 app.use(express.static(FRONTEND_DIR));
 
 app.get("*", (_req, res) => {

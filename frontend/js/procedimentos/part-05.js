@@ -515,6 +515,10 @@ procedureRoot.addEventListener("input", (event) => {
   const procedureTitle = event.target.closest("[data-procedure-title]");
   if (procedureTitle) {
     activeProcedure.title = procedureTitle.value;
+    if (hasProcedureTitle() && !activeProcedure.documentNumber) {
+      reserveAutomaticDocumentNumber().catch((error) => updateSaveState("error", error.message));
+      return;
+    }
     saveProcedure();
     return;
   }

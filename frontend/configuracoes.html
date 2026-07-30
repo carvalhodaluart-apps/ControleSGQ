@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações | Criador de Procedimentos</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="styles/configuration.css">
+</head>
+<body>
+  <main class="page configuration-page is-locked">
+    <a class="back-link" href="index.html">Voltar para o criador</a>
+    <header class="configuration-header">
+      <div>
+        <span class="eyebrow">Administração</span>
+        <h1>Configurações</h1>
+        <p>Defina a nomenclatura dos documentos e quais informações de SGQ serão usadas na criação.</p>
+      </div>
+      <span class="configuration-lock">Acesso da qualidade</span>
+    </header>
+
+    <div class="configuration-error" id="configurationError" role="alert"></div>
+    <div class="configuration-status" id="configurationStatus" role="status"></div>
+
+    <section class="configuration-card">
+      <div class="configuration-card-heading">
+        <div>
+          <h2>Tipos de documento</h2>
+          <p>Edite o nome e a sigla que formam o primeiro trecho do código.</p>
+        </div>
+        <button type="button" class="secondary-button" id="addDocumentType">Adicionar tipo</button>
+      </div>
+      <div class="configuration-list" id="documentTypesList"></div>
+    </section>
+
+    <section class="configuration-card">
+      <div class="configuration-card-heading">
+        <div>
+          <h2>Setores</h2>
+          <p>Edite o setor e a sigla usada no código do documento.</p>
+        </div>
+        <button type="button" class="secondary-button" id="addSector">Adicionar setor</button>
+      </div>
+      <div class="configuration-list" id="sectorsList"></div>
+    </section>
+
+    <section class="configuration-card">
+      <div class="configuration-card-heading">
+        <div>
+          <h2>Capa dos documentos</h2>
+          <p>Importe uma imagem de fundo e defina onde o título e as informações do documento ficarão posicionados.</p>
+        </div>
+      </div>
+      <div class="configuration-cover-editor">
+        <div class="configuration-cover-preview" id="coverPreview">
+          <div class="configuration-cover-empty" id="coverEmpty">Nenhuma imagem de capa selecionada</div>
+          <div class="configuration-cover-overlay" id="coverOverlay">
+            <strong>PROCEDIMENTO INTERNO</strong>
+            <b>Título do procedimento</b>
+            <span>Código · Equipamento</span>
+          </div>
+        </div>
+        <div class="configuration-cover-controls">
+          <label class="configuration-file-button">
+            <span>Selecionar imagem</span>
+            <input type="file" id="coverImageInput" accept="image/png,image/jpeg,image/webp">
+          </label>
+          <button type="button" class="secondary-button" id="clearCoverImage">Remover imagem</button>
+          <div class="configuration-position-control">
+            <span>Posição das informações</span>
+            <div class="configuration-position-grid" role="group" aria-label="Posição das informações na capa">
+              <button type="button" data-cover-position="top-left" aria-label="Superior esquerda">↖</button>
+              <button type="button" data-cover-position="top-center" aria-label="Superior centro">↑</button>
+              <button type="button" data-cover-position="top-right" aria-label="Superior direita">↗</button>
+              <button type="button" data-cover-position="center-left" aria-label="Centro esquerda">←</button>
+              <button type="button" data-cover-position="center" aria-label="Centro">•</button>
+              <button type="button" data-cover-position="center-right" aria-label="Centro direita">→</button>
+              <button type="button" data-cover-position="bottom-left" aria-label="Inferior esquerda">↙</button>
+              <button type="button" data-cover-position="bottom-center" aria-label="Inferior centro">↓</button>
+              <button type="button" data-cover-position="bottom-right" aria-label="Inferior direita">↘</button>
+            </div>
+          </div>
+          <small class="configuration-cover-note">A imagem será ajustada automaticamente ao espaço da capa.</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="configuration-card">
+      <div class="configuration-card-heading">
+        <div>
+          <h2>Controle do documento</h2>
+          <p>Escolha quais blocos de informações de SGQ aparecerão no editor e no PDF.</p>
+        </div>
+      </div>
+      <p class="configuration-helper"><span aria-hidden="true">&#10003;</span> Marcado: o campo aparece na criação e no PDF. Desmarcado: o campo fica oculto para novos documentos.</p>
+      <div class="configuration-quality-list" id="qualityFieldsList"></div>
+    </section>
+
+    <footer class="configuration-footer">
+      <a class="secondary-button" href="index.html">Cancelar</a>
+      <button type="button" class="primary-button" id="saveConfiguration">Salvar configurações</button>
+    </footer>
+  </main>
+
+  <div class="configuration-auth-backdrop is-hidden" id="configurationAuth" role="dialog" aria-modal="true" aria-labelledby="configurationAuthTitle">
+    <form class="configuration-auth-dialog" id="configurationAuthForm">
+      <div class="configuration-auth-icon">#</div>
+      <div>
+        <h2 id="configurationAuthTitle">Senha da qualidade</h2>
+        <p>Digite a senha para acessar as configurações administrativas.</p>
+        <input id="configurationPassword" type="password" autocomplete="current-password" placeholder="Senha" required>
+        <p class="configuration-error" id="configurationAuthError" role="alert"></p>
+      </div>
+      <div class="configuration-auth-actions">
+        <a class="secondary-button" href="index.html">Cancelar</a>
+        <button type="submit" class="primary-button">Entrar</button>
+      </div>
+    </form>
+  </div>
+  <script src="configuracoes.js"></script>
+</body>
+</html>

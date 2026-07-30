@@ -4,15 +4,6 @@ const procedureTypes = {
   placa: "Montagem de placa",
   acessorios: "Montagem de acessórios",
 };
-const documentTypes = [
-  { label: "Instrução de trabalho", prefix: "IT" },
-  { label: "Procedimento", prefix: "PR" },
-  { label: "Formulário", prefix: "FM" },
-  { label: "Registro", prefix: "RG" },
-  { label: "Manual", prefix: "MA" },
-  { label: "Plano", prefix: "PL" },
-];
-const sectors = [{ label: "Produção", prefix: "PR" }, { label: "Qualidade", prefix: "QL" }, { label: "Engenharia", prefix: "EN" }, { label: "Manutenção", prefix: "MN" }, { label: "Administrativo", prefix: "AD" }];
 const equipmentProcedures = {
   JAU200: [
     {
@@ -114,6 +105,7 @@ async function apiRequest(path, options = {}) {
   }
   return response.json();
 }
+
 if (activeProcedure) {
   activeProcedure.procedureId = activeProcedure.procedureId || procedureId;
   activeProcedure.procedureType = activeProcedure.procedureType || selectedProcedure?.type || "";
@@ -139,7 +131,6 @@ function getCatalogKey() {
 function getEditUnlockKey() {
   return `procedure-edit-unlock:${equipmentCode}:${procedureId}`;
 }
-
 function consumeEditUnlock() {
   if (!canEditProcedures) return false;
   if (!requestedEditMode) return false;
@@ -148,7 +139,6 @@ function consumeEditUnlock() {
   sessionStorage.removeItem(unlockKey);
   return unlocked;
 }
-
 function getLocalProcedures() {
   return [];
 }
@@ -419,7 +409,7 @@ function normalizeStepCardBlocks(card) {
 }
 
 function clearUntouchedBlankQualityInfo(procedure) {
-  if (procedure.title !== "Novo procedimento" || procedure.documentCode !== "IT_NOVO_00" || procedure.sections?.length) return;
+  if (procedure.title !== "Novo procedimento" || procedure.sections?.length) return;
   const info = procedure.qualityInfo || {};
   const templateStarts = [
     ["objective", "Orientar a montagem"], ["application", "Aplic"],

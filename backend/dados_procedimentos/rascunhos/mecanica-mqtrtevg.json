@@ -6,7 +6,7 @@
   "procedureDescription": "Descrição ainda não informada.",
   "documentStatus": "Em elaboração",
   "title": "Montagem e Calibração da Bobina",
-  "documentCode": "IT_PR0000_00",
+  "documentCode": "IT_PR0045_00",
   "sourceFile": "",
   "revision": [
     [
@@ -442,6 +442,6 @@
     "climateConsideration": "Não identificado impacto direto no procedimento. Reavaliar quando houver alteração de material, processo, fornecedor, armazenamento ou condição ambiental relevante.",
     "approvalDate": ""
   },
-  "documentCodeMiddle": "PR0000",
-  "documentNumber": ""
+  "documentNumber": "44",
+  "documentCodeMiddle": "PR0045"
 }

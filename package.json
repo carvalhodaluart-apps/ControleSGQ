@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
-    "check": "node scripts/check-file-size.js && node scripts/check-js-syntax.js"
+    "check": "node scripts/check-file-size.js && node scripts/check-js-syntax.js",
+    "import:master": "node scripts/import-master-list.js"
   },
   "dependencies": {
     "express": "^4.19.2",

@@ -11,18 +11,24 @@ async function reserveAutomaticDocumentNumber() {
   }
 }
 
+function hasProcedureTitle() {
+  return Boolean(activeProcedure?.title?.trim()) && activeProcedure.title !== "Novo procedimento";
+}
+
 procedureRoot.addEventListener("change", async (event) => {
   const documentType = event.target.closest("[data-document-type]");
   if (documentType) {
     activeProcedure.qualityInfo.documentType = documentType.value;
-    await reserveAutomaticDocumentNumber();
+    if (hasProcedureTitle()) await reserveAutomaticDocumentNumber();
+    else await reserveAutomaticDocumentNumber();
     return;
   }
 
   const sector = event.target.closest("[data-sector]");
   if (sector) {
     activeProcedure.qualityInfo.area = sector.value;
-    await reserveAutomaticDocumentNumber();
+    if (hasProcedureTitle()) await reserveAutomaticDocumentNumber();
+    else await reserveAutomaticDocumentNumber();
     return;
   }
 
@@ -397,16 +403,19 @@ async function bootProcedureEditor() {
 
   try {
     try {
+      await loadProcedureConfiguration();
       await loadProcedureFromServer();
     } catch (error) {
       if (!String(error.message).toLowerCase().includes("acesso")) throw error;
       qualityToken = "";
       sessionStorage.removeItem(qualityTokenKey);
       if (!await showPasswordDialog()) return renderEmptyState();
+      await loadProcedureConfiguration();
       await loadProcedureFromServer();
     }
     if (builderMode) {
       setProcedureStatus("Em elaboração");
+      await reserveAutomaticDocumentNumber();
       await flushProcedureSave();
     }
     renderProcedure(activeProcedure);
