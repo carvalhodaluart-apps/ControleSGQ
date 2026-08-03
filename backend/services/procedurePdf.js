@@ -299,24 +299,6 @@ async function createProcedurePdf(procedure) {
       document.image(image, x + 6, top + 6, { fit: [width - 12, height - 12], align: "center", valign: "center" });
       return true;
     };
-    const imageContainBox = (image, x, top, width, height) => {
-      const opened = document.openImage(image);
-      const scale = Math.min(width / opened.width, height / opened.height);
-      const drawWidth = opened.width * scale;
-      const drawHeight = opened.height * scale;
-      return { x: x + (width - drawWidth) / 2, y: top + (height - drawHeight) / 2, width: drawWidth, height: drawHeight };
-    };
-    const drawCanvasImage = (image, x, top, width, height, block) => {
-      if (!image) return false;
-      const box = imageContainBox(image, x, top, width, height);
-      const centerX = x + width / 2;
-      const centerY = top + height / 2;
-      document.save().rect(x, top, width, height).clip();
-      document.translate(centerX, centerY).rotate(Number(block.rotation) || 0).scale(block.flipX ? -1 : 1, block.flipY ? -1 : 1).translate(-centerX, -centerY);
-      document.image(image, box.x, box.y, { width: box.width, height: box.height });
-      document.restore();
-      return true;
-    };
     const drawMarkers = (section, imageKey, x, top, width, height) => {
       const annotations = section.annotations || {};
       const markers = annotations[imageKey] || Object.values(annotations).find((value) => Array.isArray(value)) || [];
@@ -333,7 +315,7 @@ async function createProcedurePdf(procedure) {
       const image = dataUriToBuffer(imageKey);
       const items = section.materials || [];
       if (image) {
-        const imageHeight = 300;
+        const imageHeight = contentWidth * (520 / 742);
         ensureSpace(imageHeight + 12);
         drawImage(image, margin, y, contentWidth, imageHeight);
         drawMarkers(section, imageKey, margin, y, contentWidth, imageHeight);
@@ -376,11 +358,11 @@ async function createProcedurePdf(procedure) {
       if (card.text || card.html) blocks.push({ type: "text", text: card.text, html: card.html, x: 5, y: 8, w: 90, h: 28, zIndex: 1, tone: card.tone });
       return blocks;
     };
-    const graphic = (block, x, top, width, height, canvasScale) => {
+    const graphic = (block, x, top, width, height) => {
       const colors = toneColors(block.tone);
       const centerX = x + width / 2;
       const centerY = top + height / 2;
-      const pixelToPoint = canvasScale;
+      const pixelToPoint = 0.75;
       const borderWidth = Math.max(0.75, (Number(block.borderWidth) || 3) * pixelToPoint);
       document.save().translate(centerX, centerY).rotate(Number(block.rotation) || 0).translate(-centerX, -centerY).lineWidth(borderWidth).strokeColor(colors.line);
       if (block.type === "circle") document.circle(centerX, centerY, Math.min(width, height) / 2 - 3).stroke();
@@ -417,14 +399,13 @@ async function createProcedurePdf(procedure) {
       blocks.forEach((block) => {
         const blockX = x + (Number(block.x) / 100) * contentWidth;
         const blockY = top + (Number(block.y) / 100) * canvasHeight;
-        const minimums = block.type === "image" ? { w: 180, h: 150 } : block.type === "text" ? { w: 120, h: 42 } : { w: 46, h: 46 };
-        const blockWidth = Math.max(minimums.w * canvasScale, (Number(block.w) / 100) * contentWidth);
-        const blockHeight = Math.max(minimums.h * canvasScale, (Number(block.h) / 100) * canvasHeight);
+        const blockWidth = Math.max(24, (Number(block.w) / 100) * contentWidth);
+        const blockHeight = Math.max(24, (Number(block.h) / 100) * canvasHeight);
         if (block.type === "image") {
           const image = dataUriToBuffer(block.image);
-          if (image) drawCanvasImage(image, blockX, blockY, blockWidth, blockHeight, block);
+          if (image) drawImage(image, blockX, blockY, blockWidth, blockHeight);
         } else if (["arrow", "circle", "square"].includes(block.type)) {
-          graphic(block, blockX, blockY, blockWidth, blockHeight, canvasScale);
+          graphic(block, blockX, blockY, blockWidth, blockHeight);
         } else {
           const colors = toneColors(block.tone);
           const sourceText = block.html || block.text;
@@ -434,12 +415,10 @@ async function createProcedurePdf(procedure) {
           const textWidth = Math.max(12, blockWidth - textPadding * 2);
           const richLines = wrapRichText(document, richSegments, textWidth, fontSize);
           const lineHeight = fontSize * 1.35;
-          const borderLeft = 8 * canvasScale;
-          document.save().roundedRect(blockX, blockY, blockWidth, blockHeight, 5).fillColor(colors.fill).fill().lineWidth(0.7).strokeColor(colors.line).stroke().restore();
-          document.save().rect(blockX, blockY, borderLeft, blockHeight).fillColor(colors.line).fill().restore();
-          document.save().rect(blockX, blockY, blockWidth, blockHeight).clip();
+          const textHeight = Math.max(lineHeight, richLines.length * lineHeight);
+          const visibleHeight = Math.max(blockHeight, textHeight + textPadding * 2);
+          document.save().roundedRect(blockX, blockY, blockWidth, visibleHeight, 5).fillColor(colors.fill).fill().lineWidth(2).strokeColor(colors.line).stroke().restore();
           drawRichCenteredText(document, richLines, blockX + textPadding, blockY + textPadding, fontSize, lineHeight, COLORS.text);
-          document.restore();
         }
       });
       y += canvasHeight + 12;
