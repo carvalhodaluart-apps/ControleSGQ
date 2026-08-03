@@ -389,7 +389,7 @@ function triggerBlobDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
 
-async function requestProcedurePdf(shouldSave = true) {
+async function requestProcedurePdf(shouldSave = true, procedure = activeProcedure) {
   if (shouldSave) await flushProcedureSave();
   const response = await fetch("/api/procedures/export-pdf", {
     method: "POST",
@@ -397,7 +397,7 @@ async function requestProcedurePdf(shouldSave = true) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${qualityToken}`,
     },
-    body: JSON.stringify({ procedure: activeProcedure }),
+    body: JSON.stringify({ procedure }),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -408,6 +408,58 @@ async function requestProcedurePdf(shouldSave = true) {
     throw Object.assign(new Error(data.error || "Não foi possível gerar o PDF."), { status: response.status });
   }
   return response.blob();
+}
+
+const PROCEDURE_PDF_PRELOAD_DELAY = 2000;
+let procedurePdfVersion = 0;
+let procedurePdfCachedVersion = -1;
+let procedurePdfCachedBlob = null;
+let procedurePdfPreloadVersion = -1;
+let procedurePdfPreloadTimer = null;
+let procedurePdfPreloadPromise = null;
+
+function canPreloadProcedurePdf() {
+  return Boolean(activeProcedure && qualityToken && (!builderMode || elaborationAuthorized));
+}
+
+function resetProcedurePdfCache() {
+  procedurePdfVersion += 1;
+  procedurePdfCachedVersion = -1;
+  procedurePdfCachedBlob = null;
+  clearTimeout(procedurePdfPreloadTimer);
+  procedurePdfPreloadTimer = null;
+}
+
+function markProcedurePdfOutdated() {
+  resetProcedurePdfCache();
+  if (!canPreloadProcedurePdf()) return;
+  procedurePdfPreloadTimer = setTimeout(() => {
+    procedurePdfPreloadTimer = null;
+    preloadProcedurePdf();
+  }, PROCEDURE_PDF_PRELOAD_DELAY);
+}
+
+function getProcedurePdfBlob() {
+  const version = procedurePdfVersion;
+  if (procedurePdfCachedVersion === version && procedurePdfCachedBlob) return Promise.resolve(procedurePdfCachedBlob);
+  if (procedurePdfPreloadVersion === version && procedurePdfPreloadPromise) return procedurePdfPreloadPromise;
+  const snapshot = cloneData(activeProcedure);
+  procedurePdfPreloadVersion = version;
+  procedurePdfPreloadPromise = requestProcedurePdf(false, snapshot).then((blob) => {
+    if (version === procedurePdfVersion) {
+      procedurePdfCachedVersion = version;
+      procedurePdfCachedBlob = blob;
+    }
+    return blob;
+  }).finally(() => {
+    if (procedurePdfPreloadVersion === version) procedurePdfPreloadPromise = null;
+  });
+  return procedurePdfPreloadPromise;
+}
+
+function preloadProcedurePdf() {
+  if (!canPreloadProcedurePdf()) return;
+  getProcedurePdfBlob().catch((error) => console.warn("Falha ao pre-gerar PDF:", error));
 }
 
 function openPdfPreview(blob) {
@@ -441,11 +493,11 @@ function openPdfPreview(blob) {
 }
 
 async function exportProcedurePdf() {
-  openPdfPreview(await requestProcedurePdf(false));
+  openPdfPreview(await getProcedurePdfBlob());
 }
 
 async function downloadProcedurePdf() {
-  const blob = await requestProcedurePdf(false);
+  const blob = await getProcedurePdfBlob();
   triggerBlobDownload(blob, `${activeProcedure.documentCode || activeProcedure.title || "procedimento"}.pdf`);
 }
 

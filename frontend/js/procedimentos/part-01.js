@@ -473,7 +473,8 @@ function createBlankProcedure() {
 }
 
 function saveProcedure() {
-  if (!activeProcedure || !qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
+  if (!activeProcedure) return savePromise; if (typeof markProcedurePdfOutdated === "function") markProcedurePdfOutdated();
+  if (!qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
   const snapshot = cloneData(activeProcedure);
   updateSaveState("pending");
   clearTimeout(saveTimer);
@@ -520,7 +521,7 @@ async function loadProcedureFromServer() {
   if (!procedureId || procedureId === "default" || params.get("novo") === "1") return false;
   const data = await apiRequest(`/api/procedures/load?id=${encodeURIComponent(procedureId)}`);
   activeProcedure = data.procedure;
-  normalizeProcedure(activeProcedure);
+  normalizeProcedure(activeProcedure); if (typeof resetProcedurePdfCache === "function") resetProcedurePdfCache();
   return true;
 }
 
@@ -531,7 +532,7 @@ async function publishProcedure() {
     body: JSON.stringify({ procedure: activeProcedure }),
   });
   activeProcedure = data.procedure;
-  normalizeProcedure(activeProcedure);
+  normalizeProcedure(activeProcedure); if (typeof resetProcedurePdfCache === "function") resetProcedurePdfCache();
   return activeProcedure;
 }
 

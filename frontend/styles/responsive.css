@@ -1,0 +1,344 @@
+@media (max-width: 1100px) {
+  .procedure-page,
+  .master-page,
+  .action-plan-page,
+  .instrument-page,
+  .nonconformity-page,
+  .configuration-page {
+    width: calc(100% - 24px);
+    max-width: 100%;
+  }
+
+  .procedure-layout,
+  .nc-editor-body,
+  .action-plan-editor-body,
+  .instrument-editor-body {
+    grid-template-columns: 1fr;
+  }
+
+  .procedure-nav,
+  .nc-section-nav,
+  .action-plan-section-nav,
+  .instrument-nav {
+    position: static;
+    display: flex;
+    gap: 8px;
+    max-height: none;
+    margin: 0;
+    overflow-x: auto;
+    padding: 10px;
+  }
+
+  .procedure-nav h2,
+  .nc-section-nav strong,
+  .action-plan-section-nav strong,
+  .instrument-nav strong {
+    flex: 0 0 auto;
+    margin: 0;
+    align-self: center;
+  }
+
+  .procedure-nav nav {
+    display: flex;
+    gap: 8px;
+  }
+
+  .procedure-nav a,
+  .nc-section-nav a,
+  .action-plan-section-nav a,
+  .instrument-nav a {
+    flex: 0 0 auto;
+    min-width: 150px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 900px) {
+  .page,
+  .creator-home {
+    width: calc(100% - 20px);
+    max-width: 100%;
+    padding: 18px 0 36px;
+  }
+
+  .creator-hero,
+  .procedure-hero,
+  .procedure-select-hero,
+  .master-header,
+  .master-card-heading,
+  .nc-page-header,
+  .nc-panel-heading,
+  .nc-editor-heading,
+  .action-plan-header,
+  .action-plan-list-heading,
+  .action-plan-editor-header,
+  .instrument-header,
+  .instrument-list-heading,
+  .instrument-editor-header,
+  .configuration-header,
+  .configuration-card-heading {
+    align-items: stretch;
+    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .procedure-summary,
+  .sgq-field-grid,
+  .sgq-text-grid,
+  .configuration-cover-grid,
+  .configuration-cover-editor,
+  .configuration-user-form,
+  .configuration-number-field {
+    grid-template-columns: 1fr;
+  }
+
+  .procedure-action-bar {
+    position: static;
+  }
+
+  .procedure-action-context,
+  .procedure-action-buttons,
+  .section-header-actions,
+  .section-editor-toolbar,
+  .instruction-editor,
+  .item-image-toolbar,
+  .action-plan-editor-actions,
+  .instrument-editor-actions,
+  .nc-editor-actions,
+  .master-card-tools,
+  .master-header-actions {
+    width: 100%;
+  }
+
+  .procedure-action-buttons > button,
+  .section-header-actions > button,
+  .section-editor-toolbar > button,
+  .section-editor-toolbar > label,
+  .instruction-editor > button,
+  .item-image-toolbar > button,
+  .action-plan-editor-actions > button,
+  .instrument-editor-actions > button,
+  .nc-editor-actions > button,
+  .master-header-actions > button,
+  .master-header-actions > a {
+    flex: 1 1 160px;
+  }
+
+  .step-card {
+    overflow-x: auto;
+    padding: 12px;
+  }
+
+  .step-card-topbar,
+  .step-card-editor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .canvas-toolbar {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .step-card-canvas {
+    aspect-ratio: 1080 / 560;
+    min-height: 0;
+    height: auto;
+  }
+
+  .step-card-canvas.is-editable {
+    min-width: 720px;
+  }
+
+  .procedure-section-header,
+  .section-heading-inline,
+  .revision-editor-header,
+  .bottom-editor-actions,
+  .procedure-empty-editor,
+  .action-plan-card-heading,
+  .instrument-card-heading,
+  .nc-form-card-heading {
+    align-items: stretch;
+    flex-direction: column;
+    display: flex;
+  }
+
+  .action-plan-list-row,
+  .instrument-list-row,
+  .nc-list-row {
+    grid-template-columns: 1fr;
+  }
+
+  .action-plan-list-main,
+  .instrument-list-main,
+  .nc-list-main,
+  .nc-list-actions {
+    grid-column: auto;
+  }
+
+  .action-plan-filters,
+  .instrument-filters,
+  .nc-list-filters,
+  .master-card-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .action-plan-filters label,
+  .instrument-filters label,
+  .nc-list-filters label,
+  .master-search,
+  .master-search input {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --control-height: 42px;
+    --control-height-sm: 38px;
+  }
+
+  h1 {
+    font-size: 1.85rem;
+    line-height: 1.08;
+  }
+
+  .creator-hero,
+  .creator-module-card,
+  .procedure-card,
+  .procedure-section-header,
+  .step-card-list,
+  .instruction-cards,
+  .procedure-images,
+  .procedure-table-wrap,
+  .item-board,
+  .master-card,
+  .nc-list-panel,
+  .nc-form-card,
+  .action-plan-list-panel,
+  .action-plan-card,
+  .instrument-list-panel,
+  .instrument-card,
+  .configuration-card {
+    padding: 14px;
+  }
+
+  .home-auth-dialog,
+  .master-auth-dialog,
+  .configuration-auth-dialog,
+  .configuration-confirm-dialog,
+  .confirm-dialog,
+  .nc-unsaved-dialog {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .home-auth-actions,
+  .master-auth-actions,
+  .configuration-auth-actions,
+  .configuration-confirm-actions,
+  .confirm-dialog-actions,
+  .nc-unsaved-actions {
+    grid-column: 1;
+    flex-direction: column-reverse;
+  }
+
+  .home-auth-actions > button,
+  .master-auth-actions > button,
+  .configuration-auth-actions > button,
+  .configuration-confirm-actions > button,
+  .confirm-dialog-actions > button,
+  .nc-unsaved-actions > button,
+  .primary-button,
+  .secondary-button,
+  .danger-button {
+    width: 100%;
+  }
+
+  .procedure-hero-image,
+  .procedure-select-image {
+    min-height: 160px;
+  }
+
+  .procedure-hero-image img,
+  .procedure-select-image img {
+    height: 150px;
+  }
+
+  .item-board-image,
+  .item-image-placeholder,
+  .item-board-main-image,
+  .item-board-images .procedure-image-link {
+    min-height: 260px;
+  }
+
+  .item-board-image img,
+  .item-board-main-image img,
+  .item-board-images .procedure-image-link img {
+    height: 260px;
+  }
+
+  .procedure-table,
+  .master-table-wrap table {
+    min-width: 760px;
+  }
+
+  .master-locations,
+  .configuration-row,
+  .configuration-row-origin,
+  .configuration-row-quality,
+  .action-plan-fields-two,
+  .action-plan-fields-three,
+  .action-plan-fields-four,
+  .action-plan-whys,
+  .action-plan-action-row,
+  .instrument-fields-two,
+  .instrument-fields-three,
+  .instrument-fields-four,
+  .instrument-maintenance-row,
+  .nc-fields-two,
+  .nc-fields-four,
+  .nc-evidence-item,
+  .nc-action-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .field-span-two,
+  .field-span-four,
+  .span-two,
+  .action-plan-check,
+  .nc-action-row .nc-action-description,
+  .nc-action-row .nc-action-evidence {
+    grid-column: auto !important;
+  }
+
+  .action-plan-action-row,
+  .instrument-maintenance-row {
+    padding: 46px 12px 12px;
+  }
+
+  .action-plan-action-number,
+  .instrument-maintenance-row > strong {
+    top: 12px;
+    left: 12px;
+  }
+
+  .pdf-preview-backdrop,
+  .nc-pdf-preview-backdrop,
+  .action-plan-confirm-backdrop,
+  .instrument-confirm-backdrop {
+    padding: 8px;
+  }
+
+  .pdf-preview-dialog,
+  .nc-pdf-preview-dialog,
+  .action-plan-pdf-dialog,
+  .instrument-pdf-dialog {
+    width: 100%;
+    height: 94vh;
+    border-radius: 8px;
+  }
+}
