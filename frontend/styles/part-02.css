@@ -516,9 +516,9 @@
 }
 
 .instruction-warning {
-  border-color: #f1d58a;
-  border-left-color: #c88300;
-  background: #fff8e6;
+  border-color: var(--warning-strong);
+  border-left-color: var(--warning-strong);
+  background: var(--warning-soft);
 }
 
 .instruction-danger {
@@ -580,7 +580,7 @@
 }
 
 .tone-warning {
-  background: #c88300;
+  background: var(--warning-strong);
 }
 
 .tone-danger {

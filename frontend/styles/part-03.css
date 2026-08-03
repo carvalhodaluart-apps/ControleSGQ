@@ -164,8 +164,8 @@
 }
 
 .step-layout-warning .step-layout-panel {
-  border-color: #d69a00;
-  background: #fff8e7;
+  border-color: var(--warning-strong);
+  background: var(--warning-soft);
 }
 
 .step-layout-danger .step-layout-panel {
@@ -281,7 +281,7 @@
 }
 
 .step-block-floating-tools .tone-warning {
-  background: #c88300;
+  background: var(--warning-strong);
 }
 
 .step-block-floating-tools .tone-danger {
@@ -543,7 +543,7 @@
 .step-layout-warning .canvas-arrow-move,
 .step-layout-warning .canvas-circle-move,
 .step-layout-warning .canvas-square-move {
-  color: #d69a00;
+  color: var(--warning-strong);
 }
 
 .step-layout-danger .canvas-arrow-move,

@@ -287,7 +287,7 @@
 }
 
 .arrow-color-warning::before {
-  background: #c88300;
+  background: var(--warning-strong);
 }
 
 .arrow-color-danger::before {
@@ -334,8 +334,8 @@
 }
 
 .annotation-warning {
-  background: #c88300;
-  color: #c88300;
+  background: var(--warning-strong);
+  color: var(--warning-strong);
 }
 
 .annotation-danger {

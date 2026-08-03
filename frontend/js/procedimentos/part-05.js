@@ -31,9 +31,14 @@ procedureRoot.addEventListener("click", async (event) => {
       variant: "primary",
     });
     if (!confirmed) return;
-    await publishProcedure();
-    renderProcedure(activeProcedure);
-    await downloadPublishedProcedureFiles();
+    try {
+      await withActionButtonLoading(publishButton, "Publicando...", async () => {
+        await publishProcedure();
+        await downloadPublishedProcedureFiles();
+      });
+    } finally {
+      renderProcedure(activeProcedure);
+    }
     return;
   }
   const deleteProcedureButton = event.target.closest("[data-delete-procedure]");
@@ -380,19 +385,16 @@ procedureRoot.addEventListener("click", async (event) => {
 
   const exportButton = event.target.closest("[data-export-json]");
   if (exportButton) {
-    await exportProcedure();
+    await withActionButtonLoading(exportButton, "Baixando...", () => exportProcedure());
     return;
   }
 
   const exportPdfButton = event.target.closest("[data-export-pdf]");
   if (exportPdfButton) {
-    exportPdfButton.disabled = true;
     try {
-      await exportProcedurePdf();
+      await withActionButtonLoading(exportPdfButton, "Gerando PDF...", () => exportProcedurePdf());
     } catch (error) {
       console.error("Falha ao exportar PDF:", error);
-    } finally {
-      exportPdfButton.disabled = false;
     }
     return;
   }

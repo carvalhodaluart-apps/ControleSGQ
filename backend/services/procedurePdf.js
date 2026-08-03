@@ -14,8 +14,8 @@ const COLORS = {
   orange: "#f97316",
   success: "#16834b",
   successSoft: "#d7f1e1",
-  warning: "#b87900",
-  warningSoft: "#ffedb8",
+  warning: "#efef11",
+  warningSoft: "#ffff8a",
   danger: "#c92f35",
   dangerSoft: "#fbd3d3",
 };
@@ -246,27 +246,29 @@ async function createProcedurePdf(procedure) {
       }
       y += subtitle ? 54 : 42;
     };
-    const valueHeight = (label, value, width) => {
+    const valueMetrics = (label, value, width) => {
       setFont("Helvetica-Bold", 7.5, COLORS.muted);
-      const labelHeight = document.heightOfString(cleanText(label), { width });
+      const labelHeight = document.heightOfString(cleanText(label).toUpperCase(), { width, lineGap: 1 });
       setFont("Helvetica", 9.2, COLORS.text);
-      const textHeight = document.heightOfString(cleanText(value) || "Não informado", { width });
-      return Math.max(48, labelHeight + textHeight + 22);
+      const textHeight = document.heightOfString(cleanText(value) || "Não informado", { width, lineGap: 2 });
+      const valueTop = Math.max(25, 9 + labelHeight + 8);
+      return { height: Math.max(48, valueTop + textHeight + 14), valueTop };
     };
     const infoGrid = (items, columns = 2) => {
       const gap = 10;
       const cellWidth = (contentWidth - gap * (columns - 1)) / columns;
       for (let index = 0; index < items.length; index += columns) {
         const row = items.slice(index, index + columns);
-        const height = Math.max(...row.map(([label, value]) => valueHeight(label, value, cellWidth - 20)));
+        const rowMetrics = row.map(([label, value]) => valueMetrics(label, value, cellWidth - 20));
+        const height = Math.max(...rowMetrics.map((metrics) => metrics.height));
         ensureSpace(height + gap);
         row.forEach(([label, value], column) => {
           const x = margin + column * (cellWidth + gap);
           document.save().roundedRect(x, y, cellWidth, height, 6).lineWidth(0.7).strokeColor(COLORS.line).fillColor("#fbfcfe").fillAndStroke().restore();
           setFont("Helvetica-Bold", 7.5, COLORS.muted);
-          document.text(cleanText(label).toUpperCase(), x + 10, y + 9, { width: cellWidth - 20 });
+          document.text(cleanText(label).toUpperCase(), x + 10, y + 9, { width: cellWidth - 20, lineGap: 1 });
           setFont("Helvetica", 9.2, COLORS.text);
-          document.text(cleanText(value) || "Não informado", x + 10, y + 25, { width: cellWidth - 20, lineGap: 2 });
+          document.text(cleanText(value) || "Não informado", x + 10, y + rowMetrics[column].valueTop, { width: cellWidth - 20, lineGap: 2 });
         });
         y += height + gap;
       }

@@ -362,6 +362,22 @@ async function exportProcedure(asDraft = true) {
   triggerBlobDownload(blob, `${procedure.documentCode || procedure.equipmentCode || "procedimento"}.json`);
 }
 
+async function withActionButtonLoading(button, label, task) {
+  const originalText = button.textContent;
+  button.style.minWidth = `${Math.ceil(button.getBoundingClientRect().width)}px`;
+  button.disabled = true;
+  button.dataset.loading = "true";
+  button.innerHTML = `<span class="button-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+  try {
+    return await task();
+  } finally {
+    button.disabled = false;
+    button.dataset.loading = "false";
+    button.textContent = originalText;
+    button.style.minWidth = "";
+  }
+}
+
 function triggerBlobDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

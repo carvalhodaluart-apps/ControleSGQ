@@ -162,6 +162,27 @@
   color: var(--danger-dark);
 }
 
+.primary-button[data-loading="true"],
+.secondary-button[data-loading="true"] {
+  gap: 8px;
+  cursor: wait;
+  opacity: 0.84;
+}
+
+.button-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: button-spinner-spin 0.7s linear infinite;
+}
+
+@keyframes button-spinner-spin {
+  to { transform: rotate(360deg); }
+}
+
 .editor-flow-group {
   display: grid;
   gap: 14px;

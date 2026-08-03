@@ -1,14 +1,15 @@
 const { getDatabasePool } = require("./procedureDatabase");
 
 const BACKUP_VERSION = 1;
-const TABLES = ["masterDocuments", "procedureDocuments", "sequences", "configuration", "users", "audit", "actionPlans", "instruments"];
+const TABLES = ["masterDocuments", "procedureDocuments", "sequences", "reservations", "configuration", "users", "audit", "actionPlans", "instruments"];
 
 async function createDatabaseBackup() {
   const pool = getDatabasePool();
-  const [master, procedures, sequences, configuration, users, audit, actionPlans, instruments] = await Promise.all([
+  const [master, procedures, sequences, reservations, configuration, users, audit, actionPlans, instruments] = await Promise.all([
     pool.query("SELECT * FROM master_documents ORDER BY document_code"),
     pool.query("SELECT * FROM procedure_documents ORDER BY procedure_id"),
     pool.query("SELECT * FROM document_number_sequences ORDER BY document_type, sector, sector_prefix"),
+    pool.query("SELECT * FROM procedure_number_reservations ORDER BY document_type, sector, sector_prefix, document_number"),
     pool.query("SELECT * FROM procedure_configuration WHERE configuration_id = 1"),
     pool.query("SELECT * FROM app_users ORDER BY username"),
     pool.query("SELECT * FROM document_audit_log ORDER BY audit_id"),
@@ -22,6 +23,7 @@ async function createDatabaseBackup() {
       masterDocuments: master.rows,
       procedureDocuments: procedures.rows,
       sequences: sequences.rows,
+      reservations: reservations.rows,
       configuration: configuration.rows,
       users: users.rows,
       audit: audit.rows,
@@ -34,6 +36,7 @@ async function createDatabaseBackup() {
 function validateBackup(backup) {
   if (!backup || backup.version !== BACKUP_VERSION || !backup.tables) throw new Error("Arquivo de backup invalido.");
   for (const table of TABLES) {
+    if (table === "reservations" && !Object.prototype.hasOwnProperty.call(backup.tables, table)) { backup.tables[table] = []; continue; }
     if (table === "actionPlans" && !Object.prototype.hasOwnProperty.call(backup.tables, table)) { backup.tables[table] = []; continue; }
     if (table === "instruments" && !Object.prototype.hasOwnProperty.call(backup.tables, table)) { backup.tables[table] = []; continue; }
     if (!Array.isArray(backup.tables[table])) throw new Error(`Backup sem a tabela ${table}.`);
@@ -47,7 +50,7 @@ async function restoreDatabaseBackup(input) {
   const client = await getDatabasePool().connect();
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE master_documents, procedure_documents, document_number_sequences, procedure_configuration, app_users, document_audit_log, action_plan_documents, action_plan_sequences, metrology_instruments, instrument_sequences RESTART IDENTITY CASCADE");
+    await client.query("TRUNCATE master_documents, procedure_documents, document_number_sequences, procedure_number_reservations, procedure_configuration, app_users, document_audit_log, action_plan_documents, action_plan_sequences, metrology_instruments, instrument_sequences RESTART IDENTITY CASCADE");
     for (const row of backup.tables.masterDocuments) {
       await client.query(`
         INSERT INTO master_documents (procedure_id, document_code, document_type, sector, document_number, title, revision, elaborator, elaboration_date, approver, approval_date, status, equipment_code, document_original_location, document_public_location, created_at, updated_at)
@@ -59,6 +62,9 @@ async function restoreDatabaseBackup(input) {
     }
     for (const row of backup.tables.sequences) {
       await client.query(`INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number) VALUES ($1,$2,$3,$4)`, [row.document_type, row.sector, row.sector_prefix || "", row.next_number]);
+    }
+    for (const row of backup.tables.reservations) {
+      await client.query(`INSERT INTO procedure_number_reservations (procedure_id, document_type, sector, sector_prefix, document_number, created_at) VALUES ($1,$2,$3,$4,$5,COALESCE($6,NOW()))`, [row.procedure_id, row.document_type, row.sector, row.sector_prefix || "", row.document_number, row.created_at]);
     }
     for (const row of backup.tables.configuration) {
       await client.query(`INSERT INTO procedure_configuration (configuration_id, document_types, sectors, quality_fields, cover, nonconformity, updated_at) VALUES (1,$1::jsonb,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,COALESCE($6,NOW()))`, [JSON.stringify(row.document_types), JSON.stringify(row.sectors), JSON.stringify(row.quality_fields), JSON.stringify(row.cover), JSON.stringify(row.nonconformity || {}), row.updated_at]);

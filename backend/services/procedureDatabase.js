@@ -101,6 +101,24 @@ async function updateSequence(client, documentType, sector, sectorPrefix, nextNu
   `, [documentType, sector, sectorPrefix, nextNumber]);
 }
 
+async function resetSequenceFromMasterDocuments(client, documentType, sector, sectorPrefix = "") {
+  if (!documentType || !sector) return;
+  const result = await client.query(`
+    SELECT COALESCE(MAX(document_number) + 1, 1) AS "nextNumber"
+    FROM master_documents
+    WHERE document_type = $1
+      AND sector = $2
+      AND document_number > 0
+      AND COALESCE(substring(split_part(document_code, '_', 2) from '^[A-Z]+'), '') = $3
+  `, [documentType, sector, sectorPrefix || ""]);
+  await client.query(`
+    INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (document_type, sector, sector_prefix) DO UPDATE
+    SET next_number = EXCLUDED.next_number
+  `, [documentType, sector, sectorPrefix || "", Number(result.rows[0]?.nextNumber || 1)]);
+}
+
 async function reserveNextDocumentNumberWithClient(client, documentType, sector, sectorPrefix = "") {
   const result = await client.query(`
       INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number)
@@ -231,7 +249,33 @@ async function updateMasterDocumentLocations(procedureId, locations) {
 }
 
 async function deleteMasterDocument(procedureId) {
-  await getPool().query("DELETE FROM master_documents WHERE procedure_id = $1", [procedureId]);
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const affected = [];
+    const master = await client.query(`
+      DELETE FROM master_documents
+      WHERE procedure_id = $1
+      RETURNING document_type AS "documentType", sector,
+        COALESCE(substring(split_part(document_code, '_', 2) from '^[A-Z]+'), '') AS "sectorPrefix"
+    `, [procedureId]);
+    affected.push(...master.rows);
+    const reservations = await client.query(`
+      DELETE FROM procedure_number_reservations
+      WHERE procedure_id = $1
+      RETURNING document_type AS "documentType", sector, sector_prefix AS "sectorPrefix"
+    `, [procedureId]);
+    affected.push(...reservations.rows);
+    for (const item of new Map(affected.map((row) => [`${row.documentType}|${row.sector}|${row.sectorPrefix || ""}`, row])).values()) {
+      await resetSequenceFromMasterDocuments(client, item.documentType, item.sector, item.sectorPrefix);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function migrateDrafts() {
@@ -258,6 +302,13 @@ async function migrateDrafts() {
 
 async function synchronizeDocumentNumberSequences() {
   await getPool().query(`
+    DELETE FROM procedure_number_reservations AS reservations
+    WHERE NOT EXISTS (
+      SELECT 1 FROM master_documents AS documents
+      WHERE documents.procedure_id = reservations.procedure_id
+    )
+  `);
+  await getPool().query(`
     UPDATE master_documents
     SET document_code = split_part(document_code, '_', 1) || '_' ||
       COALESCE(substring(split_part(document_code, '_', 2) from '^[A-Z]+'), '') ||
@@ -274,7 +325,6 @@ async function synchronizeDocumentNumberSequences() {
       WHERE document_type = sequences.document_type AND sector = sequences.sector
         AND COALESCE(substring(split_part(document_code, '_', 2) from '^[A-Z]+'), '') = sequences.sector_prefix
     ), 1)
-    WHERE sequences.sector_prefix <> ''
   `);
   await getPool().query(`
     INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number)
