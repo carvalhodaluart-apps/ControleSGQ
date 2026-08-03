@@ -12,10 +12,15 @@ migracao. Para editar depois, importe o arquivo JSON baixado anteriormente.
 ```bash
 npm install
 set QUALITY_PASSWORD=sua_senha_da_qualidade
+set SESSION_SECRET=um_segredo_longo_para_assinar_sessoes
 set DATABASE_URL=postgresql://usuario:senha@servidor:5432/controle_sgq
 set APP_HOST=127.0.0.1
 npm start
 ```
+
+Em producao no Render, configure `QUALITY_PASSWORD`, `DATABASE_URL` e um
+`SESSION_SECRET` fixo. Se `SESSION_SECRET` nao for informado, o servidor usa
+`QUALITY_PASSWORD` para assinar as sessoes.
 
 Para criar usuários individuais, cadastre-os pela tela `Configurações` com a
 senha da qualidade. O usuário editor pode criar, editar, exportar e visualizar

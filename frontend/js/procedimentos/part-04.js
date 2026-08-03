@@ -385,7 +385,11 @@ async function requestProcedurePdf(shouldSave = true) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || "Não foi possível gerar o PDF.");
+    if (response.status === 401) {
+      clearAuthenticationState();
+      updateSaveState("error", "Sessao expirada");
+    }
+    throw Object.assign(new Error(data.error || "Não foi possível gerar o PDF."), { status: response.status });
   }
   return response.blob();
 }
@@ -440,7 +444,11 @@ async function downloadPublishedProcedureFiles() {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || "Não foi possível gerar o pacote publicado.");
+    if (response.status === 401) {
+      clearAuthenticationState();
+      updateSaveState("error", "Sessao expirada");
+    }
+    throw Object.assign(new Error(data.error || "Não foi possível gerar o pacote publicado."), { status: response.status });
   }
   triggerBlobDownload(await response.blob(), `${activeProcedure.documentCode || activeProcedure.title || "procedimento"}.zip`);
 }

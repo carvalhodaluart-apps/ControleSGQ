@@ -81,6 +81,7 @@ let selectedStepBlock = null;
 let saveTimer = null;
 let savePromise = Promise.resolve();
 let saveState = "saved";
+function clearAuthenticationState() { qualityToken = ""; sessionStorage.removeItem(qualityTokenKey); sessionStorage.removeItem("procedure-user-role"); }
 function updateSaveState(state, message) {
   saveState = state;
   document.querySelectorAll("[data-save-state]").forEach((element) => {
@@ -90,12 +91,8 @@ function updateSaveState(state, message) {
 }
 function selectStepBlock(blockKey) {
   selectedStepBlock = blockKey;
-  procedureRoot.querySelectorAll("[data-step-block].is-selected").forEach((element) => {
-    element.classList.remove("is-selected");
-  });
-  if (blockKey) {
-    procedureRoot.querySelector(`[data-step-block="${blockKey}"]`)?.classList.add("is-selected");
-  }
+  procedureRoot.querySelectorAll("[data-step-block].is-selected").forEach((element) => element.classList.remove("is-selected"));
+  if (blockKey) procedureRoot.querySelector(`[data-step-block="${blockKey}"]`)?.classList.add("is-selected");
 }
 async function apiRequest(path, options = {}) {
   const { headers: optionHeaders, ...requestOptions } = options;
@@ -110,9 +107,17 @@ async function apiRequest(path, options = {}) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      clearAuthenticationState();
+      updateSaveState("error", "Sessao expirada");
+    }
     throw Object.assign(new Error(data.error || "Erro ao comunicar com o servidor."), { status: response.status });
   }
   return response.json();
+}
+function handleSaveFailure(error) {
+  updateSaveState("error", error.status === 401 ? "Sessao expirada" : undefined);
+  console.error("Falha ao salvar procedimento:", error);
 }
 
 if (activeProcedure) {
@@ -474,16 +479,13 @@ function saveProcedure() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    savePromise = savePromise
+    const pendingSave = savePromise
       .then(() => apiRequest("/api/procedures/save", {
         method: "POST",
         body: JSON.stringify({ procedure: snapshot }),
       }))
-      .then(() => updateSaveState("saved"))
-      .catch((error) => {
-        updateSaveState("error");
-        console.error("Falha ao salvar procedimento:", error);
-      });
+      .then(() => updateSaveState("saved"));
+    savePromise = pendingSave.catch(handleSaveFailure);
   }, 250);
   return savePromise;
 }
@@ -493,17 +495,14 @@ async function flushProcedureSave() {
   clearTimeout(saveTimer);
   saveTimer = null;
   const snapshot = cloneData(activeProcedure);
-  savePromise = savePromise
+  const pendingSave = savePromise
     .then(() => apiRequest("/api/procedures/save", {
       method: "POST",
       body: JSON.stringify({ procedure: snapshot }),
     }))
-    .then(() => updateSaveState("saved"))
-    .catch((error) => {
-      updateSaveState("error");
-      console.error("Falha ao salvar procedimento:", error);
-    });
-  await savePromise;
+    .then(() => updateSaveState("saved"));
+  savePromise = pendingSave.catch(handleSaveFailure);
+  await pendingSave;
 }
 
 async function authenticateQuality(password) {

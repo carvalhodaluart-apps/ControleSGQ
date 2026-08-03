@@ -12,7 +12,7 @@ const { initDatabase } = require("./services/procedureDatabase");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.APP_HOST || "127.0.0.1";
+const HOST = process.env.APP_HOST || (process.env.RENDER ? "0.0.0.0" : "127.0.0.1");
 const FRONTEND_DIR = path.resolve(__dirname, "..", "frontend");
 const qualityAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

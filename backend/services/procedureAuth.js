@@ -15,6 +15,47 @@ function safeEqual(left, right) {
   return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+function encodeBase64Url(value) {
+  return Buffer.from(value).toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function decodeBase64Url(value) {
+  const normalized = String(value || "").replaceAll("-", "+").replaceAll("_", "/");
+  return Buffer.from(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="), "base64").toString("utf8");
+}
+
+function getSigningSecret() {
+  return process.env.SESSION_SECRET || process.env.JWT_SECRET || process.env.QUALITY_PASSWORD || "";
+}
+
+function signTokenPayload(payload) {
+  const secret = getSigningSecret();
+  if (!secret) return "";
+  return encodeBase64Url(crypto.createHmac("sha256", secret).update(payload).digest());
+}
+
+function createSignedToken(user, expiresAt) {
+  const payload = encodeBase64Url(JSON.stringify({ expiresAt, user }));
+  const signature = signTokenPayload(payload);
+  if (!signature) return "";
+  return `v1.${payload}.${signature}`;
+}
+
+function readSignedSession(token) {
+  const parts = String(token || "").split(".");
+  if (parts.length !== 3 || parts[0] !== "v1") return null;
+  const [, payload, signature] = parts;
+  const expectedSignature = signTokenPayload(payload);
+  if (!expectedSignature || !safeEqual(signature, expectedSignature)) return null;
+  try {
+    const session = JSON.parse(decodeBase64Url(payload));
+    if (!session?.user || session.expiresAt <= Date.now()) return null;
+    return { expiresAt: session.expiresAt, user: session.user };
+  } catch (_error) {
+    return null;
+  }
+}
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   return new Promise((resolve, reject) => {
     crypto.scrypt(String(password || ""), salt, 64, (error, derivedKey) => {
@@ -32,8 +73,9 @@ async function verifyPassword(password, storedHash) {
 }
 
 function createSession(user) {
-  const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, { expiresAt: Date.now() + SESSION_TTL_MS, user });
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  const token = createSignedToken(user, expiresAt) || crypto.randomBytes(32).toString("hex");
+  sessions.set(token, { expiresAt, user });
   return { token, expiresIn: SESSION_TTL_MS, user };
 }
 
@@ -58,12 +100,13 @@ async function createUserSession(username, password) {
 }
 
 function getValidSession(token) {
-  const session = sessions.get(token);
+  const session = sessions.get(token) || readSignedSession(token);
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
     sessions.delete(token);
     return null;
   }
+  if (!sessions.has(token)) sessions.set(token, session);
   return session;
 }
 
