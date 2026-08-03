@@ -8,6 +8,7 @@ const COLORS = {
   navy: "#17233d",
   blue: "#155eef",
   text: "#263957",
+  stepText: "#000000",
   muted: "#60708a",
   line: "#d8e1ef",
   soft: "#f5f8fc",
@@ -126,9 +127,13 @@ function drawRichCenteredText(document, lines, x, y, fontSize, lineHeight, color
   });
 }
 
-function dataUriToBuffer(value) {
-  const match = String(value || "").match(/^data:image\/(png|jpe?g);base64,(.+)$/i);
-  return match ? Buffer.from(match[2], "base64") : null;
+function dataUriToBuffer(value, cache = null) {
+  const source = String(value || "");
+  if (cache?.has(source)) return cache.get(source);
+  const match = source.match(/^data:image\/(png|jpe?g);base64,(.+)$/i);
+  const buffer = match ? Buffer.from(match[2], "base64") : null;
+  if (cache && match) cache.set(source, buffer);
+  return buffer;
 }
 
 const EQUIPMENT_IMAGE_FILES = {
@@ -149,17 +154,20 @@ function equipmentImageBuffer(procedure) {
   }
 }
 
-async function convertLegacyImages(value) {
+async function convertLegacyImages(value, cache = new Map()) {
   if (typeof value === "string" && /^data:image\/webp;base64,/i.test(value)) {
+    if (cache.has(value)) return cache.get(value);
     const encoded = value.split(",", 2)[1];
     const png = await sharp(Buffer.from(encoded, "base64")).png().toBuffer();
-    return `data:image/png;base64,${png.toString("base64")}`;
+    const converted = `data:image/png;base64,${png.toString("base64")}`;
+    cache.set(value, converted);
+    return converted;
   }
-  if (Array.isArray(value)) return Promise.all(value.map(convertLegacyImages));
+  if (Array.isArray(value)) return Promise.all(value.map((item) => convertLegacyImages(item, cache)));
   if (!value || typeof value !== "object") return value;
   const copy = {};
   await Promise.all(Object.entries(value).map(async ([key, item]) => {
-    copy[key] = await convertLegacyImages(item);
+    copy[key] = await convertLegacyImages(item, cache);
   }));
   return copy;
 }
@@ -189,6 +197,8 @@ async function createProcedurePdf(procedure) {
     const revision = currentRevision(source);
     const info = source.qualityInfo || {};
     const cover = configuration.cover || {};
+    const imageBufferCache = new Map();
+    const getImageBuffer = (value) => dataUriToBuffer(value, imageBufferCache);
     let y = 0;
     let pageNumber = 0;
 
@@ -312,7 +322,7 @@ async function createProcedurePdf(procedure) {
     };
     const itemsSection = (section) => {
       const imageKey = section.images?.[0] || "";
-      const image = dataUriToBuffer(imageKey);
+      const image = getImageBuffer(imageKey);
       const items = section.materials || [];
       if (image) {
         const imageHeight = contentWidth * (520 / 742);
@@ -358,22 +368,21 @@ async function createProcedurePdf(procedure) {
       if (card.text || card.html) blocks.push({ type: "text", text: card.text, html: card.html, x: 5, y: 8, w: 90, h: 28, zIndex: 1, tone: card.tone });
       return blocks;
     };
-    const graphic = (block, x, top, width, height) => {
+    const graphic = (block, x, top, width, height, unitScale) => {
       const colors = toneColors(block.tone);
       const centerX = x + width / 2;
       const centerY = top + height / 2;
-      const pixelToPoint = 0.75;
-      const borderWidth = Math.max(0.75, (Number(block.borderWidth) || 3) * pixelToPoint);
+      const borderWidth = Math.max(0.5, (Number(block.borderWidth) || 3) * unitScale);
       document.save().translate(centerX, centerY).rotate(Number(block.rotation) || 0).translate(-centerX, -centerY).lineWidth(borderWidth).strokeColor(colors.line);
-      if (block.type === "circle") document.circle(centerX, centerY, Math.min(width, height) / 2 - 3).stroke();
-      if (block.type === "square") document.rect(x + 3, top + 3, width - 6, height - 6).stroke();
+      if (block.type === "circle") document.circle(centerX, centerY, Math.min(width, height) * 0.43).stroke();
+      if (block.type === "square") document.rect(x + width * 0.12, top + height * 0.12, width * 0.76, height * 0.76).stroke();
       if (block.type === "arrow") {
-        const headWidth = Math.min(Math.max(borderWidth * 5.3, 11 * pixelToPoint), width * 0.30);
-        const headHeight = Math.min(Math.max(borderWidth * 6.6, 11 * pixelToPoint), height * 0.50);
-        const padding = 2 * pixelToPoint;
+        const headWidth = Math.min(Math.max(borderWidth * 5.3, 11 * unitScale), width * 0.30);
+        const headHeight = Math.min(Math.max(borderWidth * 6.6, 11 * unitScale), height * 0.50);
+        const padding = 2 * unitScale;
         const tipX = x + width - padding;
         const baseX = tipX - headWidth;
-        document.moveTo(x + padding, centerY).lineTo(baseX, centerY).stroke();
+        document.lineCap("round").moveTo(x + padding, centerY).lineTo(baseX, centerY).stroke();
         document.moveTo(baseX, centerY - headHeight / 2).lineTo(tipX, centerY).lineTo(baseX, centerY + headHeight / 2).closePath().fillColor(colors.line).fill();
       }
       document.restore();
@@ -402,10 +411,10 @@ async function createProcedurePdf(procedure) {
         const blockWidth = Math.max(24, (Number(block.w) / 100) * contentWidth);
         const blockHeight = Math.max(24, (Number(block.h) / 100) * canvasHeight);
         if (block.type === "image") {
-          const image = dataUriToBuffer(block.image);
+          const image = getImageBuffer(block.image);
           if (image) drawImage(image, blockX, blockY, blockWidth, blockHeight);
         } else if (["arrow", "circle", "square"].includes(block.type)) {
-          graphic(block, blockX, blockY, blockWidth, blockHeight);
+          graphic(block, blockX, blockY, blockWidth, blockHeight, canvasScale);
         } else {
           const colors = toneColors(block.tone);
           const sourceText = block.html || block.text;
@@ -418,13 +427,13 @@ async function createProcedurePdf(procedure) {
           const textHeight = Math.max(lineHeight, richLines.length * lineHeight);
           const visibleHeight = Math.max(blockHeight, textHeight + textPadding * 2);
           document.save().roundedRect(blockX, blockY, blockWidth, visibleHeight, 5).fillColor(colors.fill).fill().lineWidth(2).strokeColor(colors.line).stroke().restore();
-          drawRichCenteredText(document, richLines, blockX + textPadding, blockY + textPadding, fontSize, lineHeight, COLORS.text);
+          drawRichCenteredText(document, richLines, blockX + textPadding, blockY + textPadding, fontSize, lineHeight, COLORS.stepText);
         }
       });
       y += canvasHeight + 12;
     };
 
-    const coverImage = dataUriToBuffer(cover.imageData);
+    const coverImage = getImageBuffer(cover.imageData);
     const equipmentImage = equipmentImageBuffer(source);
     if (coverImage) {
       startPage(false);
@@ -521,7 +530,7 @@ async function createProcedurePdf(procedure) {
       (section.instructions || []).forEach((instruction, index) => {
         const colors = toneColors(section.instructionTones?.[index]);
         const instructionText = cleanText(instruction);
-        setFont("Helvetica", 9, COLORS.text);
+        setFont("Helvetica", 9, COLORS.stepText);
         const instructionHeight = Math.max(30, document.heightOfString(instructionText, { width: contentWidth - 44, lineGap: 1 }) + 16);
         ensureSpace(instructionHeight + 8);
         document.save().roundedRect(margin, y, contentWidth, instructionHeight, 5).fillColor(colors.fill).fill().lineWidth(2).strokeColor(colors.line).stroke().restore();

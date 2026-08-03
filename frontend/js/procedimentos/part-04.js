@@ -441,7 +441,7 @@ function openPdfPreview(blob) {
 }
 
 async function exportProcedurePdf() {
-  openPdfPreview(await requestProcedurePdf());
+  openPdfPreview(await requestProcedurePdf(false));
 }
 
 async function downloadProcedurePdf() {

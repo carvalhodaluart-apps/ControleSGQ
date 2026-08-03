@@ -56,6 +56,7 @@
 }
 
 .step-card-text p {
+  color: var(--step-text);
   line-height: 1.62;
 }
 
@@ -90,6 +91,7 @@
 .step-layout-text textarea {
   min-height: 0;
   resize: none;
+  color: var(--step-text);
   text-align: center;
 }
 
