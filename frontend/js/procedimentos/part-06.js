@@ -1,6 +1,46 @@
+let elaborationAuthorized = !builderMode
+  || activeProcedure?.elaborationAuthorized === true
+  || activeProcedure?.documentStatus === "Publicado"
+  || (!Object.prototype.hasOwnProperty.call(activeProcedure || {}, "elaborationAuthorized") && Boolean(requestedProcedureId));
+let allowProcedureLeave = false;
+
+function syncElaborationAuthorization() {
+  if (!builderMode) {
+    elaborationAuthorized = true;
+    return;
+  }
+  elaborationAuthorized = activeProcedure?.elaborationAuthorized === true
+    || activeProcedure?.documentStatus === "Publicado"
+    || (!Object.prototype.hasOwnProperty.call(activeProcedure || {}, "elaborationAuthorized") && Boolean(requestedProcedureId));
+}
+
+function renderElaborationAuthorization() {
+  if (!editMode || !builderMode || elaborationAuthorized) return "";
+  return `
+    <section class="elaboration-authorization-card" aria-labelledby="elaboration-authorization-title">
+      <div>
+        <span class="eyebrow">Próximo passo</span>
+        <h2 id="elaboration-authorization-title">Autorizar elaboração</h2>
+        <p>Preencha os campos do controle do documento. Depois da autorização, este documento será salvo como “Em elaboração” e poderá ser continuado pelo JSON correspondente.</p>
+        <p class="elaboration-authorization-error" data-elaboration-authorize-error role="alert"></p>
+      </div>
+      <button type="button" class="primary-button" data-authorize-elaboration>Autorizar elaboração</button>
+    </section>
+  `;
+}
+
 async function reserveAutomaticDocumentNumber() {
+  if (builderMode && !elaborationAuthorized) return;
   try {
-    const data = await apiRequest("/api/procedures/next-number", { method: "POST", body: JSON.stringify({ documentType: activeProcedure.qualityInfo.documentType, sector: activeProcedure.qualityInfo.area }) });
+    const data = await apiRequest("/api/procedures/next-number", {
+      method: "POST",
+      body: JSON.stringify({
+        procedureId: activeProcedure.procedureId,
+        documentType: activeProcedure.qualityInfo.documentType,
+        sector: activeProcedure.qualityInfo.area,
+        sectorPrefix: getSectorConfig(activeProcedure.qualityInfo.area).prefix,
+      }),
+    });
     activeProcedure.documentNumber = data.documentNumber;
     refreshDocumentCodeDisplays();
     saveProcedure();
@@ -10,6 +50,70 @@ async function reserveAutomaticDocumentNumber() {
     updateSaveState("error", "Número não reservado");
   }
 }
+
+async function authorizeElaboration() {
+  if (!activeProcedure || elaborationAuthorized) return;
+  const button = procedureRoot.querySelector("[data-authorize-elaboration]");
+  const errorBox = procedureRoot.querySelector("[data-elaboration-authorize-error]");
+  if (button) button.disabled = true;
+  if (errorBox) errorBox.textContent = "";
+  try {
+    const data = await apiRequest("/api/procedures/authorize", {
+      method: "POST",
+      body: JSON.stringify({ procedure: activeProcedure }),
+    });
+    activeProcedure = data.procedure;
+    normalizeProcedure(activeProcedure);
+    elaborationAuthorized = true;
+    renderProcedure(activeProcedure);
+  } catch (error) {
+    if (errorBox) errorBox.textContent = error.message;
+    if (button) button.disabled = false;
+  }
+}
+
+function requiresDraftExportBeforeLeave() {
+  return !allowProcedureLeave
+    && builderMode
+    && elaborationAuthorized
+    && activeProcedure?.documentStatus !== "Publicado";
+}
+
+async function leaveProcedureEditor(event) {
+  if (!requiresDraftExportBeforeLeave()) return;
+  event.preventDefault();
+  const link = event.currentTarget;
+  const confirmed = await showConfirmDialog({
+    title: "Baixar edição antes de sair?",
+    message: "Este documento está em elaboração. Baixe o JSON para garantir que todas as alterações possam ser recuperadas antes de voltar.",
+    confirmLabel: "Baixar JSON e voltar",
+    cancelLabel: "Continuar editando",
+    variant: "primary",
+  });
+  if (!confirmed) return;
+  try {
+    await flushProcedureSave();
+    await exportProcedure(true);
+    allowProcedureLeave = true;
+    window.location.href = link.href;
+  } catch (error) {
+    updateSaveState("error", "JSON não baixado");
+    await showConfirmDialog({
+      title: "Não foi possível baixar o JSON",
+      message: error.message || "Verifique a conexão com o backend e tente novamente.",
+      confirmLabel: "Fechar",
+      cancelLabel: "",
+      variant: "danger",
+    });
+  }
+}
+
+document.querySelector(".back-link")?.addEventListener("click", leaveProcedureEditor);
+window.addEventListener("beforeunload", (event) => {
+  if (!requiresDraftExportBeforeLeave()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 
 function hasProcedureTitle() {
   return Boolean(activeProcedure?.title?.trim()) && activeProcedure.title !== "Novo procedimento";
@@ -34,9 +138,16 @@ procedureRoot.addEventListener("change", async (event) => {
 
   const procedureEquipmentCode = event.target.closest("[data-procedure-equipment-code]");
   if (procedureEquipmentCode) {
+    if (procedureEquipmentCode.value === "SEM_IMAGEM") {
+      activeProcedure.equipmentImageMode = "none";
+      saveProcedure();
+      renderProcedure(activeProcedure);
+      return;
+    }
     const code = procedureEquipmentCode.value || "NOVO";
     activeProcedure.equipmentCode = code;
     activeProcedure.equipmentName = getEquipmentName(code);
+    activeProcedure.equipmentImageMode = "auto";
     if (code !== "OUTROS") activeProcedure.customEquipmentImage = "";
     saveProcedure();
     renderProcedure(activeProcedure);
@@ -147,12 +258,17 @@ procedureRoot.addEventListener("change", async (event) => {
     });
     activeProcedure = data.procedure;
     normalizeProcedure(activeProcedure);
+    elaborationAuthorized = true;
     saveProcedure();
     renderProcedure(activeProcedure);
   }
 });
 
 procedureRoot.addEventListener("click", (event) => {
+  if (event.target.closest("[data-authorize-elaboration]")) {
+    authorizeElaboration();
+    return;
+  }
   const summary = event.target.closest?.(".canvas-toolbar details > summary");
   if (!summary) return;
   const openedMenu = summary.parentElement;
@@ -386,6 +502,16 @@ window.addEventListener("pointerup", () => {
   dragState = null;
 });
 
+function renderProcedureLoadError(error) {
+  const statusMessage = error?.status === 401
+    ? "Sua sessão expirou. Volte ao criador, entre novamente e tente continuar o documento."
+    : error?.status === 404
+      ? "Este documento não foi encontrado no armazenamento atual. Confirme se o backend está conectado ao mesmo banco de dados."
+      : "Não foi possível carregar este documento. Verifique a conexão com o backend e tente novamente.";
+  document.title = "Erro ao abrir procedimento | Equipamentos";
+  procedureRoot.innerHTML = `<section class="missing-page procedure-load-error" role="alert"><span class="eyebrow">Falha ao abrir</span><h1>Não foi possível abrir o procedimento</h1><p>${escapeHtml(statusMessage)}</p><p class="procedure-load-error-detail">${escapeHtml(error?.message || "Erro desconhecido.")}</p><a class="primary-link" href="index.html">Voltar para o criador</a></section>`;
+}
+
 window.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   pendingAnnotation = null;
@@ -398,7 +524,7 @@ window.addEventListener("keydown", (event) => {
 async function bootProcedureEditor() {
   if (!qualityToken) {
     const authorized = await showPasswordDialog();
-    if (!authorized) return renderEmptyState();
+    if (!authorized) return builderMode ? window.location.assign("index.html") : renderEmptyState();
   }
 
   try {
@@ -409,19 +535,28 @@ async function bootProcedureEditor() {
       if (!String(error.message).toLowerCase().includes("acesso")) throw error;
       qualityToken = "";
       sessionStorage.removeItem(qualityTokenKey);
-      if (!await showPasswordDialog()) return renderEmptyState();
+      if (!await showPasswordDialog()) return builderMode ? window.location.assign("index.html") : renderEmptyState();
       await loadProcedureConfiguration();
       await loadProcedureFromServer();
     }
+    syncElaborationAuthorization();
     if (builderMode) {
       setProcedureStatus("Em elaboração");
-      await reserveAutomaticDocumentNumber();
-      await flushProcedureSave();
+      if (elaborationAuthorized) {
+        await reserveAutomaticDocumentNumber();
+        await flushProcedureSave();
+      }
     }
     renderProcedure(activeProcedure);
   } catch (error) {
     console.error("Falha ao carregar procedimento:", error);
-    renderEmptyState();
+    if (builderMode && (!requestedProcedureId || params.get("novo") === "1")) {
+      activeProcedure = activeProcedure || createBlankProcedure();
+      normalizeProcedure(activeProcedure);
+      renderProcedure(activeProcedure);
+      return;
+    }
+    renderProcedureLoadError(error);
   }
 }
 

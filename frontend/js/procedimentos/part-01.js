@@ -46,6 +46,7 @@ function getEquipmentName(code) {
   return equipmentLabels[code] || code;
 }
 function getEquipmentImage(procedure) {
+  if (procedure.equipmentImageMode === "none") return "";
   if (procedure.equipmentCode === "OUTROS") return procedure.customEquipmentImage || "";
   return equipmentImages[procedure.equipmentCode] || "";
 }
@@ -58,10 +59,18 @@ const appMode = window.PROCEDURE_APP_MODE || "quality";
 const canEditProcedures = appMode === "quality";
 const availableProcedures = getAvailableProcedures();
 const selectedProcedure = getSelectedProcedure();
-const procedureId = selectedProcedure?.id || requestedProcedureId || (builderMode ? "rascunho" : "default");
+const procedureId = selectedProcedure?.id || requestedProcedureId || (builderMode
+  ? `rascunho-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+  : "default");
 const qualityTokenKey = "procedure-quality-token";
+const procedureUserRole = sessionStorage.getItem("procedure-user-role") || "manager";
+const isManagerUser = ["quality", "manager"].includes(procedureUserRole);
+const procedureEntryTokenKey = "procedure-entry-token";
+const enteredFromHome = sessionStorage.getItem(procedureEntryTokenKey) === "1";
+sessionStorage.removeItem(procedureEntryTokenKey);
 
-let qualityToken = sessionStorage.getItem(qualityTokenKey) || "";
+let qualityToken = enteredFromHome ? sessionStorage.getItem(qualityTokenKey) || "" : "";
+if (!enteredFromHome) sessionStorage.removeItem(qualityTokenKey);
 let activeProcedure = (selectedProcedure?.data ? cloneData(selectedProcedure.data) : null) || (builderMode ? createBlankProcedure() : null);
 let editMode = builderMode;
 let pendingAnnotation = null;
@@ -101,7 +110,7 @@ async function apiRequest(path, options = {}) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || "Erro ao comunicar com o servidor.");
+    throw Object.assign(new Error(data.error || "Erro ao comunicar com o servidor."), { status: response.status });
   }
   return response.json();
 }
@@ -435,6 +444,7 @@ function createBlankProcedure() {
     procedureType: "",
     procedureDescription: "",
     documentStatus: "Em elaboração",
+    elaborationAuthorized: false,
     title: "Novo procedimento",
     documentCode: "IT_NOVO_00",
     qualityInfo: {
@@ -458,7 +468,7 @@ function createBlankProcedure() {
 }
 
 function saveProcedure() {
-  if (!activeProcedure || !qualityToken) return savePromise;
+  if (!activeProcedure || !qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
   const snapshot = cloneData(activeProcedure);
   updateSaveState("pending");
   clearTimeout(saveTimer);
@@ -503,11 +513,12 @@ async function authenticateQuality(password) {
   });
   qualityToken = data.token;
   sessionStorage.setItem(qualityTokenKey, qualityToken);
+  sessionStorage.setItem("procedure-user-role", data.user?.role || "manager");
   return true;
 }
 
 async function loadProcedureFromServer() {
-  if (!procedureId || procedureId === "default") return false;
+  if (!procedureId || procedureId === "default" || params.get("novo") === "1") return false;
   const data = await apiRequest(`/api/procedures/load?id=${encodeURIComponent(procedureId)}`);
   activeProcedure = data.procedure;
   normalizeProcedure(activeProcedure);

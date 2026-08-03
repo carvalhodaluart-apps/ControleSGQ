@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planos de ação e CAPA | Gestão da Qualidade Total</title>
+  <link rel="stylesheet" href="style.css?v=20260803-action-plans-1">
+  <link rel="stylesheet" href="styles/action-plans.css?v=20260803-action-plans-1">
+  <link rel="stylesheet" href="styles/module-shell.css?v=20260803-module-shell-1">
+</head>
+<body>
+  <main class="page action-plan-page is-locked" id="actionPlanApp">
+    <header class="action-plan-header">
+      <div>
+        <a class="back-link" href="index.html">Voltar para a tela inicial</a>
+        <span class="eyebrow">M&oacute;dulo da qualidade</span>
+        <h1>Planos de a&ccedil;&atilde;o e CAPA</h1>
+        <p>Organize corre&ccedil;&otilde;es, a&ccedil;&otilde;es corretivas e preventivas com rastreabilidade.</p>
+      </div>
+      <button type="button" class="primary-button" id="newActionPlan">Novo plano</button>
+    </header>
+
+    <section class="action-plan-list-panel" id="actionPlanListPanel">
+      <div class="action-plan-list-heading">
+        <div><h2>Planos cadastrados</h2><p id="actionPlanCount">Carregando...</p><small class="module-help">Fluxo: Rascunho, aberto, análise de causa, execução, eficácia e conclusão.</small></div>
+        <div class="action-plan-filters"><label>Pesquisar <input type="search" id="actionPlanSearch" placeholder="C&oacute;digo, t&iacute;tulo ou setor"></label><label>Status <select id="actionPlanStatus"><option value="">Todos</option><option>Rascunho</option><option>Aberto</option><option>An&aacute;lise de causa</option><option>Em execu&ccedil;&atilde;o</option><option>Aguardando efic&aacute;cia</option><option>Conclu&iacute;do</option><option>Reaberto</option></select></label></div>
+      </div>
+      <div id="actionPlanList" class="action-plan-list" aria-live="polite"></div>
+    </section>
+
+    <section class="action-plan-editor is-hidden" id="actionPlanEditor">
+      <header class="action-plan-editor-header">
+        <div><button type="button" class="back-link action-plan-back" id="backToActionPlans">Voltar para a lista</button><span class="eyebrow">Registro controlado</span><h2 id="actionPlanEditorTitle">Novo plano</h2></div>
+        <div class="action-plan-editor-actions"><span id="actionPlanSaveStatus"></span><button type="button" class="secondary-button" id="previewActionPlanPdf">Visualizar PDF</button><button type="button" class="secondary-button" id="downloadActionPlanPdf">Baixar PDF</button><button type="button" class="secondary-button" id="cancelActionPlan">Cancelar</button><button type="button" class="danger-button" id="deleteActionPlan">Excluir</button><button type="submit" class="primary-button" form="actionPlanForm">Salvar plano</button></div>
+      </header>
+      <div class="action-plan-editor-body">
+        <nav class="action-plan-section-nav" aria-label="Se&ccedil;&otilde;es do plano"><strong>Se&ccedil;&otilde;es</strong><a href="#plan-identification">Identifica&ccedil;&atilde;o</a><a href="#plan-problem">Problema e evid&ecirc;ncias</a><a href="#plan-containment">Corre&ccedil;&atilde;o imediata</a><a href="#plan-cause">An&aacute;lise de causa</a><a href="#plan-actions">A&ccedil;&otilde;es</a><a href="#plan-effectiveness">Verifica&ccedil;&atilde;o e encerramento</a></nav>
+        <form id="actionPlanForm" class="action-plan-form">
+          <section class="action-plan-card" id="plan-identification"><div class="action-plan-card-heading"><span>1</span><div><h3>Identifica&ccedil;&atilde;o</h3><p>Defina o contexto, a origem e a prioridade do plano.</p></div></div><div class="action-plan-fields action-plan-fields-four"><label>C&oacute;digo <input data-field="documentCode" readonly placeholder="Gerado ao salvar"></label><label class="field-span-two">T&iacute;tulo do plano <input data-field="title" required placeholder="Ex.: Plano de corre&ccedil;&atilde;o do processo"></label><label>Tipo <select data-field="type"><option>Corre&ccedil;&atilde;o</option><option>A&ccedil;&atilde;o corretiva</option><option>A&ccedil;&atilde;o preventiva</option><option>Melhoria</option><option>CAPA</option></select></label><label>Origem <select data-field="origin"><option>N&atilde;o conformidade</option><option>Auditoria</option><option>Calibra&ccedil;&atilde;o</option><option>Treinamento</option><option>Reclama&ccedil;&atilde;o</option><option>Risco</option><option>Cria&ccedil;&atilde;o manual</option></select></label><label>Documento de origem <input data-field="sourceDocument" placeholder="C&oacute;digo ou refer&ecirc;ncia"></label><label>Setor <input data-field="sector" placeholder="Setor respons&aacute;vel"></label><label>Respons&aacute;vel pelo plano <input data-field="responsible" placeholder="Nome do respons&aacute;vel"></label><label>Data de abertura <input type="date" data-field="openingDate"></label><label>Prioridade <select data-field="priority"><option>Baixa</option><option selected>M&eacute;dia</option><option>Alta</option><option>Cr&iacute;tica</option></select></label><label>Status <select data-field="status"><option>Rascunho</option><option>Aberto</option><option>An&aacute;lise de causa</option><option>Em execu&ccedil;&atilde;o</option><option>Aguardando efic&aacute;cia</option><option>Conclu&iacute;do</option><option>Reaberto</option></select></label></div></section>
+
+          <section class="action-plan-card" id="plan-problem"><div class="action-plan-card-heading"><span>2</span><div><h3>Problema e evid&ecirc;ncias</h3><p>Descreva a situa&ccedil;&atilde;o com fatos e registros verific&aacute;veis.</p></div></div><div class="action-plan-fields action-plan-fields-two"><label>Descri&ccedil;&atilde;o do problema <textarea data-field="problemDescription" required placeholder="O que aconteceu e qual requisito n&atilde;o foi atendido?"></textarea></label><label>Descri&ccedil;&atilde;o da situa&ccedil;&atilde;o <textarea data-field="situationDescription" placeholder="Onde, quando e em quais condi&ccedil;&otilde;es ocorreu?"></textarea></label><label>Impacto identificado <textarea data-field="impact" placeholder="Impacto no produto, processo, cliente ou SGQ."></textarea></label><label>Evid&ecirc;ncias iniciais <textarea data-field="initialEvidence" placeholder="Registros, medi&ccedil;&otilde;es, fotos ou documentos relacionados."></textarea></label><label class="field-span-two">Anexos <textarea data-field="attachments" placeholder="Nome dos arquivos, links ou refer&ecirc;ncias anexadas."></textarea></label></div></section>
+
+          <section class="action-plan-card" id="plan-containment"><div class="action-plan-card-heading"><span>3</span><div><h3>Corre&ccedil;&atilde;o ou conten&ccedil;&atilde;o imediata</h3><p>Registre a medida que controla o efeito imediato do problema.</p></div></div><div class="action-plan-fields action-plan-fields-three"><label class="field-span-two">Corre&ccedil;&atilde;o ou conten&ccedil;&atilde;o <textarea data-field="containment" placeholder="O que foi feito para controlar a situa&ccedil;&atilde;o?"></textarea></label><label>Data da conten&ccedil;&atilde;o <input type="date" data-field="containmentDate"></label><label>Respons&aacute;vel pela conten&ccedil;&atilde;o <input data-field="containmentResponsible"></label></div></section>
+
+          <section class="action-plan-card" id="plan-cause"><div class="action-plan-card-heading"><span>4</span><div><h3>An&aacute;lise de causa</h3><p>Identifique e registre a causa raiz para evitar recorr&ecirc;ncia.</p></div></div><div class="action-plan-fields action-plan-fields-two"><label>M&eacute;todo utilizado <select data-field="causeMethod"><option value="">Selecione</option><option>5 Porqu&ecirc;s</option><option>Ishikawa</option><option>Brainstorming</option><option>Outro</option></select></label><label>Categoria da causa <select data-field="causeCategory"><option value="">Selecione</option><option>M&eacute;todo</option><option>M&atilde;o de obra</option><option>M&aacute;quina</option><option>Material</option><option>Medi&ccedil;&atilde;o</option><option>Meio ambiente</option><option>Gest&atilde;o</option><option>Fornecedor</option></select></label><label class="field-span-two">Descri&ccedil;&atilde;o da causa raiz <textarea data-field="rootCause" placeholder="Qual causa deve ser eliminada?"></textarea></label><label>Participantes da an&aacute;lise <textarea data-field="participants" placeholder="Nomes dos participantes."></textarea></label><label>Evid&ecirc;ncias da causa <textarea data-field="causeEvidence" placeholder="Registros que sustentam a causa."></textarea></label><label class="field-span-two">Anexos da an&aacute;lise <textarea data-field="causeAttachments" placeholder="Arquivos, links ou refer&ecirc;ncias."></textarea></label></div><div class="action-plan-whys is-hidden" id="actionPlanWhys"><h4>5 Porqu&ecirc;s</h4><label>Por que ocorreu? <textarea data-why-index="0"></textarea></label><label>Por que essa situa&ccedil;&atilde;o ocorreu? <textarea data-why-index="1"></textarea></label><label>Por que a causa anterior ocorreu? <textarea data-why-index="2"></textarea></label><label>Por que isso n&atilde;o foi detectado? <textarea data-why-index="3"></textarea></label><label>Qual &eacute; a causa raiz? <textarea data-why-index="4"></textarea></label></div></section>
+
+          <section class="action-plan-card" id="plan-actions"><div class="action-plan-card-heading"><span>5</span><div><h3>A&ccedil;&otilde;es</h3><p>Separe corre&ccedil;&otilde;es, a&ccedil;&otilde;es corretivas, preventivas e melhorias.</p></div><button type="button" class="secondary-button" id="addActionPlanAction">Adicionar a&ccedil;&atilde;o</button></div><div id="actionPlanActionsList" class="action-plan-actions-list"></div></section>
+
+          <section class="action-plan-card" id="plan-effectiveness"><div class="action-plan-card-heading"><span>6</span><div><h3>Verifica&ccedil;&atilde;o de efic&aacute;cia e encerramento</h3><p>Defina o crit&eacute;rio antes da execu&ccedil;&atilde;o e registre a avalia&ccedil;&atilde;o.</p></div></div><div class="action-plan-fields action-plan-fields-two"><label>Crit&eacute;rio de efic&aacute;cia <textarea data-effectiveness="criterion" placeholder="Como saberemos que o resultado foi eficaz?"></textarea></label><label>Respons&aacute;vel pela verifica&ccedil;&atilde;o <input data-effectiveness="responsible"></label><label>Data prevista para verifica&ccedil;&atilde;o <input type="date" data-effectiveness="plannedDate"></label><label>Data realizada <input type="date" data-effectiveness="completedDate"></label><label>Resultado <select data-effectiveness="result"><option>Aguardando avalia&ccedil;&atilde;o</option><option>Eficaz</option><option>Parcialmente eficaz</option><option>Ineficaz</option></select></label><label>Evid&ecirc;ncias da efic&aacute;cia <textarea data-effectiveness="evidence"></textarea></label><label>Coment&aacute;rio da avalia&ccedil;&atilde;o <textarea data-effectiveness="comment"></textarea></label><label class="action-plan-check"><input type="checkbox" data-effectiveness="newPlanNeeded"> Necessidade de novo plano</label><label>Data de encerramento <input type="date" data-field="closureDate"></label><label>Aprovador do encerramento <input data-field="closureApprover"></label></div></section>
+          <p class="action-plan-form-error" id="actionPlanFormError" role="alert"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script src="planos-acao.js?v=20260803-action-plans-1"></script>
+</body>
+</html>

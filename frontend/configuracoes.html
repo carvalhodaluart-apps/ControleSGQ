@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configurações | Criador de Procedimentos</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="styles/configuration.css">
+  <link rel="stylesheet" href="style.css?v=20260731-buttons-contrast-1">
+  <link rel="stylesheet" href="styles/configuration.css?v=20260803-nc-config-1">
 </head>
 <body>
   <main class="page configuration-page is-locked">
@@ -22,35 +22,41 @@
     <div class="configuration-error" id="configurationError" role="alert"></div>
     <div class="configuration-status" id="configurationStatus" role="status"></div>
 
-    <section class="configuration-card">
-      <div class="configuration-card-heading">
+    <details class="configuration-card">
+      <summary class="configuration-card-heading">
         <div>
+          <span class="configuration-module-badge">M&oacute;dulo: Procedimentos</span>
           <h2>Tipos de documento</h2>
           <p>Edite o nome e a sigla que formam o primeiro trecho do código.</p>
         </div>
-        <button type="button" class="secondary-button" id="addDocumentType">Adicionar tipo</button>
-      </div>
+        <span class="configuration-card-toggle" aria-hidden="true">+</span>
+      </summary>
+      <div class="configuration-card-actions"><button type="button" class="secondary-button" id="addDocumentType">Adicionar tipo</button></div>
       <div class="configuration-list" id="documentTypesList"></div>
-    </section>
+    </details>
 
-    <section class="configuration-card">
-      <div class="configuration-card-heading">
+    <details class="configuration-card">
+      <summary class="configuration-card-heading">
         <div>
+          <span class="configuration-module-badge">M&oacute;dulo: Procedimentos</span>
           <h2>Setores</h2>
           <p>Edite o setor e a sigla usada no código do documento.</p>
         </div>
-        <button type="button" class="secondary-button" id="addSector">Adicionar setor</button>
-      </div>
+        <span class="configuration-card-toggle" aria-hidden="true">+</span>
+      </summary>
+      <div class="configuration-card-actions"><button type="button" class="secondary-button" id="addSector">Adicionar setor</button></div>
       <div class="configuration-list" id="sectorsList"></div>
-    </section>
+    </details>
 
-    <section class="configuration-card">
-      <div class="configuration-card-heading">
+    <details class="configuration-card">
+      <summary class="configuration-card-heading">
         <div>
+          <span class="configuration-module-badge">M&oacute;dulo: Procedimentos</span>
           <h2>Capa dos documentos</h2>
           <p>Importe uma imagem de fundo e defina onde o título e as informações do documento ficarão posicionados.</p>
         </div>
-      </div>
+        <span class="configuration-card-toggle" aria-hidden="true">+</span>
+      </summary>
       <div class="configuration-cover-editor">
         <div class="configuration-cover-preview" id="coverPreview">
           <div class="configuration-cover-empty" id="coverEmpty">Nenhuma imagem de capa selecionada</div>
@@ -83,18 +89,72 @@
           <small class="configuration-cover-note">A imagem será ajustada automaticamente ao espaço da capa.</small>
         </div>
       </div>
-    </section>
+    </details>
 
-    <section class="configuration-card">
-      <div class="configuration-card-heading">
+    <details class="configuration-card">
+      <summary class="configuration-card-heading">
         <div>
+          <span class="configuration-module-badge">M&oacute;dulo: Procedimentos</span>
           <h2>Controle do documento</h2>
           <p>Escolha quais blocos de informações de SGQ aparecerão no editor e no PDF.</p>
         </div>
-      </div>
+        <span class="configuration-card-toggle" aria-hidden="true">+</span>
+      </summary>
       <p class="configuration-helper"><span aria-hidden="true">&#10003;</span> Marcado: o campo aparece na criação e no PDF. Desmarcado: o campo fica oculto para novos documentos.</p>
       <div class="configuration-quality-list" id="qualityFieldsList"></div>
-    </section>
+    </details>
+
+    <details class="configuration-card">
+      <summary class="configuration-card-heading">
+        <div>
+          <span class="configuration-module-badge configuration-module-badge-nc">M&oacute;dulo: N&atilde;o conformidades</span>
+          <h2>Configura&ccedil;&atilde;o de n&atilde;o conformidades</h2>
+          <p>Defina as origens dispon&iacute;veis, as se&ccedil;&otilde;es usadas no registro e o limite de imagens de evid&ecirc;ncia.</p>
+        </div>
+        <span class="configuration-card-toggle" aria-hidden="true">+</span>
+      </summary>
+      <div class="configuration-card-actions"><button type="button" class="secondary-button" id="addNonconformityOrigin">Adicionar origem</button></div>
+      <div class="configuration-subsection">
+        <h3>Origens das ocorr&ecirc;ncias</h3>
+        <div class="configuration-list" id="nonconformityOriginsList"></div>
+      </div>
+      <div class="configuration-subsection">
+        <h3>Se&ccedil;&otilde;es do registro</h3>
+        <p class="configuration-helper">Desmarque uma se&ccedil;&atilde;o quando ela n&atilde;o fizer parte do fluxo da sua empresa.</p>
+        <div class="configuration-quality-list" id="nonconformitySectionsList"></div>
+      </div>
+      <label class="configuration-number-field">
+        <span>Quantidade m&aacute;xima de imagens de evid&ecirc;ncia</span>
+        <input type="number" id="nonconformityMaxEvidenceImages" min="1" max="10" step="1">
+      </label>
+    </details>
+
+    <details class="configuration-card">
+      <summary class="configuration-card-heading">
+        <div>
+          <h2>Usuários e backup</h2>
+          <span class="configuration-module-badge configuration-module-badge-system">M&oacute;dulo: Sistema</span>
+          <p>Cadastre editores, acompanhe o acesso e proteja os dados do sistema.</p>
+        </div>
+        <span class="configuration-card-toggle" aria-hidden="true">+</span>
+      </summary>
+      <form class="configuration-user-form" id="configurationUserForm">
+        <input id="newUserName" type="text" placeholder="Usuário" autocomplete="off" required>
+        <input id="newUserDisplayName" type="text" placeholder="Nome para exibição" autocomplete="off" required>
+        <input id="newUserPassword" type="password" placeholder="Senha com 8 caracteres" autocomplete="new-password" minlength="8" required>
+        <select id="newUserRole" aria-label="Perfil do usuário"><option value="editor">Editor</option><option value="manager">Gestor</option></select>
+        <button type="submit" class="secondary-button">Adicionar usuário</button>
+      </form>
+      <div class="configuration-user-list" id="configurationUserList"></div>
+      <div class="configuration-backup-actions">
+        <button type="button" class="secondary-button" id="downloadDatabaseBackup">Baixar backup</button>
+        <label class="secondary-button configuration-restore-button">
+          Restaurar backup
+          <input type="file" id="restoreDatabaseBackup" accept="application/json">
+        </label>
+      </div>
+      <small class="configuration-cover-note">A restauração substitui os dados atuais e deve ser usada apenas com um backup confiável.</small>
+    </details>
 
     <footer class="configuration-footer">
       <a class="secondary-button" href="index.html">Cancelar</a>
@@ -117,6 +177,6 @@
       </div>
     </form>
   </div>
-  <script src="configuracoes.js"></script>
+  <script src="configuracoes.js?v=20260803-nc-config-1"></script>
 </body>
 </html>

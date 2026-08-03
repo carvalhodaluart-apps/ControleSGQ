@@ -11,11 +11,32 @@ const masterEditButton = document.querySelector("#masterEdit");
 const masterActionHead = document.querySelector("#masterActionHead");
 const masterAuthTitle = document.querySelector("#masterAuthTitle");
 const masterAuthMessage = document.querySelector("#masterAuthMessage");
+const masterAuditButton = document.querySelector("#masterAudit");
+const masterAuditPanel = document.querySelector("#masterAuditPanel");
+const masterAuditList = document.querySelector("#masterAuditList");
+const masterAuditFilters = document.querySelector("#masterAuditFilters");
+const masterAuditUser = document.querySelector("#masterAuditUser");
+const masterAuditDate = document.querySelector("#masterAuditDate");
+const masterAuditClear = document.querySelector("#masterAuditClear");
+const masterPagination = document.querySelector("#masterPagination");
+const masterPreviousPage = document.querySelector("#masterPreviousPage");
+const masterNextPage = document.querySelector("#masterNextPage");
+const masterPageLabel = document.querySelector("#masterPageLabel");
 const masterTokenKey = "procedure-quality-token";
-let qualityToken = sessionStorage.getItem(masterTokenKey) || "";
+const masterRoleKey = "procedure-user-role";
+const masterEntryTokenKey = "master-entry-token";
+const enteredFromHome = sessionStorage.getItem(masterEntryTokenKey) === "1";
+sessionStorage.removeItem(masterEntryTokenKey);
+let qualityToken = enteredFromHome ? sessionStorage.getItem(masterTokenKey) || "" : "";
+if (!enteredFromHome) sessionStorage.removeItem(masterTokenKey);
 let masterDocuments = [];
+let masterFilteredDocuments = [];
 let masterQuery = "";
 let masterEditMode = false;
+let masterPage = 1;
+const masterPageSize = 50;
+const storedMasterRole = sessionStorage.getItem(masterRoleKey);
+let masterCanEdit = !storedMasterRole || ["quality", "manager"].includes(storedMasterRole);
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
@@ -34,11 +55,17 @@ function normalizeSearch(value) {
 }
 
 function renderDocuments(documents) {
+  const totalPages = Math.max(1, Math.ceil(documents.length / masterPageSize));
+  masterPage = Math.min(masterPage, totalPages);
+  const pageStart = (masterPage - 1) * masterPageSize;
+  const pageDocuments = documents.slice(pageStart, pageStart + masterPageSize);
+  masterEditButton.hidden = !masterCanEdit;
+  masterAuditButton.hidden = !masterCanEdit;
   masterActionHead.hidden = !masterEditMode;
   masterCount.textContent = masterQuery
     ? `${documents.length} de ${masterDocuments.length} documento${masterDocuments.length === 1 ? "" : "s"}`
     : `${documents.length} documento${documents.length === 1 ? "" : "s"}`;
-  masterBody.innerHTML = documents.length ? documents.map((document) => `
+  masterBody.innerHTML = documents.length ? pageDocuments.map((document) => `
     <tr>
       <td><strong>${escapeHtml(document.documentCode)}</strong></td>
       <td>${escapeHtml(document.title || "Não informado")}</td>
@@ -51,12 +78,16 @@ function renderDocuments(documents) {
       <td class="master-locations">
         <label>Publicado<input type="text" value="${escapeHtml(document.documentPublicLocation)}" data-location-public ${masterEditMode ? "" : "disabled"}></label>
         <label>Qualidade<input type="text" value="${escapeHtml(document.documentOriginalLocation)}" data-location-original ${masterEditMode ? "" : "disabled"}></label>
-        <button type="button" class="secondary-button master-location-save" data-location-save="${escapeHtml(document.procedureId)}" ${masterEditMode ? "" : "disabled"}>Salvar</button>
+        <button type="button" class="secondary-button master-location-save" data-location-save="${escapeHtml(document.procedureId)}" ${masterEditMode ? "" : "hidden"}>Salvar</button>
         <small data-location-state></small>
       </td>
       <td ${masterEditMode ? "" : "hidden"}><button type="button" class="danger-button master-delete-button" data-master-delete="${escapeHtml(document.procedureId)}">Excluir</button></td>
     </tr>
   `).join("") : `<tr><td class="master-empty" colspan="${masterEditMode ? 10 : 9}">Nenhum documento cadastrado.</td></tr>`;
+  masterPagination.hidden = documents.length <= masterPageSize;
+  masterPreviousPage.disabled = masterPage <= 1;
+  masterNextPage.disabled = masterPage >= totalPages;
+  masterPageLabel.textContent = `Página ${masterPage} de ${totalPages}`;
 }
 
 function filterDocuments() {
@@ -64,7 +95,20 @@ function filterDocuments() {
   const filtered = query
     ? masterDocuments.filter((document) => Object.values(document).some((value) => normalizeSearch(value).includes(query)))
     : masterDocuments;
+  masterFilteredDocuments = filtered;
   renderDocuments(filtered);
+}
+
+async function loadAudit() {
+  const params = new URLSearchParams({ limit: "500" });
+  if (masterAuditUser.value.trim()) params.set("actorUsername", masterAuditUser.value.trim());
+  if (masterAuditDate.value) params.set("date", masterAuditDate.value);
+  const response = await fetch(`/api/admin/audit?${params.toString()}`, { headers: { Authorization: `Bearer ${qualityToken}` } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Nao foi possivel carregar a auditoria.");
+  masterAuditList.innerHTML = data.audit.length ? data.audit.map((item) => `
+    <div class="master-audit-row"><strong>${escapeHtml(item.action)}</strong><span>${escapeHtml(item.actorUsername)} &middot; ${escapeHtml(new Date(item.createdAt).toLocaleString("pt-BR"))}</span><small>${escapeHtml(item.procedureId || "Sistema")}</small></div>
+  `).join("") : `<p class="master-empty">Nenhuma ação registrada.</p>`;
 }
 
 function showMasterDeleteConfirmation(label) {
@@ -117,6 +161,8 @@ masterAuthForm.addEventListener("submit", async (event) => {
     if (!response.ok) throw new Error(data.error || "Senha incorreta.");
     qualityToken = data.token;
     sessionStorage.setItem(masterTokenKey, qualityToken);
+    sessionStorage.setItem(masterRoleKey, "manager");
+    masterCanEdit = true;
     if (authMode === "edit") {
       masterEditMode = true;
       masterEditButton.textContent = "Sair da edição";
@@ -131,6 +177,7 @@ masterAuthForm.addEventListener("submit", async (event) => {
 
 document.querySelector("#masterRefresh").addEventListener("click", () => loadMasterList().catch((error) => { masterError.textContent = error.message; }));
 masterEditButton.addEventListener("click", () => {
+  if (!masterCanEdit) return;
   if (masterEditMode) {
     masterEditMode = false;
     masterEditButton.textContent = "Editar";
@@ -138,6 +185,38 @@ masterEditButton.addEventListener("click", () => {
     return;
   }
   showAuth("edit");
+});
+masterAuditButton.addEventListener("click", async () => {
+  masterAuditPanel.hidden = false;
+  try {
+    await loadAudit();
+  } catch (error) {
+    masterAuditList.innerHTML = `<p class="master-error">${escapeHtml(error.message)}</p>`;
+  }
+});
+document.querySelector("#masterAuditClose").addEventListener("click", () => { masterAuditPanel.hidden = true; });
+masterAuditFilters.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await loadAudit();
+  } catch (error) {
+    masterAuditList.innerHTML = `<p class="master-error">${escapeHtml(error.message)}</p>`;
+  }
+});
+masterAuditClear.addEventListener("click", async () => {
+  masterAuditUser.value = "";
+  masterAuditDate.value = "";
+  try {
+    await loadAudit();
+  } catch (error) {
+    masterAuditList.innerHTML = `<p class="master-error">${escapeHtml(error.message)}</p>`;
+  }
+});
+masterAuditPanel.addEventListener("click", (event) => {
+  if (event.target === masterAuditPanel) masterAuditPanel.hidden = true;
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") masterAuditPanel.hidden = true;
 });
 masterBody.addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-master-delete]");
@@ -192,6 +271,18 @@ masterBody.addEventListener("click", async (event) => {
 });
 masterSearch.addEventListener("input", () => {
   masterQuery = masterSearch.value;
+  masterPage = 1;
+  filterDocuments();
+});
+masterPreviousPage.addEventListener("click", () => {
+  if (masterPage <= 1) return;
+  masterPage -= 1;
+  filterDocuments();
+});
+masterNextPage.addEventListener("click", () => {
+  const totalPages = Math.max(1, Math.ceil(masterFilteredDocuments.length / masterPageSize));
+  if (masterPage >= totalPages) return;
+  masterPage += 1;
   filterDocuments();
 });
 loadMasterList().catch((error) => { masterError.textContent = error.message; });

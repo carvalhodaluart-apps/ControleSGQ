@@ -1,5 +1,6 @@
 const express = require("express");
-const { requireQuality } = require("../services/procedureAuth");
+const { getRequestUser, requireProcedureEditor, requireQuality } = require("../services/procedureAuth");
+const { recordAudit } = require("../services/procedureAudit");
 const {
   getProcedureConfiguration,
   saveProcedureConfiguration,
@@ -11,7 +12,7 @@ function handleError(res, error) {
   res.status(error.status || 500).json({ error: error.message || "Erro interno." });
 }
 
-router.get("/", requireQuality, async (_req, res) => {
+router.get("/", requireProcedureEditor, async (_req, res) => {
   try {
     res.json({ configuration: await getProcedureConfiguration() });
   } catch (error) {
@@ -21,7 +22,9 @@ router.get("/", requireQuality, async (_req, res) => {
 
 router.put("/", requireQuality, async (req, res) => {
   try {
-    res.json({ configuration: await saveProcedureConfiguration(req.body?.configuration || req.body) });
+    const configuration = await saveProcedureConfiguration(req.body?.configuration || req.body);
+    await recordAudit({ action: "configuration-updated", user: getRequestUser(req) });
+    res.json({ configuration });
   } catch (error) {
     handleError(res, error);
   }

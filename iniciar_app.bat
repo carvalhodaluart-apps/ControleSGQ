@@ -3,7 +3,8 @@ setlocal
 
 cd /d "%~dp0"
 set "APP_PORT=3000"
-set "APP_URL=http://127.0.0.1:%APP_PORT%/"
+if not defined APP_HOST set "APP_HOST=127.0.0.1"
+set "APP_URL=http://%APP_HOST%:%APP_PORT%/"
 if not defined QUALITY_PASSWORD (
   set /p "QUALITY_PASSWORD=Digite a senha da qualidade: "
   echo.
@@ -49,7 +50,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if not exist "node_modules\express" (
+if not exist "node_modules\express" goto install_dependencies
+if not exist "node_modules\helmet" goto install_dependencies
+if not exist "node_modules\express-rate-limit" goto install_dependencies
+goto dependencies_ready
+
+:install_dependencies
   echo Instalando dependencias...
   call npm install
   if errorlevel 1 (
@@ -57,7 +63,8 @@ if not exist "node_modules\express" (
     pause
     exit /b 1
   )
-)
+
+:dependencies_ready
 
 echo PostgreSQL pronto. Atualizando a lista mestra...
 call npm run import:master
@@ -67,8 +74,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo Encerrando o backend anterior, se estiver aberto...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$processes = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -match 'node[\\ ]+backend[\\/]server\.js' }; $processes | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+
 echo Iniciando backend em %APP_URL%
-start "Backend - Procedimentos" cmd /k "cd /d ""%~dp0"" && set ""PORT=%APP_PORT%"" && set ""QUALITY_PASSWORD=%QUALITY_PASSWORD%"" && set ""DATABASE_URL=%DATABASE_URL%"" && npm start"
+start "Backend - Procedimentos" cmd /k "cd /d ""%~dp0"" && set ""PORT=%APP_PORT%"" && set ""APP_HOST=%APP_HOST%"" && set ""QUALITY_PASSWORD=%QUALITY_PASSWORD%"" && set ""DATABASE_URL=%DATABASE_URL%"" && npm start"
 
 echo Aguardando o backend responder...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:%APP_PORT%/api/procedures/health'; for ($i=0; $i -lt 40; $i++) { try { $r=Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } } catch {}; Start-Sleep -Milliseconds 500 }; exit 1"

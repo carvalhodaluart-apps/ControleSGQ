@@ -120,7 +120,9 @@
   border-radius: 8px;
   background: var(--primary);
   color: #fff;
+  font: inherit;
   font-weight: 800;
+  cursor: pointer;
   text-decoration: none;
 }
 .creator-settings-icon {
@@ -136,8 +138,7 @@
   border-radius: 50%;
   background: var(--surface);
   color: var(--muted);
-  font-size: 1.45rem;
-  line-height: 1;
+  cursor: pointer;
   text-decoration: none;
   box-shadow: var(--shadow-soft);
 }
@@ -151,7 +152,7 @@
   color: #fff;
 }
 .creator-module-card {
-  position: relative;
+  position: relative; display: flex; flex-direction: column;
   padding: 28px 32px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -165,15 +166,6 @@
   inset: 0 auto 0 0;
   width: 7px;
   background: #f37021;
-}
-.creator-module-kicker {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: #b94a00;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .creator-module-card > h2 {
   margin: 0 0 8px;
@@ -189,17 +181,14 @@
   display: grid;
   gap: 10px;
   max-width: 420px;
-  margin-top: 22px;
+  margin-top: auto; padding-top: 22px;
 }
 .creator-import-button {
   position: relative;
   justify-self: stretch;
   overflow: hidden;
-  color: #fff;
-  background: var(--primary);
 }
-.creator-start-button,
-.creator-import-button {
+.creator-start-button, .creator-import-button {
   appearance: none;
   border: 1px solid var(--primary);
   border-radius: 8px;
@@ -218,12 +207,13 @@
   text-decoration: none;
   cursor: pointer;
 }
-.creator-start-button:hover,
-.creator-import-button:hover {
+.creator-start-button:hover, .creator-import-button:hover {
   border-color: var(--primary-dark);
   background: var(--primary-dark);
   color: #fff;
 }
+.creator-import-button { border-color: var(--line); background: var(--surface); color: var(--text); }
+.creator-import-button:hover { border-color: rgba(21, 94, 239, 0.46); background: #f3f7ff; color: var(--text); }
 .creator-import-button input {
   position: absolute;
   inset: 0;
@@ -236,7 +226,6 @@
   color: #a32522;
   font-size: 0.9rem;
 }
-
 .confirm-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -378,11 +367,12 @@
 .confirm-dialog-actions .confirm-primary {
   border-color: var(--primary);
   background: var(--primary);
+  color: #ffffff;
 }
-
 .confirm-dialog-actions .confirm-primary:hover {
   border-color: var(--primary-dark);
   background: var(--primary-dark);
+  color: #ffffff;
 }
 
 .confirm-dialog-actions .confirm-cancel:hover {

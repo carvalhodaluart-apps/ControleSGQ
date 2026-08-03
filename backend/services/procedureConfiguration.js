@@ -59,6 +59,28 @@ function normalizeQualityFields(entries, defaults) {
   });
 }
 
+function normalizeNonconformityConfig(input, defaults) {
+  const source = input && typeof input === "object" ? input : {};
+  const originSource = Array.isArray(source.origins) ? source.origins : defaults.origins;
+  const origins = originSource.map((entry, index) => ({
+    key: keyFor(entry?.key, `origem-${index + 1}`),
+    label: text(entry?.label),
+    active: isActive(entry?.active),
+  })).filter((entry) => entry.label);
+  const providedSections = new Map((Array.isArray(source.sections) ? source.sections : []).map((entry) => [text(entry?.key), entry]));
+  const sections = defaults.sections.map((defaultSection) => ({
+    key: defaultSection.key,
+    label: defaultSection.label,
+    active: isActive((providedSections.get(defaultSection.key) || defaultSection).active),
+  }));
+  const requestedLimit = Number(source.maxEvidenceImages);
+  return {
+    origins: origins.length ? origins : defaults.origins,
+    sections,
+    maxEvidenceImages: Number.isFinite(requestedLimit) ? Math.max(1, Math.min(10, Math.round(requestedLimit))) : defaults.maxEvidenceImages,
+  };
+}
+
 function normalizeCover(cover, defaults) {
   const validPositions = new Set(["top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right", "custom"]);
   const imageData = text(cover?.imageData);
@@ -82,6 +104,7 @@ function normalizeConfiguration(input = {}) {
     sectors: normalizeEntries(input.sectors, defaults.sectors),
     qualityFields: normalizeQualityFields(input.qualityFields, defaults.qualityFields),
     cover: normalizeCover(input.cover, defaults.cover),
+    nonconformity: normalizeNonconformityConfig(input.nonconformity, defaults.nonconformity),
   };
   validateConfiguration(configuration);
   return configuration;
@@ -104,6 +127,8 @@ function validateConfiguration(configuration) {
       prefixes.add(entry.prefix);
     });
   }
+  if (!configuration.nonconformity.origins.some((entry) => entry.active)) throw configurationError("Mantenha pelo menos uma origem de n\u00e3o conformidade ativa.");
+  if (!configuration.nonconformity.sections.some((entry) => entry.active)) throw configurationError("Mantenha pelo menos uma se\u00e7\u00e3o de n\u00e3o conformidade ativa.");
 }
 
 function configurationError(message) {
@@ -115,10 +140,10 @@ function configurationError(message) {
 async function ensureProcedureConfiguration() {
   const defaults = getDefaultConfiguration();
   await getPool().query(`
-    INSERT INTO procedure_configuration (configuration_id, document_types, sectors, quality_fields, cover)
-    VALUES (1, $1::jsonb, $2::jsonb, $3::jsonb, $4::jsonb)
+    INSERT INTO procedure_configuration (configuration_id, document_types, sectors, quality_fields, cover, nonconformity)
+    VALUES (1, $1::jsonb, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb)
     ON CONFLICT (configuration_id) DO NOTHING
-  `, [JSON.stringify(defaults.documentTypes), JSON.stringify(defaults.sectors), JSON.stringify(defaults.qualityFields), JSON.stringify(defaults.cover)]);
+  `, [JSON.stringify(defaults.documentTypes), JSON.stringify(defaults.sectors), JSON.stringify(defaults.qualityFields), JSON.stringify(defaults.cover), JSON.stringify(defaults.nonconformity)]);
   const configuration = await getProcedureConfiguration();
   setProcedureConfiguration(configuration);
   return configuration;
@@ -126,7 +151,7 @@ async function ensureProcedureConfiguration() {
 
 async function getProcedureConfiguration() {
   const result = await getPool().query(`
-    SELECT document_types AS "documentTypes", sectors, quality_fields AS "qualityFields", cover, updated_at AS "updatedAt"
+    SELECT document_types AS "documentTypes", sectors, quality_fields AS "qualityFields", cover, nonconformity, updated_at AS "updatedAt"
     FROM procedure_configuration
     WHERE configuration_id = 1
   `);
@@ -138,10 +163,10 @@ async function saveProcedureConfiguration(input) {
   const configuration = normalizeConfiguration(input);
   const result = await getPool().query(`
     UPDATE procedure_configuration
-    SET document_types = $1::jsonb, sectors = $2::jsonb, quality_fields = $3::jsonb, cover = $4::jsonb, updated_at = NOW()
+    SET document_types = $1::jsonb, sectors = $2::jsonb, quality_fields = $3::jsonb, cover = $4::jsonb, nonconformity = $5::jsonb, updated_at = NOW()
     WHERE configuration_id = 1
     RETURNING updated_at AS "updatedAt"
-  `, [JSON.stringify(configuration.documentTypes), JSON.stringify(configuration.sectors), JSON.stringify(configuration.qualityFields), JSON.stringify(configuration.cover)]);
+  `, [JSON.stringify(configuration.documentTypes), JSON.stringify(configuration.sectors), JSON.stringify(configuration.qualityFields), JSON.stringify(configuration.cover), JSON.stringify(configuration.nonconformity)]);
   setProcedureConfiguration(configuration);
   return { ...configuration, updatedAt: result.rows[0]?.updatedAt || null };
 }

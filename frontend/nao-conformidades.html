@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Não conformidades | Gestão da Qualidade Total</title>
+  <link rel="stylesheet" href="style.css?v=20260803-nonconformity-5">
+</head>
+<body>
+  <main class="page nonconformity-page is-locked" id="nonconformityApp">
+    <header class="nc-page-header">
+      <div>
+        <a class="nc-back-link" href="index.html">Voltar para a tela inicial</a>
+        <span class="eyebrow">Módulo da qualidade</span>
+        <h1>Não conformidade</h1>
+        <p>Registre problemas, defina ações corretivas e acompanhe a verificação de eficácia.</p>
+      </div>
+      <button type="button" class="primary-button" id="newNonconformity">Nova não conformidade</button>
+    </header>
+
+    <section class="nc-list-panel" id="ncListPanel" aria-labelledby="ncListTitle">
+      <div class="nc-panel-heading">
+        <div>
+          <h2 id="ncListTitle">Registros cadastrados</h2>
+          <p id="ncCount">Carregando...</p>
+        </div>
+        <div class="nc-list-filters">
+          <label>Pesquisar <input type="search" id="ncSearch" placeholder="Código, título ou setor"></label>
+          <label>Status
+            <select id="ncStatusFilter">
+              <option value="">Todos</option>
+              <option>Aberta</option>
+              <option>Em tratamento</option>
+              <option>Aguardando eficácia</option>
+              <option>Encerrada</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="nc-list" id="ncList" aria-live="polite"></div>
+    </section>
+
+    <section class="nc-editor-panel is-hidden" id="ncEditorPanel" aria-labelledby="ncEditorTitle">
+      <div class="nc-editor-heading">
+        <div>
+          <button type="button" class="nc-back-link nc-editor-back" id="backToNcList">Voltar para a lista</button>
+          <span class="eyebrow">Registro controlado</span>
+          <h2 id="ncEditorTitle">Nova não conformidade</h2>
+        </div>
+        <div class="nc-editor-actions">
+          <span class="nc-save-status" id="ncSaveStatus"></span>
+          <button type="button" class="secondary-button" id="previewNcPdf" disabled>Visualizar PDF</button>
+          <button type="button" class="secondary-button" id="downloadNcPdf" disabled>Baixar PDF</button>
+          <button type="button" class="secondary-button" id="cancelNcEdit">Cancelar</button>
+          <button type="submit" class="primary-button" form="ncForm">Salvar registro</button>
+        </div>
+      </div>
+
+      <div class="nc-editor-body">
+        <nav class="nc-section-nav" aria-label="Seções da não conformidade">
+          <strong>Seções</strong>
+          <a href="#nc-identification" data-nc-nav="identification">Identificação</a>
+          <a href="#nc-description" data-nc-nav="description">Descrição e evidências</a>
+          <a href="#nc-containment" data-nc-nav="containment">Correção e contenção</a>
+          <a href="#nc-cause" data-nc-nav="cause">Análise de causa</a>
+          <a href="#nc-actions" data-nc-nav="actions">Plano de ação</a>
+          <a href="#nc-effectiveness" data-nc-nav="effectiveness">Verificação de eficácia</a>
+          <a href="#nc-closure" data-nc-nav="closure">Encerramento</a>
+        </nav>
+        <form id="ncForm" class="nc-form">
+        <section class="nc-form-card" id="nc-identification" data-nc-section="identification">
+          <div class="nc-form-card-heading"><span>1</span><div><h3>Identificação</h3><p>Registre a origem e o contexto da ocorrência.</p></div></div>
+          <div class="nc-fields nc-fields-four">
+            <label>Código <input data-field="documentCode" readonly placeholder="Gerado ao salvar"></label>
+            <label>Data de abertura <input type="date" data-field="issueDate" required></label>
+            <label>Origem
+              <select data-field="origin"><option>Auditoria interna</option><option>Cliente</option><option>Fornecedor</option><option>Processo</option><option>Produto</option><option>Documento</option><option>Outro</option></select>
+            </label>
+            <label>Status
+              <select data-field="status"><option>Aberta</option><option>Em tratamento</option><option>Aguardando eficácia</option><option>Encerrada</option></select>
+            </label>
+            <label class="field-span-two nc-required"><span class="nc-label-text">Título da não conformidade <span class="nc-required-mark">*</span></span><input data-field="title" required placeholder="Ex.: Falha na identificação do material"></label>
+            <label>Setor / processo <input data-field="sector" placeholder="Ex.: Produção"></label>
+            <label>Registrado por <input data-field="reporter" placeholder="Nome do registrador"></label>
+            <label>Responsável pelo tratamento <input data-field="responsible" placeholder="Nome do responsável"></label>
+            <label class="field-span-two">Produto, processo, equipamento ou documento afetado <input data-field="affectedItem" placeholder="Informe o item relacionado"></label>
+          </div>
+        </section>
+
+        <section class="nc-form-card" id="nc-description" data-nc-section="description">
+          <div class="nc-form-card-heading"><span>2</span><div><h3>Descrição e evidências</h3><p>Descreva o fato com objetividade e registre as evidências disponíveis.</p></div></div>
+          <div class="nc-evidence-layout">
+            <div class="nc-evidence-text-grid">
+              <label class="nc-required"><span class="nc-label-text">Descrição da não conformidade <span class="nc-required-mark">*</span></span><textarea data-field="description" required placeholder="O que aconteceu, onde ocorreu e qual requisito ou condição não foi atendido?"></textarea></label>
+            </div>
+            <div class="nc-evidence-image-field">
+              <label class="nc-field-caption">Imagem da evidência</label>
+              <div class="nc-file-picker">
+                <input type="file" id="ncEvidenceImageInput" accept="image/png,image/jpeg,image/webp" multiple>
+                <label for="ncEvidenceImageInput">Selecionar imagem</label>
+                <strong id="ncEvidenceFileName">Nenhuma imagem selecionada</strong>
+              </div>
+              <small class="nc-evidence-hint">PNG, JPG ou WEBP · até 10 imagens. Para cada imagem, informe o nome e o que ela comprova.</small>
+              <div class="nc-evidence-preview" id="ncEvidencePreview"></div>
+              <button type="button" class="nc-remove-evidence" id="removeNcEvidenceImage">× Remover imagens</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="nc-form-card" id="nc-containment" data-nc-section="containment">
+          <div class="nc-form-card-heading"><span>3</span><div><h3>Correção e contenção</h3><p>Registre o que foi feito para controlar o efeito imediato do problema.</p></div></div>
+          <div class="nc-fields nc-fields-four">
+            <label class="field-span-two">Ação imediata / contenção <textarea data-field="containment" placeholder="Como o produto, processo ou documento foi contido?"></textarea></label>
+            <label>Responsável <input data-field="containmentResponsible"></label>
+            <label>Data da contenção <input type="date" data-field="containmentDate"></label>
+          </div>
+        </section>
+
+        <section class="nc-form-card" id="nc-cause" data-nc-section="cause">
+          <div class="nc-form-card-heading"><span>4</span><div><h3>Análise de causa</h3><p>Investigue a causa para evitar a repetição da não conformidade.</p></div></div>
+          <div class="nc-fields nc-fields-two">
+            <label>Método utilizado <select data-field="causeMethod"><option value="">Selecione</option><option>5 Porquês</option><option>Ishikawa</option><option>Análise de processo</option><option>Outro</option></select></label>
+            <label>Causa raiz <input data-field="rootCause" placeholder="Causa que deve ser eliminada"></label>
+            <label class="field-span-two">Análise realizada <textarea data-field="causeAnalysis" placeholder="Descreva o raciocínio, fatos e evidências que levaram à causa raiz."></textarea></label>
+          </div>
+        </section>
+
+        <section class="nc-form-card" id="nc-actions" data-nc-section="actions">
+          <div class="nc-form-card-heading"><span>5</span><div><h3>Plano de ação corretiva</h3><p>Defina ações, responsáveis, prazos e evidências de conclusão.</p></div><button type="button" class="secondary-button nc-small-button" id="addNcAction">Adicionar ação</button></div>
+          <div class="nc-actions-list" id="ncActionsList"></div>
+        </section>
+
+        <section class="nc-form-card" id="nc-effectiveness" data-nc-section="effectiveness">
+          <div class="nc-form-card-heading"><span>6</span><div><h3>Verificação de eficácia</h3><p>Confirme se as ações eliminaram ou reduziram a causa da ocorrência.</p></div></div>
+          <div class="nc-fields nc-fields-four">
+            <label>Data da verificação <input type="date" data-field="effectivenessDate"></label>
+            <label>Verificado por <input data-field="effectivenessVerifier"></label>
+            <label>Resultado <select data-field="effective"><option value="">Ainda não verificado</option><option value="true">Eficaz</option><option value="false">Não eficaz</option></select></label>
+            <label class="field-span-two">Resultado e evidências <textarea data-field="effectivenessResult" placeholder="Descreva como a eficácia foi confirmada."></textarea></label>
+          </div>
+        </section>
+
+        <section class="nc-form-card" id="nc-closure" data-nc-section="closure">
+          <div class="nc-form-card-heading"><span>7</span><div><h3>Encerramento e contexto</h3><p>Conclua o registro somente após avaliar a eficácia das ações.</p></div></div>
+          <div class="nc-fields nc-fields-four">
+            <label>Aprovador do encerramento <input data-field="closureApprover"></label>
+            <label>Data de encerramento <input type="date" data-field="closureDate"></label>
+            <label class="nc-checkbox-label"><input type="checkbox" data-field="climateImpact"> Há impacto relacionado a mudanças climáticas?</label>
+            <label class="field-span-two">Justificativa do impacto climático <textarea data-field="climateJustification" placeholder="Preencha quando a opção acima for marcada."></textarea></label>
+            <label class="field-span-four">Observações de encerramento <textarea data-field="closureNotes"></textarea></label>
+          </div>
+        </section>
+        <p class="nc-form-error" id="ncFormError" role="alert"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+  <div class="nc-unsaved-backdrop is-hidden" id="ncUnsavedDialog" role="dialog" aria-modal="true" aria-labelledby="ncUnsavedTitle">
+    <section class="nc-unsaved-dialog">
+      <span class="nc-unsaved-icon">!</span>
+      <div><h2 id="ncUnsavedTitle">Alterações não salvas</h2><p>Você tem alterações neste registro. O que deseja fazer?</p></div>
+      <div class="nc-unsaved-actions"><button type="button" class="secondary-button" id="keepNcEditing">Continuar editando</button><button type="button" class="danger-button" id="discardNcChanges">Descartar alterações</button></div>
+    </section>
+  </div>
+  <script src="nao-conformidades.js?v=20260803-nc-pdf-2"></script>
+</body>
+</html>

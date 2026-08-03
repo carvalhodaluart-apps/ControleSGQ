@@ -1,0 +1,31 @@
+.creator-settings-icon-mark {
+  width: 19px;
+  height: 19px;
+  background: currentColor;
+  -webkit-mask: url("../assets/gear_106450.svg") center / contain no-repeat;
+  mask: url("../assets/gear_106450.svg") center / contain no-repeat;
+}
+
+.creator-settings-icon::after {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--text);
+  color: #fff;
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity .16s ease, transform .16s ease;
+  white-space: nowrap;
+}
+
+.creator-settings-icon:hover::after,
+.creator-settings-icon:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}

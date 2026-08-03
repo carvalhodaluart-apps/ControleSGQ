@@ -183,10 +183,10 @@ function renderProcedureActionBar(procedure) {
         <span class="save-state" data-save-state="${saveState}">${saveState === "pending" ? "Salvando..." : saveState === "error" ? "Erro ao salvar" : "Alterações salvas"}</span>
       </div>
       <div class="procedure-action-buttons">
-        <button type="button" class="primary-button" data-publish-procedure>Publicar</button>
+         ${isManagerUser ? '<button type="button" class="primary-button" data-publish-procedure>Publicar</button>' : ''}
         <button type="button" class="secondary-button" data-export-pdf>Visualizar PDF</button>
         <button type="button" class="secondary-button" data-export-json>Baixar JSON</button>
-        <button type="button" class="danger-button" data-delete-procedure>Excluir</button>
+         ${isManagerUser ? '<button type="button" class="danger-button" data-delete-procedure>Excluir</button>' : ''}
       </div>
     </section>
   `;
@@ -219,8 +219,9 @@ function renderProcedure(procedure) {
   const procedureTypeLabel = procedureTypes[procedure.procedureType] || "Procedimento";
   const docType = getDocumentTypeConfig(procedure.qualityInfo?.documentType);
   const equipmentOptions = [...Object.keys(equipmentImages), "OUTROS"]
-    .map((code) => `<option value="${escapeHtml(code)}" ${code === procedure.equipmentCode ? "selected" : ""}>${escapeHtml(getEquipmentName(code))}</option>`)
-    .join("");
+    .map((code) => `<option value="${escapeHtml(code)}" ${code === procedure.equipmentCode && procedure.equipmentImageMode !== "none" ? "selected" : ""}>${escapeHtml(getEquipmentName(code))}</option>`)
+    .join("")
+    + `<option value="SEM_IMAGEM" ${procedure.equipmentImageMode === "none" ? "selected" : ""}>Sem imagem</option>`;
 
   procedureRoot.innerHTML = `
     <header class="procedure-hero">
@@ -233,7 +234,7 @@ function renderProcedure(procedure) {
               <input type="text" value="${escapeHtml(procedure.title)}" data-procedure-title>
             </label>
             <label>
-              Equipamento
+              Imagem do equipamento
               <select data-procedure-equipment-code>
                 <option value="">Selecione o equipamento</option>
                 ${equipmentOptions}
@@ -305,6 +306,7 @@ function renderProcedure(procedure) {
           </header>
           ${renderQualityInfo(procedure)}
           ${renderRevisionTable(procedure.revision)}
+          ${renderElaborationAuthorization(procedure)}
         </section>
 
         <section class="editor-flow-group editor-content-group">

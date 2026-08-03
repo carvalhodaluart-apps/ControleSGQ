@@ -211,6 +211,25 @@
   background: #f9fbff;
 }
 
+.elaboration-authorization-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-top: 16px;
+  padding: 18px 20px;
+  border: 1px solid #f3c66d;
+  border-left: 6px solid var(--brand-orange);
+  border-radius: var(--radius-card);
+  background: #fff8e8;
+}
+.elaboration-authorization-card h2 { margin: 5px 0; font-size: 1.05rem; }
+.elaboration-authorization-card p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.45; }
+.elaboration-authorization-card .eyebrow { color: #a45b00; }
+.elaboration-authorization-card .primary-button { flex: 0 0 auto; white-space: nowrap; }
+.elaboration-authorization-error { min-height: 20px; margin-top: 8px !important; color: var(--danger-dark) !important; font-weight: 700; }
+@media (max-width: 700px) { .elaboration-authorization-card { align-items: stretch; flex-direction: column; } .elaboration-authorization-card .primary-button { width: 100%; } }
+
 .procedure-empty-editor h2 {
   margin-bottom: 5px;
   font-size: 1.08rem;

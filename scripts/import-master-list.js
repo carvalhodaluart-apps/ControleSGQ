@@ -42,11 +42,11 @@ async function importMasterList() {
       ]);
       if (row.documentNumber > 0 && row.documentType && row.sector) {
         await client.query(`
-          INSERT INTO document_number_sequences (document_type, sector, next_number)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (document_type, sector) DO UPDATE
+          INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (document_type, sector, sector_prefix) DO UPDATE
           SET next_number = GREATEST(document_number_sequences.next_number, EXCLUDED.next_number)
-        `, [row.documentType, row.sector, Number(row.documentNumber) + 1]);
+        `, [row.documentType, row.sector, row.sectorPrefix || "", Number(row.documentNumber) + 1]);
       }
       imported += 1;
     }

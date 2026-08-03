@@ -2,4 +2,6 @@ node_modules/
 npm-debug.log*
 .env
 backend/dados_procedimentos/rascunhos/
+backups/
+tmp/
 temp-video-frame.png

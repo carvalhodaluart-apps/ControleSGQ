@@ -2,6 +2,13 @@ function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function repairMojibake(value) {
+  const text = String(value ?? "");
+  if (!/[\u00c2\u00c3\ufffd]/.test(text)) return text;
+  const repaired = Buffer.from(text, "latin1").toString("utf8");
+  return repaired.includes("\ufffd") ? text : repaired;
+}
+
 function slugify(value) {
   return String(value || "procedimento")
     .normalize("NFD")
@@ -65,11 +72,32 @@ const DEFAULT_COVER = {
   overlayX: 0.5,
   overlayY: 0.5,
 };
+const DEFAULT_NONCONFORMITY = {
+  origins: [
+    { key: "auditoria-interna", label: "Auditoria interna", active: true },
+    { key: "cliente", label: "Cliente", active: true },
+    { key: "fornecedor", label: "Fornecedor", active: true },
+    { key: "processo", label: "Processo", active: true },
+    { key: "produto", label: "Produto", active: true },
+    { key: "documento", label: "Documento", active: true },
+    { key: "outro", label: "Outro", active: true },
+  ],
+  sections: [
+    { key: "identification", label: "Identifica\u00e7\u00e3o", active: true },
+    { key: "description", label: "Descri\u00e7\u00e3o e evid\u00eancias", active: true },
+    { key: "containment", label: "Corre\u00e7\u00e3o e conten\u00e7\u00e3o", active: true },
+    { key: "cause", label: "An\u00e1lise de causa", active: true },
+    { key: "actions", label: "Plano de a\u00e7\u00e3o corretiva", active: true },
+    { key: "effectiveness", label: "Verifica\u00e7\u00e3o de efic\u00e1cia", active: true },
+    { key: "closure", label: "Encerramento e contexto", active: true },
+  ],
+  maxEvidenceImages: 10,
+};
 let documentTypes = cloneData(DEFAULT_DOCUMENT_TYPES);
 let sectors = cloneData(DEFAULT_SECTORS);
 
 function getDefaultConfiguration() {
-  return cloneData({ documentTypes: DEFAULT_DOCUMENT_TYPES, sectors: DEFAULT_SECTORS, qualityFields: DEFAULT_QUALITY_FIELDS, cover: DEFAULT_COVER });
+  return cloneData({ documentTypes: DEFAULT_DOCUMENT_TYPES, sectors: DEFAULT_SECTORS, qualityFields: DEFAULT_QUALITY_FIELDS, cover: DEFAULT_COVER, nonconformity: DEFAULT_NONCONFORMITY });
 }
 
 function setProcedureConfiguration(configuration) {
@@ -93,7 +121,10 @@ function getDocumentTypeConfig(type) {
   return documentTypes.find((item) => item.label === type) || documentTypes[0];
 }
 function getSectorConfig(value) { return sectors.find((item) => item.label === value) || sectors.find((item) => String(value || "").startsWith(item.label)) || sectors[0]; }
-function sanitizeDocumentNumber(value) { return String(value || "").replace(/\D/g, "").slice(0, 8); }
+function sanitizeDocumentNumber(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+  return digits ? digits.padStart(4, "0") : "";
+}
 
 function getDocumentRevision(procedure) {
   const rows = Array.isArray(procedure.revision) ? procedure.revision.slice(1) : [];
@@ -165,6 +196,7 @@ function createBlankProcedure(input = {}) {
     procedureType: String(input.procedureType || "").trim(),
     procedureDescription: String(input.procedureDescription || "").trim(),
     documentStatus: "Em elaboração",
+    elaborationAuthorized: false,
     title,
     documentCode,
     qualityInfo: {
@@ -209,12 +241,15 @@ function normalizeProcedure(input) {
   const procedure = cloneData(input);
   procedure.equipmentCode = normalizeEquipmentCode(procedure.equipmentCode || procedure.equipmentName);
   procedure.equipmentName = String(procedure.equipmentName || procedure.equipmentCode).trim();
-  procedure.title = String(procedure.title || "Novo procedimento").trim();
+  procedure.title = repairMojibake(procedure.title || "Novo procedimento").trim();
   procedure.documentCode = String(procedure.documentCode || "IT_NOVO_00").trim();
   procedure.procedureId = slugify(procedure.procedureId || procedure.documentCode || procedure.title);
   procedure.procedureType = String(procedure.procedureType || "").trim();
-  procedure.procedureDescription = String(procedure.procedureDescription || "").trim();
+  procedure.procedureDescription = repairMojibake(procedure.procedureDescription || "").trim();
   procedure.documentStatus = String(procedure.documentStatus || procedure.qualityInfo?.status || STATUS_DRAFT).trim();
+  procedure.elaborationAuthorized = Object.prototype.hasOwnProperty.call(procedure, "elaborationAuthorized")
+    ? procedure.elaborationAuthorized === true
+    : Boolean(procedure.procedureId);
 
   procedure.revision = Array.isArray(procedure.revision) && procedure.revision.length
     ? procedure.revision
@@ -239,6 +274,9 @@ function normalizeProcedure(input) {
     approvalDate: "",
     ...(procedure.qualityInfo || {}),
   };
+  Object.keys(procedure.qualityInfo).forEach((key) => {
+    if (typeof procedure.qualityInfo[key] === "string") procedure.qualityInfo[key] = repairMojibake(procedure.qualityInfo[key]);
+  });
   clearUntouchedBlankQualityInfo(procedure);
   normalizeDocumentStatus(procedure);
   syncDocumentCode(procedure);
@@ -304,6 +342,60 @@ function validateProcedure(procedure) {
   }
 }
 
+function validateProcedurePayload(procedure) {
+  if (!procedure || typeof procedure !== "object" || Array.isArray(procedure)) {
+    const error = new Error("O conteúdo do procedimento é inválido.");
+    error.status = 400;
+    throw error;
+  }
+
+  const serializedSize = Buffer.byteLength(JSON.stringify(procedure), "utf8");
+  if (serializedSize > 20 * 1024 * 1024) {
+    const error = new Error("O procedimento ultrapassa o limite de 20 MB.");
+    error.status = 413;
+    throw error;
+  }
+
+  const inspect = (value, key = "", depth = 0) => {
+    if (depth > 12) {
+      const error = new Error("A estrutura do procedimento possui níveis demais.");
+      error.status = 400;
+      throw error;
+    }
+    if (Array.isArray(value)) {
+      if (value.length > 300) {
+        const error = new Error("O procedimento possui itens demais em uma lista.");
+        error.status = 400;
+        throw error;
+      }
+      value.forEach((item) => inspect(item, key, depth + 1));
+      return;
+    }
+    if (!value || typeof value !== "object") {
+      if (typeof value === "string" && /image|imageData/i.test(key) && value.length > 12 * 1024 * 1024) {
+        const error = new Error("Uma das imagens ultrapassa o limite de 12 MB.");
+        error.status = 413;
+        throw error;
+      }
+      if (typeof value === "string" && /text|html|description|title/i.test(key) && value.length > 50000) {
+        const error = new Error("Um dos textos ultrapassa o limite permitido.");
+        error.status = 400;
+        throw error;
+      }
+      return;
+    }
+    Object.entries(value).forEach(([childKey, childValue]) => inspect(childValue, childKey, depth + 1));
+  };
+
+  inspect(procedure);
+  if (Array.isArray(procedure.sections) && procedure.sections.length > 100) {
+    const error = new Error("O procedimento pode ter no máximo 100 seções.");
+    error.status = 400;
+    throw error;
+  }
+  return procedure;
+}
+
 function hasProcedureContent(procedure) {
   if (String(procedure.title || "").trim() && procedure.title !== "Novo procedimento") return true;
   if (Array.isArray(procedure.sections) && procedure.sections.some(sectionHasContent)) return true;
@@ -339,11 +431,13 @@ function itemHasContent(item) {
 module.exports = {
   createBlankProcedure,
   getDefaultConfiguration,
+  DEFAULT_NONCONFORMITY,
   getPublicationDate,
   hasProcedureContent,
   normalizeProcedure,
   normalizeSectionNumbers,
   setProcedureConfiguration,
+  validateProcedurePayload,
   STATUS_DRAFT,
   STATUS_PUBLISHED,
   slugify,

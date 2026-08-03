@@ -3,43 +3,102 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criador de Procedimentos</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Gestão da Qualidade Total</title>
+  <link rel="stylesheet" href="style.css?v=20260803-module-buttons-3">
+  <link rel="stylesheet" href="styles/settings-icon.css?v=20260803-settings-icon-1">
+  <link rel="stylesheet" href="styles/module-home.css?v=20260803-module-home-3">
 </head>
 <body>
-  <main class="page creator-home">
+  <main class="page creator-home is-locked">
     <header class="creator-hero">
       <div>
         <span class="eyebrow">Qualidade</span>
-        <h1>Criador de Procedimentos</h1>
-        <p>Monte procedimentos internos, edite imagens e etapas, depois baixe o PDF final e o JSON para futuras alterações.</p>
+        <h1>Gestão da Qualidade Total</h1>
+        <p>Monte procedimentos internos, edite imagens e etapas, depois baixe o PDF final e o JSON para futuras altera&ccedil;&otilde;es.</p>
       </div>
-      <a class="creator-master-link" href="lista-mestra.html">Lista mestra</a>
+      <div class="creator-home-actions">
+        <button type="button" class="creator-master-link" data-open-protected="lista-mestra.html">Lista mestra</button>
+        <div class="creator-account"><span id="creatorUserState">Acesso n&atilde;o iniciado</span><button type="button" id="creatorLogout">Sair</button></div>
+      </div>
     </header>
 
-    <section class="creator-module-card" aria-labelledby="creator-module-title">
-      <span class="creator-module-kicker">Módulo</span>
-      <h2 id="creator-module-title">Procedimentos</h2>
-      <p class="creator-module-description">Crie novos procedimentos ou edite arquivos existentes para manter os documentos internos atualizados.</p>
-      <div class="creator-module-actions">
-        <button type="button" class="primary-link creator-start-button" data-create-procedure>Criar novo procedimento</button>
-        <label class="secondary-button creator-import-button">
-          Editar procedimento
-          <input id="procedureJsonInput" type="file" accept="application/json">
-        </label>
-      </div>
-      <p class="creator-import-error" id="creatorImportError" role="alert"></p>
+    <section class="creator-modules" aria-label="M&oacute;dulos de documentos">
+      <article class="creator-module-card" aria-labelledby="creator-module-title">
+        <div class="creator-module-heading"><h2 id="creator-module-title">Procedimentos</h2></div>
+        <p class="creator-module-description">Crie novos procedimentos ou edite arquivos existentes para manter os documentos internos atualizados.</p>
+        <div class="creator-module-actions">
+          <button type="button" class="primary-link creator-start-button" data-create-procedure>Criar novo procedimento</button>
+          <label class="secondary-button creator-import-button">
+            Editar procedimento
+            <input id="procedureJsonInput" type="file" accept="application/json">
+          </label>
+        </div>
+        <p class="creator-import-error" id="creatorImportError" role="alert"></p>
+      </article>
+
+      <article class="creator-module-card creator-module-card--upcoming" aria-labelledby="nonconformity-module-title">
+        <div class="creator-module-heading"><h2 id="nonconformity-module-title">N&atilde;o conformidades</h2></div>
+        <p class="creator-module-description">Registre, acompanhe e organize documentos relacionados a n&atilde;o conformidades e a&ccedil;&otilde;es de tratamento.</p>
+        <div class="creator-module-actions">
+          <button type="button" class="primary-link creator-start-button" data-open-nonconformity="new">Criar documento</button>
+          <button type="button" class="secondary-button creator-module-disabled-action" data-open-nonconformity="edit">Editar documento</button>
+        </div>
+      </article>
+
+      <article class="creator-module-card" aria-labelledby="action-plan-module-title">
+        <div class="creator-module-heading"><h2 id="action-plan-module-title">Planos de a&ccedil;&atilde;o e CAPA</h2></div>
+        <p class="creator-module-description">Estruture corre&ccedil;&otilde;es, an&aacute;lises de causa, a&ccedil;&otilde;es corretivas e verifica&ccedil;&otilde;es de efic&aacute;cia.</p>
+        <div class="creator-module-actions">
+          <button type="button" class="primary-link creator-start-button" data-open-action-plan="new">Criar plano</button>
+          <button type="button" class="secondary-button" data-open-action-plan="edit">Editar plano</button>
+        </div>
+      </article>
+
+      <article class="creator-module-card" aria-labelledby="instrument-module-title">
+        <div class="creator-module-heading"><h2 id="instrument-module-title">Calibra&ccedil;&atilde;o de instrumentos</h2></div>
+        <p class="creator-module-description">Controle instrumentos, calibra&ccedil;&otilde;es, manuten&ccedil;&otilde;es e impactos de resultados fora da toler&acirc;ncia.</p>
+        <div class="creator-module-actions">
+          <button type="button" class="primary-link creator-start-button" data-open-instrument="new">Cadastrar instrumento</button>
+          <button type="button" class="secondary-button" data-open-instrument="edit">Editar instrumentos</button>
+        </div>
+      </article>
     </section>
-    <button type="button" class="creator-settings-icon" data-open-configuration aria-label="Configurações" title="Configurações">&#9881;</button>
+    <button type="button" class="creator-settings-icon" id="creatorSettingsButton" data-open-protected="configuracoes.html" data-tooltip="Configuração" aria-label="Configuração" title="Configuração"><span class="creator-settings-icon-mark" aria-hidden="true"></span></button>
   </main>
+
+  <div class="draft-selection-backdrop is-hidden" id="draftSelection" role="dialog" aria-modal="true" aria-labelledby="draftSelectionTitle">
+    <section class="draft-selection-dialog">
+      <div class="draft-selection-header">
+        <div>
+          <span class="eyebrow">Em elaboração</span>
+          <h2 id="draftSelectionTitle">Continuar procedimento</h2>
+          <p>Selecione um documento já autorizado e escolha o JSON correspondente para continuar a edição.</p>
+        </div>
+        <button type="button" class="draft-selection-close" data-close-drafts aria-label="Fechar">&times;</button>
+      </div>
+      <div class="draft-selection-create-action">
+        <button type="button" class="primary-button" id="startBlankProcedure">Criar documento em branco</button>
+      </div>
+      <div id="draftSelectionList" class="draft-selection-list" aria-live="polite"></div>
+      <p class="creator-import-error" id="draftSelectionError" role="alert" tabindex="-1"></p>
+      <div class="draft-selection-actions">
+        <button type="button" class="secondary-button" data-close-drafts>Cancelar</button>
+      </div>
+    </section>
+  </div>
 
   <div class="home-auth-backdrop is-hidden" id="configurationAccess" role="dialog" aria-modal="true" aria-labelledby="configurationAccessTitle">
     <form class="home-auth-dialog" id="configurationAccessForm">
-      <div class="home-auth-icon">#</div>
+      <div class="home-auth-icon" aria-hidden="true">A</div>
       <div>
-        <h2 id="configurationAccessTitle">Acesso da qualidade</h2>
-        <p>Digite a senha para abrir as configurações administrativas.</p>
-        <input id="configurationAccessPassword" type="password" autocomplete="current-password" placeholder="Senha" required>
+        <h2 id="configurationAccessTitle">Entrar no sistema</h2>
+        <p>Informe seu usu&aacute;rio e senha para continuar.</p>
+        <div class="home-auth-fields">
+          <label for="configurationAccessUsername">Usu&aacute;rio</label>
+          <input id="configurationAccessUsername" type="text" autocomplete="username" placeholder="Usu&aacute;rio" required>
+          <label for="configurationAccessPassword">Senha</label>
+          <input id="configurationAccessPassword" type="password" autocomplete="current-password" placeholder="Senha" required>
+        </div>
         <p class="home-auth-error" id="configurationAccessError" role="alert"></p>
       </div>
       <div class="home-auth-actions">
@@ -49,6 +108,6 @@
     </form>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=20260731-json-validation-4"></script>
 </body>
 </html>

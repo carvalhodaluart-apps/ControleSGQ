@@ -1,5 +1,7 @@
 const PDFDocument = require("pdfkit");
 const sharp = require("sharp");
+const fs = require("fs");
+const path = require("path");
 const { getProcedureConfiguration } = require("./procedureConfiguration");
 
 const COLORS = {
@@ -50,6 +52,11 @@ function stripHtml(value) {
 
 function inlineText(value) {
   return stripHtml(value).replace(/\s+/g, " ").trim();
+}
+
+function displayEquipmentName(procedure) {
+  const value = cleanText(procedure?.equipmentName || procedure?.equipmentCode);
+  return /^NOVO$/i.test(value) ? "" : value;
 }
 
 function richInlineSegments(value) {
@@ -122,6 +129,24 @@ function drawRichCenteredText(document, lines, x, y, fontSize, lineHeight, color
 function dataUriToBuffer(value) {
   const match = String(value || "").match(/^data:image\/(png|jpe?g);base64,(.+)$/i);
   return match ? Buffer.from(match[2], "base64") : null;
+}
+
+const EQUIPMENT_IMAGE_FILES = {
+  "PULMAO-DE-TESTE": "Pulmao-de-Teste.jpg",
+};
+
+function equipmentImageBuffer(procedure) {
+  if (procedure?.equipmentImageMode === "none") return null;
+  const customImage = dataUriToBuffer(procedure?.customEquipmentImage);
+  if (customImage) return customImage;
+  const code = String(procedure?.equipmentCode || "").toUpperCase();
+  const filename = EQUIPMENT_IMAGE_FILES[code] || `${code}.png`;
+  if (!code || code === "NOVO" || code === "OUTROS") return null;
+  try {
+    return fs.readFileSync(path.resolve(__dirname, "..", "..", "frontend", "assets", "equipamentos", filename));
+  } catch (error) {
+    return null;
+  }
 }
 
 async function convertLegacyImages(value) {
@@ -397,6 +422,7 @@ async function createProcedurePdf(procedure) {
     };
 
     const coverImage = dataUriToBuffer(cover.imageData);
+    const equipmentImage = equipmentImageBuffer(source);
     if (coverImage) {
       startPage(false);
       const coverX = 0;
@@ -418,26 +444,44 @@ async function createProcedurePdf(procedure) {
         ? clamp(coverY + coverHeight * Number(cover.overlayY || 0.5) - overlayHeight / 2, coverY + coverPaddingY, coverY + coverHeight - overlayHeight - coverPaddingY)
         : position.startsWith("top") ? coverY + coverPaddingY : position.startsWith("bottom") ? coverY + coverHeight - overlayHeight - coverPaddingY : coverY + (coverHeight - overlayHeight) / 2;
       document.save().roundedRect(horizontal, vertical, overlayWidth, overlayHeight, 6).fillOpacity(0.9).fillColor("#ffffff").fill().restore();
+      const equipmentTileSize = equipmentImage ? 76 : 0;
+      const textWidth = overlayWidth - 28 - (equipmentImage ? equipmentTileSize + 10 : 0);
+      if (equipmentImage) {
+        const tileX = horizontal + overlayWidth - equipmentTileSize - 12;
+        const tileY = vertical + (overlayHeight - equipmentTileSize) / 2;
+        document.save().roundedRect(tileX, tileY, equipmentTileSize, equipmentTileSize, 5).fillOpacity(0.94).fillColor("#ffffff").fill().lineWidth(0.7).strokeColor(COLORS.line).stroke().restore();
+        document.image(equipmentImage, tileX + 5, tileY + 5, { fit: [equipmentTileSize - 10, equipmentTileSize - 10], align: "center", valign: "center" });
+      }
       setFont("Helvetica-Bold", 9, COLORS.orange);
-      document.text("PROCEDIMENTO INTERNO", horizontal + 14, vertical + 13, { width: overlayWidth - 28 });
+      document.text("PROCEDIMENTO INTERNO", horizontal + 14, vertical + 13, { width: textWidth });
       setFont("Helvetica-Bold", 20, COLORS.navy);
       const coverTitle = cleanText(source.title || "Procedimento interno");
-      document.text(coverTitle, horizontal + 14, vertical + 30, { width: overlayWidth - 28, lineGap: 2 });
+      document.text(coverTitle, horizontal + 14, vertical + 30, { width: textWidth, lineGap: 2 });
       setFont("Helvetica", 9, COLORS.muted);
-      document.text(`${cleanText(source.documentCode) || "Sem código"}  |  ${cleanText(source.equipmentName || source.equipmentCode) || "Equipamento não informado"}`, horizontal + 14, vertical + 78, { width: overlayWidth - 28 });
+      const coverMeta = [cleanText(source.documentCode) || "Sem código", displayEquipmentName(source)].filter(Boolean).join("  |  ");
+      document.text(coverMeta, horizontal + 14, vertical + 78, { width: textWidth });
       document.addPage();
       startPage();
     } else {
       startPage();
       setFont("Helvetica-Bold", 21, COLORS.navy);
       const title = cleanText(source.title || "Procedimento interno");
-      const titleHeight = document.heightOfString(title, { width: contentWidth, lineGap: 2 });
-      document.text(title, margin, y, { width: contentWidth, lineGap: 2 });
+      const titleWidth = equipmentImage ? contentWidth - 108 : contentWidth;
+      const titleHeight = document.heightOfString(title, { width: titleWidth, lineGap: 2 });
+      document.text(title, margin, y, { width: titleWidth, lineGap: 2 });
       y += titleHeight + 8;
       setFont("Helvetica", 10, COLORS.muted);
-      document.text(`${cleanText(source.documentCode) || "Sem código"}  |  ${cleanText(source.equipmentName || source.equipmentCode) || "Equipamento não informado"}`, margin, y, { width: contentWidth });
+      const documentMeta = [cleanText(source.documentCode) || "Sem código", displayEquipmentName(source)].filter(Boolean).join("  |  ");
+      document.text(documentMeta, margin, y, { width: titleWidth });
       y += 24;
-      paragraph(source.procedureDescription || "Procedimento interno do Sistema de Gestão da Qualidade.", 10, COLORS.muted, 14);
+      if (equipmentImage) {
+        const tileSize = 90;
+        const tileX = margin + contentWidth - tileSize;
+        const tileY = 68;
+        document.save().roundedRect(tileX, tileY, tileSize, tileSize, 5).fillColor("#ffffff").fill().lineWidth(0.7).strokeColor(COLORS.line).stroke().restore();
+        document.image(equipmentImage, tileX + 6, tileY + 6, { fit: [tileSize - 12, tileSize - 12], align: "center", valign: "center" });
+      }
+      paragraph(source.procedureDescription || "Procedimento interno do Sistema de Gestão da Qualidade.", 10, COLORS.muted, 14, titleWidth);
     }
 
     heading("Controle do documento", "Identificação, revisão, aprovação e responsabilidades");

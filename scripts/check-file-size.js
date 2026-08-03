@@ -3,7 +3,7 @@ const path = require("path");
 
 const MAX_LINES = 600;
 const ROOT = path.resolve(__dirname, "..");
-const IGNORED_DIRS = new Set([".git", "node_modules", "assets"]);
+const IGNORED_DIRS = new Set([".git", "node_modules", "assets", "backups"]);
 const IGNORED_FILES = new Set(["package-lock.json"]);
 const IGNORED_PREFIXES = [];
 const CHECKED_EXTENSIONS = new Set([".js", ".css", ".html", ".json", ".md"]);

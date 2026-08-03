@@ -7,10 +7,18 @@ const jsFiles = [
   "frontend/script.js",
   "frontend/procedimentos.js",
   "backend/routes/procedures.js",
+  "backend/routes/admin.js",
   "backend/services/procedureRules.js",
   "backend/services/procedureAuth.js",
+  "backend/services/procedureAudit.js",
+  "backend/services/databaseBackup.js",
   "backend/services/procedureStorage.js",
   "backend/services/procedurePdf.js",
+  "backend/routes/nonconformities.js",
+  "backend/services/nonconformityRules.js",
+  "backend/services/nonconformityDatabase.js",
+  "backend/services/nonconformityPdf.js",
+  "frontend/nao-conformidades.js",
 ];
 
 const splitDir = path.join("frontend", "js", "procedimentos");

@@ -1,0 +1,429 @@
+/* Shared shell for quality modules. Keep module-specific CSS focused on fields. */
+.action-plan-page,
+.instrument-page {
+  width: min(1180px, calc(100% - 32px));
+  padding: 32px 0 56px;
+}
+
+.action-plan-page.is-locked,
+.instrument-page.is-locked {
+  visibility: hidden;
+}
+
+.action-plan-header,
+.instrument-header,
+.action-plan-list-panel,
+.instrument-list-panel {
+  border-color: var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-soft);
+}
+
+.action-plan-header,
+.instrument-header {
+  align-items: center;
+  padding: 22px 24px;
+  border-left: 6px solid var(--brand-orange);
+}
+
+.action-plan-header h1,
+.instrument-header h1 {
+  color: var(--text);
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.1;
+}
+
+.action-plan-header p,
+.instrument-header p,
+.action-plan-list-heading p,
+.instrument-list-heading p {
+  color: var(--muted);
+}
+
+.action-plan-header .back-link,
+.instrument-header .back-link,
+.action-plan-editor-header .back-link,
+.instrument-editor-header .back-link {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 10px;
+  color: var(--primary-dark);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action-plan-header .back-link:hover,
+.instrument-header .back-link:hover,
+.action-plan-editor-header .back-link:hover,
+.instrument-editor-header .back-link:hover {
+  text-decoration: underline;
+}
+
+.action-plan-header .eyebrow,
+.instrument-header .eyebrow,
+.action-plan-editor-header .eyebrow,
+.instrument-editor-header .eyebrow {
+  display: inline-flex;
+  margin: 0 0 8px;
+  color: var(--primary-dark);
+}
+
+.action-plan-list-panel,
+.instrument-list-panel {
+  margin-top: 18px;
+  padding: 20px 22px;
+}
+
+.action-plan-list-heading,
+.instrument-list-heading {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.action-plan-filters,
+.instrument-filters {
+  min-width: 0;
+}
+
+.action-plan-filters label,
+.instrument-filters label {
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.action-plan-filters input,
+.action-plan-filters select,
+.instrument-filters input,
+.instrument-filters select {
+  width: 100%;
+  min-height: var(--control-height-sm);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: .86rem;
+}
+
+.action-plan-filters input:focus,
+.action-plan-filters select:focus,
+.instrument-filters input:focus,
+.instrument-filters select:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(21, 94, 239, .12);
+}
+
+.action-plan-list-heading h2,
+.instrument-list-heading h2 {
+  color: var(--text);
+  font-size: 1.2rem;
+}
+
+.action-plan-list-row,
+.instrument-list-row {
+  border-color: var(--line);
+  border-left-color: var(--brand-orange);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.action-plan-editor,
+.instrument-editor {
+  margin-top: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.action-plan-editor-header,
+.instrument-editor-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 14px 20px;
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--brand-orange);
+  border-radius: var(--radius-card);
+  background: rgba(255, 255, 255, .97);
+  box-shadow: var(--shadow-soft);
+}
+
+.action-plan-editor-header h2,
+.instrument-editor-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.action-plan-editor-body,
+.instrument-editor-body {
+  gap: 18px;
+  padding: 0;
+}
+
+.action-plan-section-nav,
+.instrument-nav {
+  position: sticky;
+  top: 112px;
+  z-index: 4;
+  align-self: start;
+  gap: 3px;
+  padding: 13px 10px;
+  border-color: var(--line);
+  border-radius: var(--radius-control);
+  background: #f7f9fd;
+  box-shadow: var(--shadow-soft);
+}
+
+.action-plan-section-nav strong,
+.instrument-nav strong {
+  margin: 0 5px 7px;
+  color: var(--text);
+  font-size: .82rem;
+}
+
+.action-plan-section-nav a,
+.instrument-nav a {
+  padding: 7px 6px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.action-plan-section-nav a:hover,
+.action-plan-section-nav a:focus-visible,
+.instrument-nav a:hover,
+.instrument-nav a:focus-visible {
+  background: #e2edff;
+  color: var(--primary-dark);
+  outline: none;
+}
+
+.action-plan-card,
+.instrument-card {
+  scroll-margin-top: 132px;
+  border-color: var(--line);
+  border-radius: var(--radius-card);
+  background: #fbfcff;
+}
+
+.action-plan-fields label,
+.action-plan-whys label,
+.action-plan-action-row label,
+.instrument-fields label,
+.instrument-maintenance-row label {
+  color: #526886;
+  font-size: .78rem;
+}
+
+.action-plan-fields input,
+.action-plan-fields select,
+.action-plan-fields textarea,
+.action-plan-whys textarea,
+.action-plan-action-row input,
+.action-plan-action-row select,
+.action-plan-action-row textarea,
+.instrument-fields input,
+.instrument-fields select,
+.instrument-fields textarea,
+.instrument-maintenance-row input,
+.instrument-maintenance-row select,
+.instrument-maintenance-row textarea {
+  border-color: var(--line);
+  border-radius: var(--radius-control);
+  font-size: .9rem;
+}
+
+.action-plan-fields input:focus,
+.action-plan-fields select:focus,
+.action-plan-fields textarea:focus,
+.action-plan-action-row input:focus,
+.action-plan-action-row select:focus,
+.action-plan-action-row textarea:focus,
+.instrument-fields input:focus,
+.instrument-fields select:focus,
+.instrument-fields textarea:focus,
+.instrument-maintenance-row input:focus,
+.instrument-maintenance-row select:focus,
+.instrument-maintenance-row textarea:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(21, 94, 239, .12);
+}
+
+.module-required input:required,
+.module-required select:required,
+.module-required textarea:required {
+  border-color: #efb1ad;
+}
+
+.module-help {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 400;
+}
+
+.module-file-link {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 4px;
+  color: var(--primary-dark);
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.module-status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.module-status-summary strong { color: var(--text); }
+
+.module-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.module-quick-filter {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.module-quick-filter:hover,
+.module-quick-filter.is-active {
+  border-color: var(--primary);
+  background: #e2edff;
+  color: var(--primary-dark);
+}
+
+/* CAPA actions use a 12-column rhythm so long fields stay grouped. */
+.action-plan-action-row {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px 44px 20px 50px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.action-plan-action-row > label:nth-of-type(1) { grid-column: span 6; }
+.action-plan-action-row > label:nth-of-type(2),
+.action-plan-action-row > label:nth-of-type(3),
+.action-plan-action-row > label:nth-of-type(4),
+.action-plan-action-row > label:nth-of-type(5),
+.action-plan-action-row > label:nth-of-type(6),
+.action-plan-action-row > label:nth-of-type(7),
+.action-plan-action-row > label:nth-of-type(8),
+.action-plan-action-row > label:nth-of-type(9),
+.action-plan-action-row > label:nth-of-type(12),
+.action-plan-action-row > label:nth-of-type(13) { grid-column: span 3; }
+.action-plan-action-row > label:nth-of-type(10),
+.action-plan-action-row > label:nth-of-type(11) { grid-column: span 6; }
+
+.action-plan-action-row > label:nth-of-type(4),
+.action-plan-action-row > label:nth-of-type(8),
+.action-plan-action-row > label:nth-of-type(10),
+.action-plan-action-row > label:nth-of-type(12) {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.action-plan-action-row textarea { min-height: 78px; }
+.action-plan-action-row > label:nth-of-type(1) textarea { min-height: 92px; }
+
+.action-plan-form-error,
+.instrument-form-error {
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: #fff1f0;
+}
+
+.action-plan-editor-header > div,
+.instrument-editor-header > div,
+.action-plan-editor-actions,
+.instrument-editor-actions {
+  min-width: 0;
+}
+
+.action-plan-form,
+.instrument-form {
+  min-width: 0;
+}
+
+.action-plan-editor-actions,
+.instrument-editor-actions {
+  flex: 0 1 auto;
+}
+
+/* Exclusão passa a ser controlada pela gestão/lista, não pelo editor. */
+.action-plan-editor-actions #deleteActionPlan,
+.instrument-editor-actions #deleteInstrument {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .action-plan-section-nav,
+  .instrument-nav { position: static; }
+  .action-plan-card,
+  .instrument-card { scroll-margin-top: 18px; }
+  .action-plan-action-row { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .action-plan-action-row > label:nth-of-type(1),
+  .action-plan-action-row > label:nth-of-type(10),
+  .action-plan-action-row > label:nth-of-type(11) { grid-column: span 6; }
+  .action-plan-action-row > label:nth-of-type(2),
+  .action-plan-action-row > label:nth-of-type(3),
+  .action-plan-action-row > label:nth-of-type(4),
+  .action-plan-action-row > label:nth-of-type(5),
+  .action-plan-action-row > label:nth-of-type(6),
+  .action-plan-action-row > label:nth-of-type(7),
+  .action-plan-action-row > label:nth-of-type(8),
+  .action-plan-action-row > label:nth-of-type(9),
+  .action-plan-action-row > label:nth-of-type(12),
+  .action-plan-action-row > label:nth-of-type(13) { grid-column: span 3; }
+}
+
+@media (max-width: 620px) {
+  .action-plan-page,
+  .instrument-page { width: min(100% - 20px, 1180px); padding-top: 16px; }
+  .action-plan-header,
+  .instrument-header,
+  .action-plan-editor-header,
+  .instrument-editor-header { align-items: stretch; flex-direction: column; padding: 18px; }
+  .action-plan-editor-actions,
+  .instrument-editor-actions { justify-content: stretch; }
+  .action-plan-editor-actions button,
+  .instrument-editor-actions button { flex: 1 1 45%; }
+  .action-plan-action-row { grid-template-columns: 1fr; padding-left: 44px; }
+  .action-plan-action-row > label { grid-column: auto !important; }
+}

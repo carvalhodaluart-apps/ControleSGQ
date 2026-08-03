@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lista mestra | Criador de Procedimentos</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260731-buttons-contrast-1">
   <link rel="stylesheet" href="styles/master-list.css">
 </head>
 <body>
@@ -17,7 +17,8 @@
         <p>Consulte os documentos cadastrados, suas revisões, responsáveis e situação atual.</p>
       </div>
       <div class="master-header-actions">
-        <button type="button" class="secondary-button" id="masterEdit">Editar</button>
+        <button type="button" class="secondary-button" id="masterEdit" hidden>Editar</button>
+        <button type="button" class="secondary-button" id="masterAudit" hidden>Auditoria</button>
         <button type="button" class="secondary-button" id="masterRefresh">Atualizar</button>
       </div>
     </header>
@@ -36,6 +37,18 @@
         <span class="master-sync-state" id="masterSyncState"></span>
       </div>
       </div>
+      <section class="master-audit-panel" id="masterAuditPanel" role="dialog" aria-modal="true" aria-label="Auditoria" hidden>
+        <div class="master-audit-dialog">
+        <form class="master-audit-filters" id="masterAuditFilters">
+          <label>Usuário<input id="masterAuditUser" type="search" placeholder="Digite o usuário" autocomplete="off"></label>
+          <label>Data<input id="masterAuditDate" type="date"></label>
+          <button type="submit" class="primary-link">Pesquisar</button>
+          <button type="button" class="secondary-button" id="masterAuditClear">Limpar</button>
+        </form>
+        <div class="master-audit-heading"><h3>Histórico de ações</h3><button type="button" class="secondary-button" id="masterAuditClose">Fechar</button></div>
+        <div id="masterAuditList"></div>
+        </div>
+      </section>
       <p class="master-error" id="masterError" role="alert"></p>
       <div class="master-table-wrap">
         <table>
@@ -56,6 +69,11 @@
           <tbody id="masterTableBody"></tbody>
         </table>
       </div>
+      <nav class="master-pagination" id="masterPagination" aria-label="Paginação da lista mestra" hidden>
+        <button type="button" class="secondary-button" id="masterPreviousPage">Anterior</button>
+        <span id="masterPageLabel"></span>
+        <button type="button" class="secondary-button" id="masterNextPage">Próxima</button>
+      </nav>
     </section>
   </main>
 
