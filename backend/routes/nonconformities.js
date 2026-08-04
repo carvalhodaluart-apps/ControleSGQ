@@ -5,11 +5,12 @@ const { createBlankNonconformity, validateNonconformity } = require("../services
 const { createNonconformity, deleteNonconformity, getNonconformity, listNonconformities, updateNonconformity } = require("../services/nonconformityDatabase");
 const { createNonconformityPdf } = require("../services/nonconformityPdf");
 const { getProcedureConfiguration } = require("../services/procedureConfiguration");
+const { sendError } = require("../services/httpResponse");
 
 const router = express.Router();
 
 function handleError(res, error) {
-  res.status(error.status || 500).json({ error: error.message || "Erro interno." });
+  sendError(res, error);
 }
 
 router.get("/", requireProcedureEditor, async (_req, res) => {

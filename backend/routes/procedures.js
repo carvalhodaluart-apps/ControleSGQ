@@ -14,9 +14,11 @@ const { deleteProcedure, loadProcedure, saveProcedure, storageExists } = require
 const { createProcedurePdf } = require("../services/procedurePdf");
 const { createProcedureBundle } = require("../services/procedureBundle");
 const { getProcedureConfiguration } = require("../services/procedureConfiguration");
+const { sendError } = require("../services/httpResponse");
 const {
   databaseConfigured,
   deleteMasterDocument,
+  getDatabasePool,
   getMasterDocument,
   listDraftDocuments,
   listMasterDocuments,
@@ -29,7 +31,7 @@ const {
 const router = express.Router();
 
 function handleError(res, error) {
-  res.status(error.status || 500).json({ error: error.message || "Erro interno." });
+  sendError(res, error);
 }
 
 function getProcedureBody(req) {
@@ -85,8 +87,13 @@ function markStatus(procedure, status) {
   return procedure;
 }
 
-router.get("/health", (_req, res) => {
-  res.json({ ok: true, storage: storageExists() ? "files" : "files-not-created", database: databaseConfigured() ? "postgresql" : "not-configured" });
+router.get("/health", async (_req, res) => {
+  try {
+    if (databaseConfigured()) await getDatabasePool().query("SELECT 1");
+    res.json({ ok: true, storage: storageExists() ? "files" : "files-not-created", database: databaseConfigured() ? "postgresql" : "not-configured" });
+  } catch (error) {
+    res.status(503).json({ ok: false, error: "Banco de dados indisponível." });
+  }
 });
 
 router.get("/session", requireProcedureEditor, (req, res) => {
@@ -341,7 +348,7 @@ router.post("/export-pdf", requireProcedureEditor, async (req, res) => {
   }
 });
 
-router.post("/export-bundle", requireProcedureEditor, async (req, res) => {
+router.post("/export-bundle", requireQuality, async (req, res) => {
   try {
     const procedure = normalizeProcedure(getProcedureBody(req));
     if (procedure.documentStatus !== STATUS_PUBLISHED) {

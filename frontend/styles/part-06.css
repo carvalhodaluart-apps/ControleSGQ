@@ -127,7 +127,8 @@
 }
 
 .procedure-status-badge,
-.save-state {
+.save-state,
+.pdf-state {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
@@ -147,7 +148,8 @@
   color: #16733f;
 }
 
-.save-state {
+.save-state,
+.pdf-state {
   color: var(--muted);
   font-weight: 700;
 }
@@ -158,6 +160,22 @@
 }
 
 .save-state[data-save-state="error"] {
+  background: #fff1f0;
+  color: var(--danger-dark);
+}
+
+.pdf-state[data-pdf-state="scheduled"],
+.pdf-state[data-pdf-state="generating"] {
+  background: #fff8e6;
+  color: #8a5a00;
+}
+
+.pdf-state[data-pdf-state="ready"] {
+  background: #eaf8ef;
+  color: #16733f;
+}
+
+.pdf-state[data-pdf-state="error"] {
   background: #fff1f0;
   color: var(--danger-dark);
 }

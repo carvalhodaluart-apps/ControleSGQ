@@ -9,6 +9,8 @@ const nonconformityRoutes = require("./routes/nonconformities");
 const actionPlanRoutes = require("./routes/actionPlans");
 const instrumentRoutes = require("./routes/instruments");
 const { initDatabase } = require("./services/procedureDatabase");
+const { assertSessionSecret } = require("./services/procedureAuth");
+const { publicErrorMessage } = require("./services/httpResponse");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,11 +23,40 @@ const qualityAuthLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Muitas tentativas de autenticação. Aguarde alguns minutos." },
 });
+const heavyApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Muitas solicitaÃ§Ãµes pesadas. Aguarde alguns instantes." },
+});
+const adminActionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Muitas aÃ§Ãµes administrativas. Aguarde alguns minutos." },
+});
 
 app.disable("x-powered-by");
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      frameSrc: ["'self'", "blob:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+    },
+  },
+}));
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "25mb" }));
 app.use("/api/procedures/auth", qualityAuthLimiter);
+app.use(["/api/procedures/export-pdf", "/api/procedures/export-bundle"], heavyApiLimiter);
+app.use(["/api/admin/backup", "/api/admin/restore"], adminActionLimiter);
 app.use("/api/procedures", procedureRoutes);
 app.use("/api/configuration", configurationRoutes);
 app.use("/api/admin", adminRoutes);
@@ -35,7 +66,7 @@ app.use("/api/instruments", instrumentRoutes);
 
 app.use((error, _req, res, next) => {
   if (res.headersSent) return next(error);
-  res.status(error.status || 500).json({ error: error.message || "Erro interno." });
+  res.status(error.status || 500).json({ error: publicErrorMessage(error) });
 });
 
 app.use(express.static(FRONTEND_DIR));
@@ -46,6 +77,7 @@ app.get("*", (_req, res) => {
 
 async function startServer() {
   try {
+    assertSessionSecret();
     await initDatabase();
     app.listen(PORT, HOST, () => {
       console.log(`Criador de procedimentos rodando em http://${HOST}:${PORT}`);

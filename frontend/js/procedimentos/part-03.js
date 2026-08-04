@@ -181,6 +181,7 @@ function renderProcedureActionBar(procedure) {
         <span class="procedure-action-title">Edição do procedimento</span>
         <span class="procedure-status-badge ${isPublished ? "is-published" : "is-draft"}">${escapeHtml(procedure.documentStatus || "Em elaboração")}</span>
         <span class="save-state" data-save-state="${saveState}">${saveState === "pending" ? "Salvando..." : saveState === "error" ? "Erro ao salvar" : "Alterações salvas"}</span>
+        <span class="pdf-state" data-pdf-state="${typeof procedurePdfState === "string" ? procedurePdfState : "outdated"}">${typeof getProcedurePdfStateLabel === "function" ? getProcedurePdfStateLabel() : "PDF desatualizado"}</span>
       </div>
       <div class="procedure-action-buttons">
          ${isManagerUser ? '<button type="button" class="primary-button" data-publish-procedure>Publicar</button>' : ''}

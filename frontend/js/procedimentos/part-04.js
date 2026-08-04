@@ -389,7 +389,7 @@ function triggerBlobDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
 
-async function requestProcedurePdf(shouldSave = true, procedure = activeProcedure) {
+async function requestProcedurePdf(shouldSave = true, procedure = activeProcedure, signal = null) {
   if (shouldSave) await flushProcedureSave();
   const response = await fetch("/api/procedures/export-pdf", {
     method: "POST",
@@ -398,6 +398,7 @@ async function requestProcedurePdf(shouldSave = true, procedure = activeProcedur
       Authorization: `Bearer ${qualityToken}`,
     },
     body: JSON.stringify({ procedure }),
+    signal,
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -417,6 +418,27 @@ let procedurePdfCachedBlob = null;
 let procedurePdfPreloadVersion = -1;
 let procedurePdfPreloadTimer = null;
 let procedurePdfPreloadPromise = null;
+let procedurePdfAbortController = null;
+let procedurePdfState = "outdated";
+
+function getProcedurePdfStateLabel() {
+  const labels = {
+    outdated: "PDF desatualizado",
+    scheduled: "PDF aguardando",
+    generating: "Gerando PDF...",
+    ready: "PDF pronto",
+    error: "Erro no PDF",
+  };
+  return labels[procedurePdfState] || labels.outdated;
+}
+
+function updateProcedurePdfState(state) {
+  procedurePdfState = state;
+  document.querySelectorAll("[data-pdf-state]").forEach((element) => {
+    element.dataset.pdfState = state;
+    element.textContent = getProcedurePdfStateLabel();
+  });
+}
 
 function canPreloadProcedurePdf() {
   return Boolean(activeProcedure && qualityToken && (!builderMode || elaborationAuthorized));
@@ -426,13 +448,17 @@ function resetProcedurePdfCache() {
   procedurePdfVersion += 1;
   procedurePdfCachedVersion = -1;
   procedurePdfCachedBlob = null;
+  procedurePdfAbortController?.abort();
+  procedurePdfAbortController = null;
   clearTimeout(procedurePdfPreloadTimer);
   procedurePdfPreloadTimer = null;
+  updateProcedurePdfState("outdated");
 }
 
 function markProcedurePdfOutdated() {
   resetProcedurePdfCache();
   if (!canPreloadProcedurePdf()) return;
+  updateProcedurePdfState("scheduled");
   procedurePdfPreloadTimer = setTimeout(() => {
     procedurePdfPreloadTimer = null;
     preloadProcedurePdf();
@@ -441,25 +467,37 @@ function markProcedurePdfOutdated() {
 
 function getProcedurePdfBlob() {
   const version = procedurePdfVersion;
-  if (procedurePdfCachedVersion === version && procedurePdfCachedBlob) return Promise.resolve(procedurePdfCachedBlob);
+  if (procedurePdfCachedVersion === version && procedurePdfCachedBlob) {
+    updateProcedurePdfState("ready");
+    return Promise.resolve(procedurePdfCachedBlob);
+  }
   if (procedurePdfPreloadVersion === version && procedurePdfPreloadPromise) return procedurePdfPreloadPromise;
   const snapshot = cloneData(activeProcedure);
   procedurePdfPreloadVersion = version;
-  procedurePdfPreloadPromise = requestProcedurePdf(false, snapshot).then((blob) => {
+  procedurePdfAbortController = new AbortController();
+  updateProcedurePdfState("generating");
+  procedurePdfPreloadPromise = requestProcedurePdf(false, snapshot, procedurePdfAbortController.signal).then((blob) => {
     if (version === procedurePdfVersion) {
       procedurePdfCachedVersion = version;
       procedurePdfCachedBlob = blob;
+      updateProcedurePdfState("ready");
     }
     return blob;
+  }).catch((error) => {
+    if (error.name !== "AbortError") updateProcedurePdfState("error");
+    throw error;
   }).finally(() => {
     if (procedurePdfPreloadVersion === version) procedurePdfPreloadPromise = null;
+    if (procedurePdfPreloadVersion === version) procedurePdfAbortController = null;
   });
   return procedurePdfPreloadPromise;
 }
 
 function preloadProcedurePdf() {
   if (!canPreloadProcedurePdf()) return;
-  getProcedurePdfBlob().catch((error) => console.warn("Falha ao pre-gerar PDF:", error));
+  getProcedurePdfBlob().catch((error) => {
+    if (error.name !== "AbortError") console.warn("Falha ao pre-gerar PDF:", error);
+  });
 }
 
 function openPdfPreview(blob) {

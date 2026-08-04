@@ -5,10 +5,11 @@ const { createBlankActionPlan, validateActionPlan } = require("../services/actio
 const { createActionPlan, deleteActionPlan, getActionPlan, listActionPlans, updateActionPlan } = require("../services/actionPlanDatabase");
 const { createActionPlanPdf } = require("../services/actionPlanPdf");
 const { getProcedureConfiguration } = require("../services/procedureConfiguration");
+const { sendError } = require("../services/httpResponse");
 
 const router = express.Router();
 
-function handleError(res, error) { res.status(error.status || 500).json({ error: error.message || "Erro interno." }); }
+function handleError(res, error) { sendError(res, error); }
 
 router.get("/", requireProcedureEditor, async (_req, res) => {
   try { res.json({ plans: await listActionPlans() }); } catch (error) { handleError(res, error); }

@@ -3,11 +3,12 @@ const { getDatabasePool } = require("../services/procedureDatabase");
 const { getRequestUser, hashPassword, requireQuality } = require("../services/procedureAuth");
 const { createDatabaseBackup, restoreDatabaseBackup } = require("../services/databaseBackup");
 const { listAudit, recordAudit } = require("../services/procedureAudit");
+const { sendError } = require("../services/httpResponse");
 
 const router = express.Router();
 
 function handleError(res, error) {
-  res.status(error.status || 500).json({ error: error.message || "Erro interno." });
+  sendError(res, error);
 }
 
 router.get("/backup", requireQuality, async (req, res) => {
@@ -26,6 +27,9 @@ router.get("/backup", requireQuality, async (req, res) => {
 
 router.post("/restore", requireQuality, async (req, res) => {
   try {
+    if ((process.env.NODE_ENV === "production" || process.env.RENDER) && process.env.ALLOW_RESTORE !== "true") {
+      return res.status(403).json({ error: "RestauraÃ§Ã£o bloqueada neste ambiente." });
+    }
     const result = await restoreDatabaseBackup(req.body?.backup || req.body);
     await recordAudit({ action: "restore", user: getRequestUser(req), details: result.counts });
     res.json(result);

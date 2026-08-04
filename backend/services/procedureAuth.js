@@ -25,7 +25,16 @@ function decodeBase64Url(value) {
 }
 
 function getSigningSecret() {
-  return process.env.SESSION_SECRET || process.env.JWT_SECRET || process.env.QUALITY_PASSWORD || "";
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET || "";
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production" || process.env.RENDER) {
+    throw authError("SESSION_SECRET precisa ser configurado no servidor.", 503);
+  }
+  return process.env.QUALITY_PASSWORD || "";
+}
+
+function assertSessionSecret() {
+  getSigningSecret();
 }
 
 function signTokenPayload(payload) {
@@ -137,6 +146,7 @@ module.exports = {
   createUserSession,
   getRequestUser,
   hashPassword,
+  assertSessionSecret,
   requireManager,
   requireProcedureEditor,
   requireQuality,
