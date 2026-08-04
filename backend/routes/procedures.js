@@ -350,9 +350,12 @@ router.post("/export-pdf", requireProcedureEditor, async (req, res) => {
 
 router.post("/export-bundle", requireQuality, async (req, res) => {
   try {
-    const procedure = normalizeProcedure(getProcedureBody(req));
+    const requestedProcedure = normalizeProcedure(getProcedureBody(req));
+    const storedProcedure = await loadProcedure(requestedProcedure.procedureId);
+    if (!storedProcedure) return res.status(404).json({ error: "Procedimento nao encontrado." });
+    const procedure = normalizeProcedure(storedProcedure);
     if (procedure.documentStatus !== STATUS_PUBLISHED) {
-      return res.status(400).json({ error: "O pacote só pode ser gerado para um procedimento publicado." });
+      return res.status(400).json({ error: "O pacote so pode ser gerado para um procedimento publicado." });
     }
     const pdf = await createProcedurePdf(procedure);
     const bundle = createProcedureBundle(procedure, pdf);

@@ -3,7 +3,7 @@ const { getDatabasePool } = require("./procedureDatabase");
 const BACKUP_VERSION = 1;
 const TABLES = ["masterDocuments", "procedureDocuments", "sequences", "reservations", "configuration", "users", "audit", "actionPlans", "instruments"];
 
-async function createDatabaseBackup() {
+async function createDatabaseBackup({ includeUserCredentials = false } = {}) {
   const pool = getDatabasePool();
   const [master, procedures, sequences, reservations, configuration, users, audit, actionPlans, instruments] = await Promise.all([
     pool.query("SELECT * FROM master_documents ORDER BY document_code"),
@@ -11,7 +11,9 @@ async function createDatabaseBackup() {
     pool.query("SELECT * FROM document_number_sequences ORDER BY document_type, sector, sector_prefix"),
     pool.query("SELECT * FROM procedure_number_reservations ORDER BY document_type, sector, sector_prefix, document_number"),
     pool.query("SELECT * FROM procedure_configuration WHERE configuration_id = 1"),
-    pool.query("SELECT * FROM app_users ORDER BY username"),
+    pool.query(includeUserCredentials
+      ? "SELECT * FROM app_users ORDER BY username"
+      : "SELECT user_id, username, display_name, role, active, created_at, updated_at FROM app_users ORDER BY username"),
     pool.query("SELECT * FROM document_audit_log ORDER BY audit_id"),
     pool.query("SELECT * FROM action_plan_documents ORDER BY document_code"),
     pool.query("SELECT * FROM metrology_instruments ORDER BY document_code"),
@@ -19,6 +21,9 @@ async function createDatabaseBackup() {
   return {
     version: BACKUP_VERSION,
     createdAt: new Date().toISOString(),
+    metadata: {
+      userCredentialsIncluded: includeUserCredentials,
+    },
     tables: {
       masterDocuments: master.rows,
       procedureDocuments: procedures.rows,
@@ -47,10 +52,25 @@ function validateBackup(backup) {
 
 async function restoreDatabaseBackup(input) {
   const backup = validateBackup(input);
+  const userCredentialsIncluded = backup.metadata?.userCredentialsIncluded === true
+    || (!backup.metadata && backup.tables.users.length > 0 && backup.tables.users.every((row) => typeof row.password_hash === "string" && row.password_hash));
   const client = await getDatabasePool().connect();
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE master_documents, procedure_documents, document_number_sequences, procedure_number_reservations, procedure_configuration, app_users, document_audit_log, action_plan_documents, action_plan_sequences, metrology_instruments, instrument_sequences RESTART IDENTITY CASCADE");
+    const tablesToTruncate = [
+      "master_documents",
+      "procedure_documents",
+      "document_number_sequences",
+      "procedure_number_reservations",
+      "procedure_configuration",
+      "document_audit_log",
+      "action_plan_documents",
+      "action_plan_sequences",
+      "metrology_instruments",
+      "instrument_sequences",
+    ];
+    if (userCredentialsIncluded) tablesToTruncate.splice(5, 0, "app_users");
+    await client.query(`TRUNCATE ${tablesToTruncate.join(", ")} RESTART IDENTITY CASCADE`);
     for (const row of backup.tables.masterDocuments) {
       await client.query(`
         INSERT INTO master_documents (procedure_id, document_code, document_type, sector, document_number, title, revision, elaborator, elaboration_date, approver, approval_date, status, equipment_code, document_original_location, document_public_location, created_at, updated_at)
@@ -69,8 +89,10 @@ async function restoreDatabaseBackup(input) {
     for (const row of backup.tables.configuration) {
       await client.query(`INSERT INTO procedure_configuration (configuration_id, document_types, sectors, quality_fields, cover, nonconformity, updated_at) VALUES (1,$1::jsonb,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,COALESCE($6,NOW()))`, [JSON.stringify(row.document_types), JSON.stringify(row.sectors), JSON.stringify(row.quality_fields), JSON.stringify(row.cover), JSON.stringify(row.nonconformity || {}), row.updated_at]);
     }
-    for (const row of backup.tables.users) {
-      await client.query(`INSERT INTO app_users (user_id, username, display_name, password_hash, role, active, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,NOW()),COALESCE($8,NOW()))`, [row.user_id, row.username, row.display_name, row.password_hash, row.role, row.active, row.created_at, row.updated_at]);
+    if (userCredentialsIncluded) {
+      for (const row of backup.tables.users) {
+        await client.query(`INSERT INTO app_users (user_id, username, display_name, password_hash, role, active, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,NOW()),COALESCE($8,NOW()))`, [row.user_id, row.username, row.display_name, row.password_hash, row.role, row.active, row.created_at, row.updated_at]);
+      }
     }
     for (const row of backup.tables.audit) {
       await client.query(`INSERT INTO document_audit_log (audit_id, procedure_id, action, actor_username, actor_role, details, created_at) VALUES ($1,$2,$3,$4,$5,$6::jsonb,COALESCE($7,NOW()))`, [row.audit_id, row.procedure_id, row.action, row.actor_username, row.actor_role, JSON.stringify(row.details || {}), row.created_at]);
@@ -88,10 +110,14 @@ async function restoreDatabaseBackup(input) {
       await client.query(`INSERT INTO metrology_instruments (instrument_id, document_code, name, situation, content, created_by, updated_by, created_at, updated_at) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,COALESCE($8,NOW()),COALESCE($9,NOW()))`, [row.instrument_id, row.document_code, row.name, row.situation, JSON.stringify(row.content || {}), row.created_by, row.updated_by, row.created_at, row.updated_at]);
     }
     await client.query(`INSERT INTO instrument_sequences (sequence_key, next_number) SELECT 'INS', COALESCE(MAX(CAST(SUBSTRING(document_code FROM 'INS-([0-9]+)$') AS INTEGER)) + 1, 1) FROM metrology_instruments ON CONFLICT (sequence_key) DO UPDATE SET next_number = EXCLUDED.next_number`);
-    await client.query(`SELECT setval(pg_get_serial_sequence('app_users', 'user_id'), COALESCE(MAX(user_id), 1), MAX(user_id) IS NOT NULL) FROM app_users`);
+    if (userCredentialsIncluded) {
+      await client.query(`SELECT setval(pg_get_serial_sequence('app_users', 'user_id'), COALESCE(MAX(user_id), 1), MAX(user_id) IS NOT NULL) FROM app_users`);
+    }
     await client.query(`SELECT setval(pg_get_serial_sequence('document_audit_log', 'audit_id'), COALESCE(MAX(audit_id), 1), MAX(audit_id) IS NOT NULL) FROM document_audit_log`);
     await client.query("COMMIT");
-    return { restored: true, counts: Object.fromEntries(TABLES.map((table) => [table, backup.tables[table].length])) };
+    const counts = Object.fromEntries(TABLES.map((table) => [table, backup.tables[table].length]));
+    if (!userCredentialsIncluded) counts.users = 0;
+    return { restored: true, userCredentialsRestored: userCredentialsIncluded, counts };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

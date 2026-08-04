@@ -122,7 +122,8 @@ function renderDraftSelection(drafts) {
         <p>${escapeText(draft.equipmentCode || "Sem equipamento")} · ${escapeText(draft.documentType || "")} · ${escapeText(draft.sector || "")}</p>
       </div>
       <div class="draft-continue-control">
-        <button type="button" class="primary-button draft-continue-button" data-select-draft-json>Continuar</button>
+        <button type="button" class="primary-button draft-continue-button" data-select-draft-secure>Continuar</button>
+        <button type="button" class="secondary-button draft-continue-button" data-select-draft-json>Escolher JSON</button>
         <input type="file" accept=".json,application/json" hidden data-draft-file="${escapeText(draft.procedureId)}" data-draft-code="${escapeText(draft.documentCode || "")}">
       </div>
       <p class="draft-item-error" data-draft-error="${escapeText(draft.procedureId)}" role="alert" tabindex="-1"></p>
@@ -306,6 +307,12 @@ createButton?.addEventListener("click", () => {
 document.querySelectorAll("[data-close-drafts]").forEach((button) => button.addEventListener("click", closeDraftSelection));
 draftSelection?.addEventListener("click", (event) => {
   if (event.target === draftSelection) closeDraftSelection();
+  const secureButton = event.target.closest("[data-select-draft-secure]");
+  if (secureButton) {
+    const fileInput = secureButton.closest(".draft-selection-item")?.querySelector("[data-draft-file]");
+    if (fileInput) continueDraftFromSecureFolder(fileInput.dataset.draftFile, fileInput);
+    return;
+  }
   const selectButton = event.target.closest("[data-select-draft-json]");
   if (!selectButton) return;
   const fileInput = selectButton.closest(".draft-selection-item")?.querySelector("[data-draft-file]");
@@ -316,18 +323,17 @@ startBlankProcedureButton?.addEventListener("click", async () => {
   await createNewProcedure();
 });
 
-async function continueDraftFromFile(file, draftId, fileInput) {
+async function continueDraftWithProcedure(procedure, draftId, fileInput) {
   draftSelectionError.textContent = "";
   const item = fileInput.closest(".draft-selection-item");
   const itemError = item?.querySelector("[data-draft-error]");
   if (itemError) itemError.textContent = "";
-  const button = item?.querySelector("[data-select-draft-json]");
+  const button = item?.querySelector("[data-select-draft-secure]");
   if (button) {
     button.disabled = true;
     button.textContent = "Validando...";
   }
   try {
-    const procedure = JSON.parse(await file.text());
     const expectedCode = String(fileInput.dataset.draftCode || "").trim().toUpperCase();
     const receivedCode = String(procedure.documentCode || "").trim().toUpperCase();
     if (!expectedCode || receivedCode !== expectedCode) {
@@ -355,6 +361,46 @@ async function continueDraftFromFile(file, draftId, fileInput) {
       button.disabled = false;
       button.textContent = "Continuar";
     }
+  }
+}
+
+async function continueDraftFromSecureFolder(draftId, fileInput) {
+  const item = fileInput.closest(".draft-selection-item");
+  const itemError = item?.querySelector("[data-draft-error]");
+  if (itemError) itemError.textContent = "";
+  if (!window.secureProcedureFolder?.isSupported()) {
+    if (itemError) itemError.textContent = "Este navegador nao permite abrir a pasta segura. Use Escolher JSON.";
+    return;
+  }
+  const button = item?.querySelector("[data-select-draft-secure]");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Procurando...";
+  }
+  try {
+    const result = await window.secureProcedureFolder.readProcedureJson(draftId);
+    if (!result.found) {
+      if (itemError) itemError.textContent = "JSON nao encontrado na pasta segura. Use Escolher JSON ou configure a pasta.";
+      return;
+    }
+    await continueDraftWithProcedure(result.procedure, draftId, fileInput);
+  } catch (error) {
+    if (itemError) itemError.textContent = error.message || "Nao foi possivel ler a pasta segura.";
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Continuar";
+    }
+  }
+}
+
+async function continueDraftFromFile(file, draftId, fileInput) {
+  try {
+    await continueDraftWithProcedure(JSON.parse(await file.text()), draftId, fileInput);
+  } catch (error) {
+    const itemError = fileInput.closest(".draft-selection-item")?.querySelector("[data-draft-error]");
+    if (itemError) itemError.textContent = error.message || "Nao foi possivel ler este JSON.";
+    fileInput.value = "";
   }
 }
 

@@ -47,7 +47,7 @@
 .draft-selection-item strong { color: var(--primary-dark); font-size: .84rem; }
 .draft-selection-item h3 { margin: 5px 0 4px; font-size: 1rem; }
 .draft-selection-item p { margin: 0; color: var(--muted); font-size: .86rem; }
-.draft-continue-control { display: flex; flex: 0 0 auto; }
+.draft-continue-control { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .draft-continue-button { cursor: pointer; }
 .draft-item-error { grid-column: 1 / -1; margin: 0; padding: 10px 12px; border: 1px solid #f2aaa4; border-radius: var(--radius-control); background: #fff2f1; color: #a32522; font-size: .9rem; line-height: 1.4; }
 .draft-item-error:empty { display: none; }

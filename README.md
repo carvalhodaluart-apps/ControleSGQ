@@ -18,9 +18,15 @@ set APP_HOST=127.0.0.1
 npm start
 ```
 
-Em producao no Render, configure `QUALITY_PASSWORD`, `DATABASE_URL` e um
-`SESSION_SECRET` fixo. Se `SESSION_SECRET` nao for informado, o servidor usa
-`QUALITY_PASSWORD` para assinar as sessoes.
+Em producao no Render, configure pelo menos:
+
+- `DATABASE_URL`: string de conexao do PostgreSQL.
+- `QUALITY_PASSWORD`: senha administrativa inicial da qualidade.
+- `SESSION_SECRET`: segredo longo e fixo para assinar sessoes.
+
+Em Render/producao o servidor nao inicia sem `SESSION_SECRET`. A variavel
+`ALLOW_RESTORE=true` libera restauracao via API em producao, e deve ser usada
+somente durante uma manutencao controlada.
 
 Para criar usuários individuais, cadastre-os pela tela `Configurações` com a
 senha da qualidade. O usuário editor pode criar, editar, exportar e visualizar
@@ -53,16 +59,19 @@ o PostgreSQL quando necessario.
 
 ## Backup e restauração
 
-Na tela `Configurações`, a qualidade pode baixar um backup JSON completo e
-restaurá-lo depois. Também existem os comandos:
+Na tela `Configuracoes`, a qualidade pode baixar um backup JSON e restaura-lo
+depois. Tambem existem os comandos:
 
 ```bash
 npm run backup:db
 npm run restore:db -- backups/arquivo-de-backup.json
 ```
 
-A restauração substitui as tabelas do sistema dentro de uma transação. Mantenha
-os arquivos de backup fora do repositório e faça uma cópia antes de restaurar.
+A restauracao substitui as tabelas do sistema dentro de uma transacao. Mantenha
+os arquivos de backup fora do repositorio e faca uma copia antes de restaurar.
+Por padrao, o backup nao exporta hashes de senha dos usuarios. Para gerar um
+backup completo de credenciais em um ambiente controlado, configure
+`BACKUP_INCLUDE_USER_CREDENTIALS=true` antes de baixar o backup.
 
 ## Importar Lista Mestra
 

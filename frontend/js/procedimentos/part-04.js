@@ -358,6 +358,16 @@ async function exportProcedure(asDraft = true) {
     body: JSON.stringify({ procedure: exportData }),
   });
   const procedure = data.procedure;
+  let secureSave = { saved: false };
+  try {
+    if (window.secureProcedureFolder) secureSave = await window.secureProcedureFolder.writeProcedureJson(procedure);
+  } catch (error) {
+    console.warn("Falha ao salvar na pasta segura:", error);
+  }
+  if (secureSave.saved) {
+    updateSaveState("saved", `JSON salvo em ${secureSave.folderName || "pasta segura"}`);
+    return;
+  }
   const blob = new Blob([JSON.stringify(procedure, null, 2)], { type: "application/json" });
   triggerBlobDownload(blob, `${procedure.documentCode || procedure.equipmentCode || "procedimento"}.json`);
 }
@@ -367,12 +377,14 @@ async function withActionButtonLoading(button, label, task) {
   button.style.minWidth = `${Math.ceil(button.getBoundingClientRect().width)}px`;
   button.disabled = true;
   button.dataset.loading = "true";
+  button.setAttribute("aria-busy", "true");
   button.innerHTML = `<span class="button-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
   try {
     return await task();
   } finally {
     button.disabled = false;
     button.dataset.loading = "false";
+    button.setAttribute("aria-busy", "false");
     button.textContent = originalText;
     button.style.minWidth = "";
   }

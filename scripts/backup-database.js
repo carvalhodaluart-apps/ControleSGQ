@@ -5,13 +5,14 @@ const { createDatabaseBackup } = require("../backend/services/databaseBackup");
 
 async function main() {
   await initDatabase();
-  const backup = await createDatabaseBackup();
+  const backup = await createDatabaseBackup({ includeUserCredentials: process.env.BACKUP_INCLUDE_USER_CREDENTIALS === "true" });
   const folder = path.resolve(__dirname, "..", "backups");
   await fs.mkdir(folder, { recursive: true });
   const stamp = backup.createdAt.replace(/[.:]/g, "-");
   const output = path.join(folder, `controle-sgq-${stamp}.json`);
   await fs.writeFile(output, `${JSON.stringify(backup, null, 2)}\n`, "utf8");
   console.log(`Backup criado em: ${output}`);
+  if (!backup.metadata.userCredentialsIncluded) console.log("Hashes de senha nao foram incluidos no backup.");
 }
 
 main().catch((error) => {

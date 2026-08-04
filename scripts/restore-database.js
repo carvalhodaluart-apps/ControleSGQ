@@ -11,6 +11,7 @@ async function main() {
   await initDatabase();
   const result = await restoreDatabaseBackup(backup);
   console.log(`Backup restaurado: ${JSON.stringify(result.counts)}`);
+  if (result.userCredentialsRestored === false) console.log("Usuarios existentes foram mantidos; o backup nao continha hashes de senha.");
 }
 
 main().catch((error) => {

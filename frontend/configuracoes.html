@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configurações | Criador de Procedimentos</title>
   <link rel="stylesheet" href="style.css?v=20260731-buttons-contrast-1">
-  <link rel="stylesheet" href="styles/configuration.css?v=20260803-nc-config-1">
+  <link rel="stylesheet" href="styles/configuration.css?v=20260804-secure-folder-1">
   <link rel="stylesheet" href="styles/responsive.css?v=20260803-responsive-1">
 </head>
 <body>
@@ -157,6 +157,29 @@
       <small class="configuration-cover-note">A restauração substitui os dados atuais e deve ser usada apenas com um backup confiável.</small>
     </details>
 
+    <details class="configuration-card">
+      <summary class="configuration-card-heading">
+        <div>
+          <h2>Pasta dos JSON em processo</h2>
+          <span class="configuration-module-badge configuration-module-badge-system">M&oacute;dulo: Sistema</span>
+          <p>Defina uma pasta local controlada para salvar e localizar os arquivos JSON de trabalho.</p>
+        </div>
+        <span class="configuration-card-toggle" aria-hidden="true">+</span>
+      </summary>
+      <div class="configuration-secure-folder">
+        <div>
+          <strong id="secureFolderName">Nenhuma pasta configurada</strong>
+          <small id="secureFolderStatus">Configure em um navegador compat&iacute;vel para salvar sem escolher local a cada arquivo.</small>
+        </div>
+        <div class="configuration-backup-actions">
+          <button type="button" class="secondary-button" id="selectSecureFolder">Selecionar pasta</button>
+          <button type="button" class="secondary-button" id="testSecureFolder">Testar acesso</button>
+          <button type="button" class="danger-button" id="forgetSecureFolder">Remover pasta</button>
+        </div>
+      </div>
+      <small class="configuration-cover-note">O navegador guarda apenas a permiss&atilde;o da pasta. O conte&uacute;do dos JSON n&atilde;o &eacute; salvo no armazenamento do navegador.</small>
+    </details>
+
     <footer class="configuration-footer">
       <a class="secondary-button" href="index.html">Cancelar</a>
       <button type="button" class="primary-button" id="saveConfiguration">Salvar configurações</button>
@@ -178,6 +201,7 @@
       </div>
     </form>
   </div>
-  <script src="configuracoes.js?v=20260803-nc-config-1"></script>
+  <script src="js/secure-folder.js?v=20260804-secure-folder-1"></script>
+  <script src="configuracoes.js?v=20260804-secure-folder-2"></script>
 </body>
 </html>

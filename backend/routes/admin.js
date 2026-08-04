@@ -13,7 +13,7 @@ function handleError(res, error) {
 
 router.get("/backup", requireQuality, async (req, res) => {
   try {
-    const backup = await createDatabaseBackup();
+    const backup = await createDatabaseBackup({ includeUserCredentials: process.env.BACKUP_INCLUDE_USER_CREDENTIALS === "true" });
     await recordAudit({ action: "backup", user: getRequestUser(req), details: { counts: Object.fromEntries(Object.entries(backup.tables).map(([key, rows]) => [key, rows.length])) } });
     const filename = `controle-sgq-backup-${new Date().toISOString().slice(0, 10)}.json`;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -28,7 +28,7 @@ router.get("/backup", requireQuality, async (req, res) => {
 router.post("/restore", requireQuality, async (req, res) => {
   try {
     if ((process.env.NODE_ENV === "production" || process.env.RENDER) && process.env.ALLOW_RESTORE !== "true") {
-      return res.status(403).json({ error: "RestauraÃ§Ã£o bloqueada neste ambiente." });
+      return res.status(403).json({ error: "Restauracao bloqueada neste ambiente." });
     }
     const result = await restoreDatabaseBackup(req.body?.backup || req.body);
     await recordAudit({ action: "restore", user: getRequestUser(req), details: result.counts });

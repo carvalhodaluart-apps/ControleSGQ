@@ -17,6 +17,11 @@ const coverPreview = document.querySelector("#coverPreview");
 const coverEmpty = document.querySelector("#coverEmpty");
 const coverOverlay = document.querySelector("#coverOverlay");
 const coverImageInput = document.querySelector("#coverImageInput");
+const secureFolderName = document.querySelector("#secureFolderName");
+const secureFolderStatus = document.querySelector("#secureFolderStatus");
+const selectSecureFolderButton = document.querySelector("#selectSecureFolder");
+const testSecureFolderButton = document.querySelector("#testSecureFolder");
+const forgetSecureFolderButton = document.querySelector("#forgetSecureFolder");
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
@@ -230,6 +235,33 @@ async function loadUsers() {
   renderUsers(data.users || []);
 }
 
+function renderSecureFolderStatus(status) {
+  const supported = status?.supported !== false;
+  const configured = Boolean(status?.configured);
+  selectSecureFolderButton.disabled = !supported;
+  testSecureFolderButton.disabled = false;
+  forgetSecureFolderButton.disabled = !supported || !configured;
+  if (!supported) {
+    secureFolderName.textContent = "Navegador sem suporte";
+    secureFolderStatus.textContent = "Use Chrome ou Edge desktop para salvar JSON diretamente em uma pasta local controlada.";
+    return;
+  }
+  if (!configured) {
+    secureFolderName.textContent = "Nenhuma pasta configurada";
+    secureFolderStatus.textContent = "Selecione uma pasta corporativa para os JSON em processo.";
+    return;
+  }
+  secureFolderName.textContent = status.name || "Pasta selecionada";
+  secureFolderStatus.textContent = status.permission === "granted"
+    ? "Pasta pronta para salvar e localizar JSON em processo."
+    : "Pasta configurada; o navegador pedira permissao no proximo acesso.";
+}
+
+async function refreshSecureFolderStatus() {
+  if (!window.secureProcedureFolder) return;
+  renderSecureFolderStatus(await window.secureProcedureFolder.getStatus());
+}
+
 async function downloadBackup() {
   const response = await fetch("/api/admin/backup", { headers: { Authorization: `Bearer ${qualityToken}` } });
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "N\\u00e3o foi poss\\u00edvel criar o backup.");
@@ -271,6 +303,7 @@ authForm.addEventListener("submit", async (event) => {
     password.value = "";
     await loadConfiguration();
     await loadUsers();
+    await refreshSecureFolderStatus();
     configurationPage.classList.remove("is-locked");
   } catch (requestError) {
     auth.classList.remove("is-hidden");
@@ -400,6 +433,43 @@ document.querySelector("#restoreDatabaseBackup").addEventListener("change", asyn
   }
 });
 
+selectSecureFolderButton?.addEventListener("click", async () => {
+  errorMessage.textContent = "";
+  statusMessage.textContent = "Selecionando pasta...";
+  try {
+    renderSecureFolderStatus(await window.secureProcedureFolder.selectFolder());
+    statusMessage.textContent = "Pasta dos JSON em processo configurada.";
+  } catch (requestError) {
+    statusMessage.textContent = "";
+    errorMessage.textContent = requestError.message;
+  }
+});
+
+testSecureFolderButton?.addEventListener("click", async () => {
+  errorMessage.textContent = "";
+  statusMessage.textContent = "Testando acesso...";
+  try {
+    if (!window.secureProcedureFolder?.isSupported()) throw new Error("Este navegador nao permite testar uma pasta fixa. Use Chrome ou Edge desktop.");
+    const status = await window.secureProcedureFolder.getStatus();
+    if (!status.configured) throw new Error("Selecione uma pasta antes de testar o acesso.");
+    renderSecureFolderStatus(await window.secureProcedureFolder.testAccess());
+    statusMessage.textContent = "Acesso a pasta confirmado.";
+  } catch (requestError) {
+    statusMessage.textContent = "";
+    errorMessage.textContent = requestError.message;
+  }
+});
+
+forgetSecureFolderButton?.addEventListener("click", async () => {
+  errorMessage.textContent = "";
+  try {
+    renderSecureFolderStatus(await window.secureProcedureFolder.forgetFolder());
+    statusMessage.textContent = "Pasta removida deste navegador.";
+  } catch (requestError) {
+    errorMessage.textContent = requestError.message;
+  }
+});
+
 async function bootConfiguration() {
   if (!qualityToken) {
     showAuth();
@@ -409,6 +479,7 @@ async function bootConfiguration() {
     auth.classList.add("is-hidden");
     await loadConfiguration();
     await loadUsers();
+    await refreshSecureFolderStatus();
     configurationPage.classList.remove("is-locked");
   } catch (requestError) {
     qualityToken = "";

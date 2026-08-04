@@ -16,26 +16,29 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.APP_HOST || (process.env.RENDER ? "0.0.0.0" : "127.0.0.1");
 const FRONTEND_DIR = path.resolve(__dirname, "..", "frontend");
+
+if (process.env.RENDER || process.env.TRUST_PROXY === "true") app.set("trust proxy", 1);
+
 const qualityAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  message: { error: "Muitas tentativas de autenticação. Aguarde alguns minutos." },
+  message: { error: "Muitas tentativas de autenticacao. Aguarde alguns minutos." },
 });
 const heavyApiLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 12,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  message: { error: "Muitas solicitaÃ§Ãµes pesadas. Aguarde alguns instantes." },
+  message: { error: "Muitas solicitacoes pesadas. Aguarde alguns instantes." },
 });
 const adminActionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  message: { error: "Muitas aÃ§Ãµes administrativas. Aguarde alguns minutos." },
+  message: { error: "Muitas acoes administrativas. Aguarde alguns minutos." },
 });
 
 app.disable("x-powered-by");
