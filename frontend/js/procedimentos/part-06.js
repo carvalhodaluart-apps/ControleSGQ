@@ -76,6 +76,7 @@ function requiresDraftExportBeforeLeave() {
   return !allowProcedureLeave
     && builderMode
     && elaborationAuthorized
+    && procedureDirtySinceJsonExport
     && activeProcedure?.documentStatus !== "Publicado";
 }
 
@@ -548,6 +549,7 @@ async function bootProcedureEditor() {
       }
     }
     renderProcedure(activeProcedure);
+    markProcedureJsonClean();
   } catch (error) {
     console.error("Falha ao carregar procedimento:", error);
     if (builderMode && (!requestedProcedureId || params.get("novo") === "1")) {

@@ -77,11 +77,9 @@ let pendingAnnotation = null;
 let dragState = null;
 let reorderDrag = null;
 let layoutDragState = null;
-let selectedStepBlock = null;
-let saveTimer = null;
-let savePromise = Promise.resolve();
-let saveState = "saved";
+let selectedStepBlock = null, saveTimer = null, savePromise = Promise.resolve(), saveState = "saved", procedureDirtySinceJsonExport = false;
 function clearAuthenticationState() { qualityToken = ""; sessionStorage.removeItem(qualityTokenKey); sessionStorage.removeItem("procedure-user-role"); }
+function markProcedureChanged() { procedureDirtySinceJsonExport = true; } function markProcedureJsonClean() { procedureDirtySinceJsonExport = false; }
 function updateSaveState(state, message) {
   saveState = state;
   document.querySelectorAll("[data-save-state]").forEach((element) => {
@@ -474,6 +472,7 @@ function createBlankProcedure() {
 
 function saveProcedure() {
   if (!activeProcedure) return savePromise; if (typeof markProcedurePdfOutdated === "function") markProcedurePdfOutdated();
+  markProcedureChanged();
   if (!qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
   const snapshot = cloneData(activeProcedure);
   updateSaveState("pending");
@@ -522,6 +521,7 @@ async function loadProcedureFromServer() {
   const data = await apiRequest(`/api/procedures/load?id=${encodeURIComponent(procedureId)}`);
   activeProcedure = data.procedure;
   normalizeProcedure(activeProcedure); if (typeof resetProcedurePdfCache === "function") resetProcedurePdfCache();
+  markProcedureJsonClean();
   return true;
 }
 

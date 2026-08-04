@@ -366,10 +366,12 @@ async function exportProcedure(asDraft = true) {
   }
   if (secureSave.saved) {
     updateSaveState("saved", `JSON salvo em ${secureSave.folderName || "pasta segura"}`);
+    markProcedureJsonClean();
     return;
   }
   const blob = new Blob([JSON.stringify(procedure, null, 2)], { type: "application/json" });
   triggerBlobDownload(blob, `${procedure.documentCode || procedure.equipmentCode || "procedimento"}.json`);
+  markProcedureJsonClean();
 }
 
 async function withActionButtonLoading(button, label, task) {
