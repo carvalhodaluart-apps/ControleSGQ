@@ -1,11 +1,12 @@
-function addStepBlock(sectionIndex, cardIndex, type, tone = "success") {
+async function addStepBlock(sectionIndex, cardIndex, type, tone = "success") {
   const card = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex];
   if (!card) return;
   card.blocks = card.blocks || [];
   const nextLayer = Math.max(0, ...card.blocks.filter((block) => block.type !== "image").map((block) => Number(block.zIndex) || 0)) + 1;
+  const imageCount = card.blocks.filter((block) => block.type === "image").length;
   const offset = Math.min(card.blocks.length * 5, 20);
   const sizeByType = {
-    image: { w: 46, h: 42, x: 28 + offset, y: 14 + offset },
+    image: imageCount ? { w: 42, h: 40, x: 28 + offset, y: 14 + offset } : { w: 90, h: 90, x: 5, y: 5 },
     text: { w: 38, h: 14, x: 8 + offset, y: 14 + offset },
     arrow: { w: 8, h: 5, x: 46 + offset, y: 45 },
     circle: { w: 10, h: 18, x: 45 + offset, y: 42 },
@@ -24,15 +25,17 @@ function addStepBlock(sectionIndex, cardIndex, type, tone = "success") {
     sizeByType.x = position.x;
     sizeByType.y = position.y;
   }
+  const pickedImage = type === "image" ? await pickProcedureImageFile().then((file) => (file ? resizeImage(file) : "")) : "";
+  if (type === "image" && !pickedImage) return;
   card.blocks.push({
     id: createBlockId(type),
     type,
-    text: "",
-    html: "",
+    text: type === "text" ? "Texto" : "",
+    html: type === "text" ? "Texto" : "",
     tone,
-    image: "",
+    image: pickedImage,
     annotations: [],
-    rotation: 0,
+    rotation: type === "arrow" ? 180 : 0,
     flipX: false,
     flipY: false,
     borderWidth: 3,
@@ -43,20 +46,19 @@ function addStepBlock(sectionIndex, cardIndex, type, tone = "success") {
     h: sizeByType.h,
     zIndex: type === "image" ? 0 : nextLayer,
   });
+  if (type === "text") window.fabricPendingTextEdit = { sectionIndex, cardIndex, id: card.blocks[card.blocks.length - 1].id };
+  syncStepCardSceneFromBlocks(sectionIndex, cardIndex);
   saveProcedure();
   renderProcedure(activeProcedure);
 }
+
+function syncStepCardSceneFromBlocks(sectionIndex, cardIndex) { const card = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]; if (card) window.SceneGraphCore?.syncCardSceneFromBlocks?.(card, sectionIndex, cardIndex); }
 
 function imageBlocksOverlap(first, second) {
   return first.x < second.x + second.w
     && first.x + first.w > second.x
     && first.y < second.y + second.h
     && first.y + first.h > second.y;
-}
-
-function canPlaceImageBlock(card, blockIndex, candidate) {
-  return !(card.blocks || [])
-    .some((block, index) => index !== blockIndex && block.type === "image" && imageBlocksOverlap(candidate, block));
 }
 
 function findAvailableImagePosition(blocks, width, height) {
@@ -66,31 +68,6 @@ function findAvailableImagePosition(blocks, width, height) {
   }
   return candidates.find((candidate) => !(blocks || [])
     .some((block) => block.type === "image" && imageBlocksOverlap(candidate, block))) || null;
-}
-
-function bringStepBlockForward(sectionIndex, cardIndex, blockIndex) {
-  const blocks = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks;
-  const block = blocks?.[blockIndex];
-  if (!block || block.type === "image") return;
-
-  const currentLayer = Number(block.zIndex) || 0;
-  const next = blocks
-    .filter((item) => item.type !== "image" && (Number(item.zIndex) || 0) > currentLayer)
-    .sort((first, second) => (Number(first.zIndex) || 0) - (Number(second.zIndex) || 0))[0];
-  if (!next) return;
-
-  block.zIndex = Number(next.zIndex) || currentLayer + 1;
-  next.zIndex = currentLayer;
-  saveProcedure();
-  renderProcedure(activeProcedure);
-}
-
-function removeStepBlock(sectionIndex, cardIndex, blockIndex) {
-  const blocks = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks;
-  if (!blocks) return;
-  blocks.splice(blockIndex, 1);
-  saveProcedure();
-  renderProcedure(activeProcedure);
 }
 
 function canReorder(source, target) {
@@ -288,14 +265,16 @@ function addStepSection() {
 
 function addStepCard(sectionIndex) {
   const section = activeProcedure.sections[sectionIndex];
-  section.stepCards.push({
+  const card = {
     tone: "success",
     text: "",
     textPosition: "above",
     image: "",
     annotations: [],
     blocks: [],
-  });
+  };
+  window.SceneGraphCore?.normalizeCardScene?.(card, sectionIndex, section.stepCards.length);
+  section.stepCards.push(card);
   saveProcedure();
   renderProcedure(activeProcedure);
 }
@@ -344,7 +323,7 @@ function resizeImage(file) {
 }
 
 async function exportProcedure(asDraft = true) {
-  const exportData = cloneData(activeProcedure);
+  const exportData = typeof createProcedureSaveSnapshot === "function" ? createProcedureSaveSnapshot(activeProcedure) : cloneData(activeProcedure);
   if (asDraft) {
     exportData.documentStatus = "Em elaboração";
     exportData.qualityInfo = {
@@ -486,11 +465,16 @@ function getProcedurePdfBlob() {
     return Promise.resolve(procedurePdfCachedBlob);
   }
   if (procedurePdfPreloadVersion === version && procedurePdfPreloadPromise) return procedurePdfPreloadPromise;
-  const snapshot = cloneData(activeProcedure);
   procedurePdfPreloadVersion = version;
-  procedurePdfAbortController = new AbortController();
+  const controller = new AbortController();
+  procedurePdfAbortController = controller;
   updateProcedurePdfState("generating");
-  procedurePdfPreloadPromise = requestProcedurePdf(false, snapshot, procedurePdfAbortController.signal).then((blob) => {
+  procedurePdfPreloadPromise = Promise.resolve(window.createProcedurePdfSnapshot?.(activeProcedure) || cloneData(activeProcedure))
+    .then((snapshot) => {
+      if (version !== procedurePdfVersion) throw new DOMException("Geracao desatualizada", "AbortError");
+      return requestProcedurePdf(false, snapshot, controller.signal);
+    })
+    .then((blob) => {
     if (version === procedurePdfVersion) {
       procedurePdfCachedVersion = version;
       procedurePdfCachedBlob = blob;
@@ -554,13 +538,14 @@ async function downloadProcedurePdf() {
 }
 
 async function downloadPublishedProcedureFiles() {
+  const snapshot = await Promise.resolve(window.createProcedurePdfSnapshot?.(activeProcedure) || cloneData(activeProcedure));
   const response = await fetch("/api/procedures/export-bundle", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${qualityToken}`,
     },
-    body: JSON.stringify({ procedure: activeProcedure }),
+    body: JSON.stringify({ procedure: snapshot }),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));

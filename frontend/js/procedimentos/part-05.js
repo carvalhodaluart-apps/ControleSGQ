@@ -138,119 +138,10 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const stepCardToneButton = event.target.closest("[data-step-card-tone]");
-  if (stepCardToneButton) {
-    const [sectionIndex, cardIndex, tone] = stepCardToneButton.dataset.stepCardTone.split(":");
-    activeProcedure.sections[sectionIndex].stepCards[cardIndex].tone = tone;
-    saveProcedure();
-    renderProcedure(activeProcedure);
-    return;
-  }
-
   const addStepBlockButton = event.target.closest("[data-add-step-block]");
   if (addStepBlockButton) {
     const [sectionIndex, cardIndex, type, tone] = addStepBlockButton.dataset.addStepBlock.split(":");
-    addStepBlock(Number(sectionIndex), Number(cardIndex), type, tone || "success");
-    return;
-  }
-
-  const stepBlockToneButton = event.target.closest("[data-step-block-tone]");
-  if (stepBlockToneButton) {
-    const [sectionIndex, cardIndex, blockIndex, tone] = stepBlockToneButton.dataset.stepBlockTone.split(":");
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.tone = tone;
-      saveProcedure();
-      renderProcedure(activeProcedure);
-    }
-    return;
-  }
-
-  const stepBlockForwardButton = event.target.closest("[data-step-block-forward]");
-  if (stepBlockForwardButton) {
-    const [sectionIndex, cardIndex, blockIndex] = stepBlockForwardButton.dataset.stepBlockForward.split(":").map(Number);
-    bringStepBlockForward(sectionIndex, cardIndex, blockIndex);
-    return;
-  }
-
-  const stepImageRotateButton = event.target.closest("[data-step-image-rotate]");
-  if (stepImageRotateButton) {
-    const [sectionIndex, cardIndex, blockIndex, delta] = stepImageRotateButton.dataset.stepImageRotate.split(":").map(Number);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.rotation = ((Number(block.rotation) || 0) + delta + 360) % 360;
-      saveProcedure();
-      renderProcedure(activeProcedure);
-    }
-    return;
-  }
-
-  const stepImageFlipButton = event.target.closest("[data-step-image-flip]");
-  if (stepImageFlipButton) {
-    const [sectionIndex, cardIndex, blockIndex, axis] = stepImageFlipButton.dataset.stepImageFlip.split(":");
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block[axis === "x" ? "flipX" : "flipY"] = !block[axis === "x" ? "flipX" : "flipY"];
-      saveProcedure();
-      renderProcedure(activeProcedure);
-    }
-    return;
-  }
-
-  const removeStepBlockButton = event.target.closest("[data-remove-step-block]");
-  if (removeStepBlockButton) {
-    if (!(await confirmRemoval("este bloco"))) return;
-    const [sectionIndex, cardIndex, blockIndex] = removeStepBlockButton.dataset.removeStepBlock.split(":").map(Number);
-    removeStepBlock(sectionIndex, cardIndex, blockIndex);
-    return;
-  }
-
-  const rotateStepBlockButton = event.target.closest("[data-rotate-step-block]");
-  if (rotateStepBlockButton) {
-    const [sectionIndex, cardIndex, blockIndex, delta] = rotateStepBlockButton.dataset.rotateStepBlock.split(":").map(Number);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.rotation = (block.rotation || 0) + delta;
-      saveProcedure();
-      renderProcedure(activeProcedure);
-    }
-    return;
-  }
-
-  const circleWidthButton = event.target.closest("[data-step-circle-width]");
-  if (circleWidthButton) {
-    const [sectionIndex, cardIndex, blockIndex, delta] = circleWidthButton.dataset.stepCircleWidth.split(":").map(Number);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.borderWidth = Math.max(1, Math.min(12, (block.borderWidth || 3) + delta));
-      saveProcedure();
-      renderProcedure(activeProcedure);
-    }
-    return;
-  }
-
-  const arrowWidthButton = event.target.closest("[data-step-arrow-width]");
-  if (arrowWidthButton) {
-    const [sectionIndex, cardIndex, blockIndex, delta] = arrowWidthButton.dataset.stepArrowWidth.split(":").map(Number);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.borderWidth = Math.max(1, Math.min(12, (block.borderWidth || 3) + delta));
-      saveProcedure();
-      renderProcedure(activeProcedure);
-    }
-    return;
-  }
-
-  const boldButton = event.target.closest("[data-step-text-bold]");
-  if (boldButton) {
-    document.execCommand("bold");
-    const [sectionIndex, cardIndex, blockIndex] = boldButton.dataset.stepTextBold.split(":").map(Number);
-    const editor = procedureRoot.querySelector(`[data-step-block-richtext="${sectionIndex}:${cardIndex}:${blockIndex}"]`);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (editor && block) {
-      block.html = sanitizeRichText(editor.innerHTML);
-      saveProcedure();
-    }
+    await addStepBlock(Number(sectionIndex), Number(cardIndex), type, tone || "success");
     return;
   }
 
@@ -274,18 +165,6 @@ procedureRoot.addEventListener("click", async (event) => {
     activeProcedure.sections[sectionIndex].stepCards.splice(cardIndex, 1);
     saveProcedure();
     renderProcedure(activeProcedure);
-    return;
-  }
-
-  const textSizeButton = event.target.closest("[data-step-text-size]");
-  if (textSizeButton) {
-    const [sectionIndex, cardIndex, blockIndex, delta] = textSizeButton.dataset.stepTextSize.split(":").map(Number);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.fontSize = Math.max(8, Math.min(48, (Number(block.fontSize) || 20) + delta));
-      saveProcedure();
-      renderProcedure(activeProcedure);
-    }
     return;
   }
 
@@ -484,12 +363,6 @@ procedureRoot.addEventListener("click", async (event) => {
     pendingAnnotation = null;
   }
 });
-procedureRoot.addEventListener("mousedown", (event) => {
-  if (event.target.closest("[data-step-text-bold]")) {
-    event.preventDefault();
-  }
-});
-
 procedureRoot.addEventListener("keydown", (event) => {
   const sectionTitle = event.target.closest("[data-section-title]");
   if (!sectionTitle || event.key !== "Enter") return;
@@ -561,28 +434,6 @@ procedureRoot.addEventListener("input", (event) => {
     const [sectionIndex, cardIndex] = stepCardText.dataset.stepCardText.split(":").map(Number);
     activeProcedure.sections[sectionIndex].stepCards[cardIndex].text = stepCardText.value;
     saveProcedure();
-    return;
-  }
-
-  const stepBlockText = event.target.closest("[data-step-block-text]");
-  if (stepBlockText) {
-    const [sectionIndex, cardIndex, blockIndex] = stepBlockText.dataset.stepBlockText.split(":").map(Number);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.text = stepBlockText.value;
-      saveProcedure();
-    }
-    return;
-  }
-
-  const stepRichText = event.target.closest("[data-step-block-richtext]");
-  if (stepRichText) {
-    const [sectionIndex, cardIndex, blockIndex] = stepRichText.dataset.stepBlockRichtext.split(":").map(Number);
-    const block = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]?.blocks?.[blockIndex];
-    if (block) {
-      block.html = sanitizeRichText(stepRichText.innerHTML);
-      saveProcedure();
-    }
     return;
   }
 

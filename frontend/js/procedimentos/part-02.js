@@ -40,7 +40,7 @@ function renderEditorToolbar(section, sectionIndex) {
 
   return `
     <div class="section-editor-toolbar ${toolbarClass}">
-      ${section.kind === "step" ? `<button type="button" data-add-step-card="${sectionIndex}">Adicionar seção</button>` : ""}
+      ${section.kind === "step" && !section.stepCards?.length ? `<button type="button" data-add-step-card="${sectionIndex}">Criar canvas da etapa</button>` : ""}
       ${section.kind === "tools" ? `<button type="button" data-add-material="${sectionIndex}">Adicionar material</button>` : ""}
     </div>
   `;
@@ -299,7 +299,12 @@ function renderStepCards(section, sectionIndex) {
   return `
     <div class="step-card-list">
       ${section.stepCards.map((card, cardIndex) => renderStepCard(section, sectionIndex, card, cardIndex)).join("")}
-      ${editMode && !section.stepCards.length ? `<p class="empty-editor-note">Adicione um card de imagem para montar esta etapa.</p>` : ""}
+      ${editMode && !section.stepCards.length ? `<p class="empty-editor-note">Crie o canvas da etapa para inserir imagens, textos e marcações.</p>` : ""}
+      ${editMode && section.stepCards.length ? `
+        <div class="step-section-inline-actions">
+          <button type="button" class="secondary-button" data-add-step-card="${sectionIndex}">Adicionar sessão</button>
+        </div>
+      ` : ""}
     </div>
   `;
 }
@@ -308,7 +313,7 @@ function renderStepCard(section, sectionIndex, card, cardIndex) {
   return `
     <article class="step-card" data-step-card="${sectionIndex}:${cardIndex}" ${editMode ? `data-reorder-item="stepCard:${sectionIndex}:${cardIndex}"` : ""}>
       ${editMode ? `
-        <div class="step-card-topbar">
+        <div class="step-card-topbar ${window.FabricStepEditor ? "has-fabric-ribbon" : ""}">
           ${renderCanvasToolbar(sectionIndex, cardIndex)}
           ${renderStepCardEditor(section, sectionIndex, card, cardIndex)}
         </div>
@@ -328,20 +333,27 @@ function renderStepCardEditor(section, sectionIndex, card, cardIndex) {
 
 function renderStepCardCanvas(section, sectionIndex, card, cardIndex) {
   const blocks = card.blocks || [];
+  const useFabric = editMode && window.FabricStepEditor;
   return `
-    <div class="step-card-canvas ${editMode ? "is-editable" : ""}" data-step-canvas="${sectionIndex}:${cardIndex}">
+    <div class="step-card-canvas ${editMode ? "is-editable" : ""} ${useFabric ? "has-fabric-editor" : ""}" data-step-canvas="${sectionIndex}:${cardIndex}">
+      ${useFabric ? `<canvas class="fabric-step-canvas" data-fabric-step-canvas="${sectionIndex}:${cardIndex}" aria-label="Canvas da etapa"></canvas>` : ""}
+      ${!useFabric ? `<div class="step-card-dom-layer">
       ${blocks.map((block, blockIndex) => renderStepCardBlock(section, sectionIndex, card, cardIndex, block, blockIndex)).join("")}
       ${editMode && !blocks.length ? `<div class="step-card-empty-canvas"><strong>Canvas vazio</strong><span>Use os botões acima para inserir imagem, texto ou forma.</span></div>` : ""}
+      </div>` : ""}
     </div>
   `;
 }
 
 function renderCanvasToolbar(sectionIndex, cardIndex) {
+  if (window.renderFabricCanvasRibbon) return window.renderFabricCanvasRibbon(sectionIndex, cardIndex);
   return `
-    <div class="canvas-toolbar">
+    <div class="canvas-toolbar canvas-ribbon">
+      <div class="canvas-ribbon-group">
       <span class="canvas-toolbar-label">Inserir</span>
       <button type="button" title="Adicionar bloco de imagem" data-add-step-block="${sectionIndex}:${cardIndex}:image">Imagem</button>
       <button type="button" title="Adicionar caixa de texto" data-add-step-block="${sectionIndex}:${cardIndex}:text">Texto</button>
+      </div>
       <details>
         <summary>Seta</summary>
         <div>
@@ -381,10 +393,8 @@ function renderStepCardBlock(section, sectionIndex, card, cardIndex, block, bloc
   const needsPanel = block.type === "image" || block.type === "text";
   const hasTextTools = editMode && block.type === "text";
   const hasResizeFrame = editMode && ["circle", "square"].includes(block.type);
-  const blockKey = `${sectionIndex}:${cardIndex}:${blockIndex}`;
-  const isSelected = selectedStepBlock === blockKey;
   return `
-    <div class="step-layout-block ${blockClass} ${hasTextTools ? "has-floating-tools" : ""} ${hasResizeFrame ? "has-resize-frame" : ""} ${isSelected ? "is-selected" : ""}" style="${getStepBlockStyle(block)}" data-step-block="${blockKey}" tabindex="0" aria-label="Bloco ${escapeHtml(block.type)}" aria-selected="${isSelected}">
+    <div class="step-layout-block ${blockClass} ${hasTextTools ? "has-floating-tools" : ""} ${hasResizeFrame ? "has-resize-frame" : ""}" style="${getStepBlockStyle(block)}">
       ${hasTextTools ? renderStepTextTools(sectionIndex, cardIndex, block, blockIndex) : ""}
       ${editMode && block.type === "image" ? renderStepImageTools(sectionIndex, cardIndex, blockIndex) : ""}
       ${needsPanel

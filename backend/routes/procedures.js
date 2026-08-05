@@ -317,9 +317,11 @@ router.post("/publish", requireQuality, async (req, res) => {
 
 router.delete("/delete", requireQuality, async (req, res) => {
   try {
-    await deleteProcedure(req.query.id || req.body?.procedureId);
-    await deleteMasterDocument(req.query.id || req.body?.procedureId);
-    await recordAudit({ procedureId: req.query.id || req.body?.procedureId, action: "deleted", user: getRequestUser(req) });
+    const procedureId = String(req.query.id || req.body?.procedureId || "").trim();
+    if (!procedureId) return res.status(400).json({ error: "Identificador do procedimento obrigat\u00f3rio." });
+    await deleteProcedure(procedureId);
+    await deleteMasterDocument(procedureId);
+    await recordAudit({ procedureId, action: "deleted", user: getRequestUser(req) });
     res.json({ ok: true });
   } catch (error) {
     handleError(res, error);

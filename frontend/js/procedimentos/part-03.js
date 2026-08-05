@@ -1,11 +1,3 @@
-function renderSquareSvg() {
-  return `
-    <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-      <rect x="12" y="12" width="76" height="76"></rect>
-    </svg>
-  `;
-}
-
 function renderCardImageEditor(sectionIndex, cardIndex, blockIndex) {
   return `
     <div class="image-editor-toolbar">
@@ -215,7 +207,14 @@ function renderProcedure(procedure) {
   }
 
   const sections = procedure.sections || [];
-  const imageCount = sections.reduce((total, section) => total + (section.images?.length || 0), 0);
+  const imageCount = sections.reduce((total, section) => {
+    const sectionImages = section.images?.length || 0;
+    const stepImages = (section.stepCards || []).reduce((cardTotal, card) => {
+      const blockImages = (card.blocks || []).filter((block) => block.type === "image" && block.image).length;
+      return cardTotal + (blockImages || (card.image ? 1 : 0));
+    }, 0);
+    return total + sectionImages + stepImages;
+  }, 0);
   const equipmentImage = getEquipmentImage(procedure);
   const procedureTypeLabel = procedureTypes[procedure.procedureType] || "Procedimento";
   const docType = getDocumentTypeConfig(procedure.qualityInfo?.documentType);
@@ -343,6 +342,9 @@ function renderProcedure(procedure) {
   if (!canEditProcedures) {
     procedureRoot.querySelector(".procedure-actions")?.remove();
   }
+
+  window.FabricStepEditor?.mountAll?.(procedure)
+    .catch((error) => console.error("Falha ao montar editor Fabric:", error));
 }
 
 function refreshSectionNavigation(procedure) {
@@ -568,25 +570,4 @@ function getStepBlockStyle(block) {
     `--image-scale-y:${block.flipY ? -1 : 1}`,
     `z-index:${block.type === "image" ? 1 : 10 + (Number(block.zIndex) || 0)}`,
   ].join("; ");
-}
-
-function snapToGrid(value) {
-  return Math.round(value / 2.5) * 2.5;
-}
-
-function snapFine(value) {
-  return Math.round(value * 10) / 10;
-}
-
-function isFreeCanvasElement(type) {
-  return ["arrow", "circle", "square"].includes(type);
-}
-
-function clampBlockPosition(block, x, y, freeMove = false) {
-  const nextX = freeMove ? snapFine(x) : snapToGrid(x);
-  const nextY = freeMove ? snapFine(y) : snapToGrid(y);
-  return {
-    x: Math.max(0, Math.min(100 - block.w, nextX)),
-    y: Math.max(0, Math.min(100 - block.h, nextY)),
-  };
 }

@@ -1,3 +1,5 @@
+const { STEP_SCENE_SIZE, normalizeScene, sceneFromBlocks, sceneToBlocks } = require("../../frontend/js/scene-graph-core");
+
 function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -295,9 +297,17 @@ function normalizeProcedure(input) {
     section.instructionTones = Array.isArray(section.instructionTones) ? section.instructionTones : section.instructions.map(() => "success");
     section.instructionImages = Array.isArray(section.instructionImages) ? section.instructionImages : section.instructions.map(() => "");
     section.stepCards = Array.isArray(section.stepCards) ? section.stepCards : [];
-    section.stepCards.forEach((card) => {
+    section.stepCards.forEach((card, cardIndex) => {
+      card.tone = card.tone || "success";
       card.blocks = Array.isArray(card.blocks) ? card.blocks : [];
       card.blocks = card.blocks.map((block, blockIndex) => normalizeBlock(block, card, blockIndex));
+      const hasSceneElements = Array.isArray(card.scene?.elements) && card.scene.elements.length > 0;
+      if (card.scene && (hasSceneElements || !card.blocks.length)) {
+        card.scene = normalizeScene(card.scene, `scene-step-${index}-${cardIndex}`, STEP_SCENE_SIZE);
+        card.blocks = sceneToBlocks(card.scene, card).map((block, blockIndex) => normalizeBlock(block, card, blockIndex));
+      } else {
+        card.scene = sceneFromBlocks(card, index, cardIndex);
+      }
     });
   });
   normalizeSectionNumbers(procedure);
@@ -350,8 +360,8 @@ function validateProcedurePayload(procedure) {
   }
 
   const serializedSize = Buffer.byteLength(JSON.stringify(procedure), "utf8");
-  if (serializedSize > 20 * 1024 * 1024) {
-    const error = new Error("O procedimento ultrapassa o limite de 20 MB.");
+  if (serializedSize > 50 * 1024 * 1024) {
+    const error = new Error("O procedimento ultrapassa o limite de 50 MB.");
     error.status = 413;
     throw error;
   }
@@ -372,8 +382,8 @@ function validateProcedurePayload(procedure) {
       return;
     }
     if (!value || typeof value !== "object") {
-      if (typeof value === "string" && /image|imageData/i.test(key) && value.length > 12 * 1024 * 1024) {
-        const error = new Error("Uma das imagens ultrapassa o limite de 12 MB.");
+      if (typeof value === "string" && /image|imageData/i.test(key) && value.length > 25 * 1024 * 1024) {
+        const error = new Error("Uma das imagens ultrapassa o limite de 25 MB.");
         error.status = 413;
         throw error;
       }

@@ -1,7 +1,30 @@
+const fs = require("fs");
+const path = require("path");
+
+function loadLocalEnvironment() {
+  if (process.env.RENDER || process.env.NODE_ENV === "production") return;
+
+  const envPath = path.resolve(__dirname, "..", ".env.local");
+  if (!fs.existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!match || Object.prototype.hasOwnProperty.call(process.env, match[1])) continue;
+
+    let value = match[2];
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    process.env[match[1]] = value;
+  }
+}
+
+loadLocalEnvironment();
+
 const express = require("express");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const path = require("path");
 const procedureRoutes = require("./routes/procedures");
 const configurationRoutes = require("./routes/configuration");
 const adminRoutes = require("./routes/admin");
@@ -40,6 +63,13 @@ const adminActionLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Muitas acoes administrativas. Aguarde alguns minutos." },
 });
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 240,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Muitas solicita\u00e7\u00f5es. Aguarde alguns instantes." },
+});
 
 app.disable("x-powered-by");
 app.use(helmet({
@@ -56,7 +86,8 @@ app.use(helmet({
     },
   },
 }));
-app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "25mb" }));
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "50mb" }));
+app.use("/api", apiLimiter);
 app.use("/api/procedures/auth", qualityAuthLimiter);
 app.use(["/api/procedures/export-pdf", "/api/procedures/export-bundle"], heavyApiLimiter);
 app.use(["/api/admin/backup", "/api/admin/restore"], adminActionLimiter);
@@ -66,6 +97,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/nonconformities", nonconformityRoutes);
 app.use("/api/action-plans", actionPlanRoutes);
 app.use("/api/instruments", instrumentRoutes);
+app.use("/api", (_req, res) => res.status(404).json({ error: "Rota da API n\u00e3o encontrada." }));
 
 app.use((error, _req, res, next) => {
   if (res.headersSent) return next(error);

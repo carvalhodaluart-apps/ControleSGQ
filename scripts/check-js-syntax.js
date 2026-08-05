@@ -14,6 +14,23 @@ const jsFiles = [
   "backend/services/databaseBackup.js",
   "backend/services/procedureStorage.js",
   "backend/services/procedurePdf.js",
+  "backend/services/procedureSceneGraph.js",
+  "frontend/js/scene-graph-core.js",
+  "frontend/js/scene-graph.js",
+  "frontend/js/fabric-scene-renderer.js",
+  "frontend/js/fabric-object-factory.js",
+  "frontend/js/fabric-annotation-layer.js",
+  "frontend/js/fabric-editor-history.js",
+  "frontend/js/fabric-editor-session.js",
+  "frontend/js/fabric-editor-transform.js",
+  "frontend/js/fabric-editor-hierarchy.js",
+  "frontend/js/fabric-editor-image.js",
+  "frontend/js/fabric-editor-text.js",
+  "frontend/js/fabric-editor-toolbar.js",
+  "frontend/js/fabric-property-panel.js",
+  "frontend/js/fabric-step-editor.js",
+  "frontend/js/fabric-editor-manual-test.js",
+  "frontend/js/pdf-render-hints.js",
   "backend/routes/nonconformities.js",
   "backend/services/nonconformityRules.js",
   "backend/services/nonconformityDatabase.js",
@@ -21,15 +38,20 @@ const jsFiles = [
   "frontend/nao-conformidades.js",
 ];
 
-const splitDir = path.join("frontend", "js", "procedimentos");
-
-if (fs.existsSync(splitDir)) {
-  for (const fileName of fs.readdirSync(splitDir).sort()) {
-    if (fileName.endsWith(".js")) {
-      jsFiles.push(path.join(splitDir, fileName));
+function appendJavaScriptFiles(directory) {
+  if (!fs.existsSync(directory)) return;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (file === path.join("frontend", "vendor")) continue;
+      appendJavaScriptFiles(file);
+    } else if (entry.isFile() && entry.name.endsWith(".js") && !jsFiles.includes(file)) {
+      jsFiles.push(file);
     }
   }
 }
+
+["backend", "frontend", "scripts"].forEach(appendJavaScriptFiles);
 
 let hasError = false;
 

@@ -76,8 +76,7 @@ let editMode = builderMode;
 let pendingAnnotation = null;
 let dragState = null;
 let reorderDrag = null;
-let layoutDragState = null;
-let selectedStepBlock = null, saveTimer = null, savePromise = Promise.resolve(), saveState = "saved", procedureDirtySinceJsonExport = false;
+let saveTimer = null, savePromise = Promise.resolve(), saveState = "saved", procedureDirtySinceJsonExport = false;
 function clearAuthenticationState() { qualityToken = ""; sessionStorage.removeItem(qualityTokenKey); sessionStorage.removeItem("procedure-user-role"); }
 function markProcedureChanged() { procedureDirtySinceJsonExport = true; } function markProcedureJsonClean() { procedureDirtySinceJsonExport = false; }
 function updateSaveState(state, message) {
@@ -86,11 +85,6 @@ function updateSaveState(state, message) {
     element.dataset.saveState = state;
     element.textContent = message || ({ pending: "Salvando...", error: "Erro ao salvar", saved: "Alterações salvas" }[state] || "");
   });
-}
-function selectStepBlock(blockKey) {
-  selectedStepBlock = blockKey;
-  procedureRoot.querySelectorAll("[data-step-block].is-selected").forEach((element) => element.classList.remove("is-selected"));
-  if (blockKey) procedureRoot.querySelector(`[data-step-block="${blockKey}"]`)?.classList.add("is-selected");
 }
 async function apiRequest(path, options = {}) {
   const { headers: optionHeaders, ...requestOptions } = options;
@@ -116,6 +110,9 @@ async function apiRequest(path, options = {}) {
 function handleSaveFailure(error) {
   updateSaveState("error", error.status === 401 ? "Sessao expirada" : undefined);
   console.error("Falha ao salvar procedimento:", error);
+} function applySavedProcedureVersion(data) {
+  if (data?.procedure?.updatedAt && activeProcedure?.procedureId === data.procedure.procedureId) activeProcedure.updatedAt = data.procedure.updatedAt;
+  updateSaveState("saved");
 }
 
 if (activeProcedure) {
@@ -322,7 +319,7 @@ function normalizeProcedure(procedure) {
   if (status !== "Publicado") procedure.qualityInfo.approvalDate = "";
   syncDocumentCode(procedure);
 
-  procedure.sections?.forEach((section) => {
+  procedure.sections?.forEach((section, sectionIndex) => {
     section.instructions = section.instructions || [];
     section.images = section.images || [];
     section.tables = section.tables || [];
@@ -331,13 +328,16 @@ function normalizeProcedure(procedure) {
     section.annotations = section.annotations || {};
     section.materials = section.materials || getTableItems(section.tables?.[0]);
     section.stepCards = section.stepCards || [];
-    section.stepCards.forEach((card) => {
+    section.stepCards.forEach((card, cardIndex) => {
       card.tone = card.tone || "success";
       card.text = card.text || "";
       card.textPosition = card.textPosition || "above";
       card.image = card.image || "";
       card.annotations = card.annotations || [];
       card.blocks = normalizeStepCardBlocks(card);
+      if (window.SceneGraphCore?.normalizeCardScene) {
+        window.SceneGraphCore.normalizeCardScene(card, sectionIndex, cardIndex);
+      }
     });
   });
   normalizeSectionNumbers(procedure);
@@ -356,6 +356,7 @@ function normalizeStepCardBlocks(card) {
       type: block.type || "text",
       text: block.text || "",
       html: block.html || "",
+      styles: block.styles || {},
       tone: block.tone || card.tone || "success",
       image: block.image || "",
       annotations: block.annotations || [],
@@ -420,22 +421,14 @@ function normalizeStepCardBlocks(card) {
   return blocks;
 }
 
-function clearUntouchedBlankQualityInfo(procedure) {
-  if (procedure.title !== "Novo procedimento" || procedure.sections?.length) return;
-  const info = procedure.qualityInfo || {};
-  const templateStarts = [
-    ["objective", "Orientar a montagem"], ["application", "Aplic"],
-    ["responsibilities", "Operador executa"], ["relatedDocs", "Procedimento de controle"],
-    ["records", "Registro de montagem"], ["acceptanceCriteria", "Montagem conclu"],
-    ["deviationTreatment", "Desvios devem"], ["traceability", "Manter v"],
-    ["retention", "Reter os registros"], ["climateConsideration", "N"],
-  ];
-  if (!templateStarts.every(([key, prefix]) => String(info[key] || "").startsWith(prefix))) return;
-  templateStarts.forEach(([key]) => { info[key] = ""; });
-}
-
 function createBlockId(type) {
   return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function createProcedureSaveSnapshot(procedure) {
+  const snapshot = cloneData(procedure);
+  window.SceneGraphCore?.syncProcedureScenes?.(snapshot);
+  return snapshot;
 }
 
 function createBlankProcedure() {
@@ -473,8 +466,9 @@ function createBlankProcedure() {
 function saveProcedure() {
   if (!activeProcedure) return savePromise; if (typeof markProcedurePdfOutdated === "function") markProcedurePdfOutdated();
   markProcedureChanged();
+  window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
   if (!qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
-  const snapshot = cloneData(activeProcedure);
+  const snapshot = createProcedureSaveSnapshot(activeProcedure);
   updateSaveState("pending");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
@@ -484,7 +478,7 @@ function saveProcedure() {
         method: "POST",
         body: JSON.stringify({ procedure: snapshot }),
       }))
-      .then(() => updateSaveState("saved"));
+      .then(applySavedProcedureVersion);
     savePromise = pendingSave.catch(handleSaveFailure);
   }, 250);
   return savePromise;
@@ -494,13 +488,14 @@ async function flushProcedureSave() {
   if (!activeProcedure || !qualityToken) return;
   clearTimeout(saveTimer);
   saveTimer = null;
-  const snapshot = cloneData(activeProcedure);
+  window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
+  const snapshot = createProcedureSaveSnapshot(activeProcedure);
   const pendingSave = savePromise
     .then(() => apiRequest("/api/procedures/save", {
       method: "POST",
       body: JSON.stringify({ procedure: snapshot }),
     }))
-    .then(() => updateSaveState("saved"));
+    .then(applySavedProcedureVersion);
   savePromise = pendingSave.catch(handleSaveFailure);
   await pendingSave;
 }

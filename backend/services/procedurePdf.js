@@ -3,6 +3,7 @@ const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
 const { getProcedureConfiguration } = require("./procedureConfiguration");
+const { ITEM_SCENE_SIZE, STEP_SCENE_SIZE, renderProcedureItemBoards, renderProcedureStepCards } = require("./procedureSceneGraph");
 
 const COLORS = {
   navy: "#17233d",
@@ -186,6 +187,12 @@ function toneColors(tone) {
 async function createProcedurePdf(procedure) {
   const source = await convertLegacyImages(procedure);
   const configuration = await convertLegacyImages(await getProcedureConfiguration());
+  const needsItemBoardFallback = (source.sections || [])
+    .some((section) => section.kind === "items" && section.images?.[0] && !section.sceneExport?.image);
+  const needsStepCardFallback = (source.sections || [])
+    .some((section) => (section.stepCards || []).some((card) => !card.sceneExport?.image));
+  const renderedItemBoards = needsItemBoardFallback ? await renderProcedureItemBoards(source) : new Map();
+  const renderedStepCards = needsStepCardFallback ? await renderProcedureStepCards(source) : new Map();
   return new Promise((resolve, reject) => {
     const document = new PDFDocument({ size: "A4", margin: 36, autoFirstPage: true });
     const chunks = [];
@@ -320,15 +327,19 @@ async function createProcedurePdf(procedure) {
         document.text(String(marker.number || ""), markerX - 5, markerY - 4, { width: 10, align: "center" });
       });
     };
-    const itemsSection = (section) => {
+    const itemsSection = (section, sectionIndex) => {
       const imageKey = section.images?.[0] || "";
       const image = getImageBuffer(imageKey);
       const items = section.materials || [];
       if (image) {
-        const imageHeight = contentWidth * (520 / 742);
+        const imageHeight = contentWidth * (ITEM_SCENE_SIZE.height / ITEM_SCENE_SIZE.width);
         ensureSpace(imageHeight + 12);
-        drawImage(image, margin, y, contentWidth, imageHeight);
-        drawMarkers(section, imageKey, margin, y, contentWidth, imageHeight);
+        const renderedBoard = getImageBuffer(section.sceneExport?.image) || renderedItemBoards.get(String(sectionIndex));
+        if (renderedBoard) document.image(renderedBoard, margin, y, { fit: [contentWidth, imageHeight] });
+        else {
+          drawImage(image, margin, y, contentWidth, imageHeight);
+          drawMarkers(section, imageKey, margin, y, contentWidth, imageHeight);
+        }
         y += imageHeight + 12;
       }
       const listWidth = contentWidth;
@@ -387,7 +398,7 @@ async function createProcedurePdf(procedure) {
       }
       document.restore();
     };
-    const stepCanvas = (card) => {
+    const stepCanvas = (card, sectionIndex, cardIndex) => {
       const blocks = getBlocks(card).slice().sort((left, right) => (left.type === "image" ? -1 : 1) - (right.type === "image" ? -1 : 1) || (left.zIndex || 0) - (right.zIndex || 0));
       if (!blocks.length) {
         ensureSpace(68);
@@ -397,13 +408,19 @@ async function createProcedurePdf(procedure) {
         y += 66;
         return;
       }
-      const editorCanvasWidth = 1080;
-      const editorCanvasHeight = 560;
+      const editorCanvasWidth = STEP_SCENE_SIZE.width;
+      const editorCanvasHeight = STEP_SCENE_SIZE.height;
       const canvasHeight = contentWidth * (editorCanvasHeight / editorCanvasWidth);
       const canvasScale = canvasHeight / editorCanvasHeight;
       ensureSpace(canvasHeight + 30);
       const x = margin;
       const top = y;
+      const renderedCard = getImageBuffer(card.sceneExport?.image) || renderedStepCards.get(`${sectionIndex}:${cardIndex}`);
+      if (renderedCard) {
+        document.image(renderedCard, x, top, { fit: [contentWidth, canvasHeight] });
+        y += canvasHeight + 12;
+        return;
+      }
       document.save().roundedRect(x, top, contentWidth, canvasHeight, 6).fillColor("#fbfcfe").fill().lineWidth(0.7).strokeColor(COLORS.line).stroke().restore();
       blocks.forEach((block) => {
         const blockX = x + (Number(block.x) / 100) * contentWidth;
@@ -518,7 +535,7 @@ async function createProcedurePdf(procedure) {
       .filter((field) => field.active !== false && field.active !== 0 && String(field.active).toLowerCase() !== "false")
       .map((field) => [field.label, info[field.key]]));
 
-    (source.sections || []).forEach((section) => {
+    (source.sections || []).forEach((section, sectionIndex) => {
       const itemCount = section.materials?.length || 0;
       const hasItemsImage = Boolean(section.images?.[0]);
       const minimumSpace = section.kind === "items"
@@ -526,7 +543,7 @@ async function createProcedurePdf(procedure) {
         : section.stepCards?.length ? 380 : 80;
       ensureSpace(minimumSpace);
       heading(`${cleanText(section.number || "")}  ${cleanText(section.title || "Seção")}`, section.kind === "items" ? "Materiais, identificação e quantidade" : "Sequência operacional e pontos de controle");
-      if (section.kind === "items") itemsSection(section);
+      if (section.kind === "items") itemsSection(section, sectionIndex);
       (section.instructions || []).forEach((instruction, index) => {
         const colors = toneColors(section.instructionTones?.[index]);
         const instructionText = cleanText(instruction);
@@ -539,9 +556,9 @@ async function createProcedurePdf(procedure) {
         document.text(instructionText, margin + 34, y + 8, { width: contentWidth - 44, lineGap: 1 });
         y += instructionHeight + 8;
       });
-      (section.stepCards || []).forEach((card) => {
+      (section.stepCards || []).forEach((card, cardIndex) => {
         ensureSpace(330);
-        stepCanvas(card);
+        stepCanvas(card, sectionIndex, cardIndex);
       });
       if (!(section.instructions || []).length && !(section.stepCards || []).length && section.kind !== "items") paragraph("Nenhum conteúdo operacional informado nesta etapa.", 9, COLORS.muted);
     });

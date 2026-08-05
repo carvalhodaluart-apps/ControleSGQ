@@ -2,6 +2,11 @@ const crypto = require("crypto");
 
 const sessions = new Map();
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const sessionCleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of sessions) if (session.expiresAt <= now) sessions.delete(token);
+}, 15 * 60 * 1000);
+sessionCleanupTimer.unref?.();
 
 function authError(message, status = 401) {
   const error = new Error(message);

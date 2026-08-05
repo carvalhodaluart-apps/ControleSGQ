@@ -342,7 +342,7 @@ async function initDatabase() {
   const schema = await fsp.readFile(SCHEMA_PATH, "utf8");
   await getPool().query(schema);
   await ensureProcedureConfiguration();
-  await migrateDrafts();
+  if (process.env.MIGRATE_FILE_DRAFTS_ON_STARTUP === "true") await migrateDrafts();
   await synchronizeDocumentNumberSequences();
 }
 

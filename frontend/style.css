@@ -4,6 +4,7 @@
 @import url("styles/part-04.css?v=20260803-warning-yellow-1");
 @import url("styles/part-05.css");
 @import url("styles/part-06.css?v=20260804-audit-1");
+@import url("styles/scene-graph.css?v=20260805-guided-workflow-1");
 @import url("styles/nonconformities.css");
 
 .creator-modules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
