@@ -341,7 +341,11 @@
     return (element.annotations || []).map((annotation) => {
       const x = element.x + (Number(annotation.x) || 0) * element.width / 100;
       const y = element.y + (Number(annotation.y) || 0) * element.height / 100;
-      if (annotation.type === "marker") return `<circle cx="${x}" cy="${y}" r="16" fill="#155eef" stroke="#fff" stroke-width="3"></circle><text x="${x}" y="${y + 6}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="#fff">${escapeXml(annotation.number)}</text>`;
+      if (annotation.type === "marker") {
+        const label = String(annotation.number ?? "");
+        const fontSize = label.length > 1 ? 15 : 18;
+        return `<circle cx="${x}" cy="${y}" r="16" fill="#155eef" stroke="#fff" stroke-width="3"></circle><text x="${x}" y="${y}" dominant-baseline="middle" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="800" fill="#fff">${escapeXml(label)}</text>`;
+      }
       const color = (TONES[annotation.tone || "success"] || TONES.success).stroke;
       return `<g transform="translate(${x} ${y}) rotate(${Number(annotation.rotation) || 0})"><line x1="-9" y1="0" x2="78" y2="0" stroke="${color}" stroke-width="5" stroke-linecap="round"></line><polygon points="78,0 60,-10 60,10" fill="${color}"></polygon></g>`;
     }).join("");

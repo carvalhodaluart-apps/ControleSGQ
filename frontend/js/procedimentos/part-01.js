@@ -103,13 +103,13 @@ async function apiRequest(path, options = {}) {
       clearAuthenticationState();
       updateSaveState("error", "Sessao expirada");
     }
-    throw Object.assign(new Error(data.error || "Erro ao comunicar com o servidor."), { status: response.status });
+    throw Object.assign(new Error(data?.error || `Erro ${response.status} ao acessar ${path}.`), { status: response.status, path });
   }
   return response.json();
 }
 function handleSaveFailure(error) {
-  updateSaveState("error", error.status === 401 ? "Sessao expirada" : undefined);
-  console.error("Falha ao salvar procedimento:", error);
+  const message = error.status === 401 ? "Sessao expirada" : error.status === 409 ? "Conflito de edicao. Recarregue antes de salvar." : error.status >= 500 ? "Servidor indisponivel. Tente salvar novamente." : undefined;
+  updateSaveState("error", message); console.error("Falha ao salvar procedimento:", { status: error.status, path: error.path, message: error.message }, error);
 } function applySavedProcedureVersion(data) {
   if (data?.procedure?.updatedAt && activeProcedure?.procedureId === data.procedure.procedureId) activeProcedure.updatedAt = data.procedure.updatedAt;
   updateSaveState("saved");
@@ -468,16 +468,18 @@ function saveProcedure() {
   markProcedureChanged();
   window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
   if (!qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
-  const snapshot = createProcedureSaveSnapshot(activeProcedure);
   updateSaveState("pending");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
     const pendingSave = savePromise
-      .then(() => apiRequest("/api/procedures/save", {
-        method: "POST",
-        body: JSON.stringify({ procedure: snapshot }),
-      }))
+      .then(() => {
+        if (!activeProcedure) return null; const snapshot = createProcedureSaveSnapshot(activeProcedure);
+        return apiRequest("/api/procedures/save", {
+          method: "POST",
+          body: JSON.stringify({ procedure: snapshot }),
+        });
+      })
       .then(applySavedProcedureVersion);
     savePromise = pendingSave.catch(handleSaveFailure);
   }, 250);
@@ -489,12 +491,14 @@ async function flushProcedureSave() {
   clearTimeout(saveTimer);
   saveTimer = null;
   window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
-  const snapshot = createProcedureSaveSnapshot(activeProcedure);
   const pendingSave = savePromise
-    .then(() => apiRequest("/api/procedures/save", {
-      method: "POST",
-      body: JSON.stringify({ procedure: snapshot }),
-    }))
+    .then(() => {
+      if (!activeProcedure) return null; const snapshot = createProcedureSaveSnapshot(activeProcedure);
+      return apiRequest("/api/procedures/save", {
+        method: "POST",
+        body: JSON.stringify({ procedure: snapshot }),
+      });
+    })
     .then(applySavedProcedureVersion);
   savePromise = pendingSave.catch(handleSaveFailure);
   await pendingSave;

@@ -152,6 +152,7 @@
     if (!component.root.classList.contains("is-editing") || event.button !== 0) return;
     const anchor = rangeAtPoint(component, event.clientX, event.clientY);
     if (!anchor) return;
+    component.suppressClick = false;
     component.pointerSelection = { anchor, moved: false };
     component.pointerMoveListener = (moveEvent) => {
       const pointerSelection = component.pointerSelection;
@@ -164,6 +165,7 @@
       }
     };
     component.pointerUpListener = () => {
+      component.suppressClick = Boolean(component.pointerSelection?.moved);
       component.range = selectionInside(component.content) || component.range;
       document.removeEventListener("pointermove", component.pointerMoveListener, true);
       document.removeEventListener("pointerup", component.pointerUpListener, true);
@@ -255,7 +257,7 @@
   }
 
   function createComponent(session, element) {
-    const component = { ...componentMarkup(element), session, element, range: null, pendingBold: false };
+    const component = { ...componentMarkup(element), session, element, range: null, pendingBold: false, suppressClick: false };
     component.content.innerHTML = htmlFromElement(element);
     component.root.dataset.sceneId = element.id;
     component.root.addEventListener("pointerdown", (event) => handlePointerDown(component, event));
@@ -268,7 +270,13 @@
     component.content.addEventListener("pointerdown", (event) => startPointerSelection(component, event));
     component.content.addEventListener("click", (event) => {
       const point = { x: event.clientX, y: event.clientY };
-      if (component.root.classList.contains("is-editing")) return placeCaretAtPoint(component, point);
+      if (component.root.classList.contains("is-editing")) {
+        if (component.suppressClick) {
+          component.suppressClick = false;
+          return;
+        }
+        return placeCaretAtPoint(component, point);
+      }
       enterEdit(session, component, { point, selectPlaceholder: false });
     });
     component.content.addEventListener("contextmenu", (event) => {

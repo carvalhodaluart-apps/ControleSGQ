@@ -322,9 +322,13 @@ async function createProcedurePdf(procedure) {
       markers.filter((marker) => marker.type === "marker").forEach((marker) => {
         const markerX = x + (Number(marker.x) / 100) * width;
         const markerY = top + (Number(marker.y) / 100) * height;
+        const label = String(marker.number || "");
+        const labelWidth = 12;
+        const labelFontSize = label.length > 1 ? 6.5 : 7.5;
         document.save().fillColor(COLORS.blue).circle(markerX, markerY, 8).fill().restore();
-        setFont("Helvetica-Bold", 7.5, "#ffffff");
-        document.text(String(marker.number || ""), markerX - 5, markerY - 4, { width: 10, align: "center" });
+        setFont("Helvetica-Bold", labelFontSize, "#ffffff");
+        const labelHeight = document.heightOfString(label, { width: labelWidth, lineBreak: false });
+        document.text(label, markerX - labelWidth / 2, markerY - labelHeight / 2, { width: labelWidth, align: "center", lineBreak: false });
       });
     };
     const itemsSection = (section, sectionIndex) => {
