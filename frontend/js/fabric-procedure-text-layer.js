@@ -70,7 +70,7 @@
     content.style.lineHeight = String(Number(element.lineHeight) || 1.35);
     content.style.padding = `${PADDING * scale}px ${PADDING * scale}px ${PADDING * scale}px ${(PADDING + STRIPE_WIDTH) * scale}px`;
     const measuredHeight = Math.max(MIN_HEIGHT * scale, content.scrollHeight || MIN_HEIGHT * scale);
-    const height = autoHeight ? Math.max(MIN_HEIGHT * scale, measuredHeight) : Math.max(requestedHeight * scale, measuredHeight);
+    const height = autoHeight ? Math.max(MIN_HEIGHT * scale, measuredHeight) : requestedHeight * scale;
     root.style.height = `${height}px`;
     element.width = width;
     element.height = height / scale;
@@ -92,6 +92,40 @@
     const range = selection.getRangeAt(0);
     if (!content.contains(range.commonAncestorContainer)) return null;
     return range.cloneRange();
+  }
+
+  function textOffset(root, container, offset) {
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    range.setEnd(container, offset);
+    return range.toString().length;
+  }
+
+  function pointAtTextOffset(root, target) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const wanted = Math.max(0, Number(target) || 0);
+    let node;
+    let last = null;
+    let total = 0;
+    while ((node = walker.nextNode())) {
+      last = node;
+      const length = node.nodeValue.length;
+      if (wanted <= total + length) return { node, offset: wanted - total };
+      total += length;
+    }
+    return last ? { node: last, offset: last.nodeValue.length } : { node: root, offset: root.childNodes.length };
+  }
+
+  function restoreTextSelection(root, start, end) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    const startPoint = pointAtTextOffset(root, start);
+    const endPoint = pointAtTextOffset(root, end);
+    range.setStart(startPoint.node, startPoint.offset);
+    range.setEnd(endPoint.node, endPoint.offset);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return range;
   }
 
   function saveRange(component) {
@@ -213,6 +247,8 @@
       component.pendingBold = !component.pendingBold;
       return;
     }
+    const start = textOffset(component.content, range.startContainer, range.startOffset);
+    const end = textOffset(component.content, range.endContainer, range.endOffset);
     const fragment = range.extractContents();
     const bold = rangeIsBold(fragment);
     if (bold) {
@@ -224,13 +260,10 @@
       range.insertNode(strong);
     }
     normalizeStrong(component.content);
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    saveRange(component);
+    component.range = restoreTextSelection(component.content, start, end).cloneRange();
     component.content.focus({ preventScroll: true });
     syncModel(component);
-    updateProcedureTextBoxLayout(component, { autoHeight: true });
+    updateProcedureTextBoxLayout(component, { autoHeight: false });
   }
 
   function componentMarkup(element) {
@@ -287,7 +320,7 @@
     });
     component.content.addEventListener("input", () => {
       syncModel(component);
-      updateProcedureTextBoxLayout(component, { autoHeight: true });
+      updateProcedureTextBoxLayout(component, { autoHeight: false });
       session.textLayerCallbacks.live?.(session, component);
     });
     component.content.addEventListener("keydown", (event) => {
@@ -418,7 +451,7 @@
         component.element.x = Math.max(0, Math.min(session.card.scene.size.width - component.element.width, start.elementX + dx));
         component.element.y = Math.max(0, Math.min(session.card.scene.size.height - component.element.height, start.elementY + (moveEvent.clientY - start.y) / scale));
       } else component.element.width = Math.max(MIN_WIDTH, Math.min(session.card.scene.size.width - component.element.x, start.width + dx));
-      updateProcedureTextBoxLayout(component, { autoHeight: mode === "resize" });
+      updateProcedureTextBoxLayout(component, { autoHeight: false });
       session.card.blocks = Core.sceneToBlocks(session.card.scene, session.card);
       session.textLayerCallbacks.live?.(session, component);
     };
