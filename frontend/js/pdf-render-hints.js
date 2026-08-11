@@ -28,6 +28,22 @@
         if (image) card.sceneExport = { renderer: "fabric", dpi: renderer.EXPORT_DPI, image };
       }
     }
+    return compactPdfSnapshot(snapshot);
+  }
+
+  function compactPdfSnapshot(snapshot) {
+    (snapshot.sections || []).forEach((section) => {
+      (section.stepCards || []).forEach((card) => {
+        if (!card.sceneExport?.image) return;
+
+        // O PDF usa a cena rasterizada; remova imagens duplicadas somente do snapshot temporário.
+        card.image = "";
+        card.blocks = (card.blocks || []).map((block) => ({ ...block, image: "" }));
+        if (Array.isArray(card.scene?.elements)) {
+          card.scene.elements = card.scene.elements.map((element) => ({ ...element, image: "" }));
+        }
+      });
+    });
     return snapshot;
   }
 

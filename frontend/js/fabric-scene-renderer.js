@@ -4,7 +4,8 @@
   const Factory = window.FabricObjectFactory;
   if (!Core || !Fabric || !Factory) return;
 
-  const EXPORT_DPI = 300;
+  const EXPORT_DPI = 180;
+  const EXPORT_QUALITY = 0.88;
   const A4_CONTENT_WIDTH_POINTS = 595.28 - 72;
 
   function makeCanvas(size, multiplier) {
@@ -29,7 +30,7 @@
         objects.forEach((object) => canvas.add(object));
       }
       canvas.renderAll();
-      return canvas.toDataURL({ format: "png", multiplier });
+      return canvas.toDataURL({ format: "jpeg", quality: EXPORT_QUALITY, multiplier });
     } finally {
       canvas.dispose();
     }
