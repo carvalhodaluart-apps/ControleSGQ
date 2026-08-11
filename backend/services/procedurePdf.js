@@ -349,22 +349,22 @@ async function createProcedurePdf(procedure) {
       const listWidth = contentWidth;
       const rowHeights = items.map((item) => {
         setFont("Helvetica-Bold", 8.3, COLORS.text);
-        const descriptionHeight = document.heightOfString(cleanText(item.description || "Item"), { width: listWidth - 58, lineGap: 1 });
-        return Math.max(34, descriptionHeight + 28);
+        const descriptionHeight = document.heightOfString(cleanText(item.description || "Item"), { width: listWidth - 58, lineGap: 0 });
+        return Math.max(30, descriptionHeight + 20);
       });
-      const listHeight = Math.max(70, 36 + rowHeights.reduce((total, height) => total + height, 0));
-      ensureSpace(listHeight + 8);
+      const listHeight = Math.max(62, 31 + rowHeights.reduce((total, height) => total + height, 0));
+      ensureSpace(listHeight + 6);
       document.save().roundedRect(margin, y, listWidth, listHeight, 5).fillColor("#fbfcfe").fill().lineWidth(0.7).strokeColor(COLORS.line).stroke().restore();
       setFont("Helvetica-Bold", 8.5, COLORS.navy);
       document.text("Materiais e identificação", margin + 12, y + 12, { width: listWidth - 24 });
-      let itemY = y + 36;
+      let itemY = y + 31;
       items.forEach((item, index) => {
         const rowHeight = rowHeights[index];
-        document.save().fillColor("#e5efff").circle(margin + 21, itemY + 11, 9).fill().restore();
-        setFont("Helvetica-Bold", 7.5, COLORS.blue);
-        document.text(String(item.number || ""), margin + 15, itemY + 7, { width: 12, align: "center" });
+        document.save().fillColor("#e5efff").circle(margin + 21, itemY + 9, 7.5).fill().restore();
+        setFont("Helvetica-Bold", 7, COLORS.blue);
+        document.text(String(item.number || ""), margin + 15, itemY + 5, { width: 12, align: "center", lineBreak: false });
         setFont("Helvetica-Bold", 8.3, COLORS.text);
-        document.text(cleanText(item.description || "Item"), margin + 36, itemY + 3, { width: listWidth - 58, lineGap: 1 });
+        document.text(cleanText(item.description || "Item"), margin + 36, itemY + 1, { width: listWidth - 58, lineGap: 0 });
         setFont("Helvetica", 7.5, COLORS.muted);
         document.text(`Qtd. ${cleanText(item.quantity) || "-"}  |  Código ${cleanText(item.code) || "-"}`, margin + 36, itemY + rowHeight - 16, { width: listWidth - 58 });
         if (index < items.length - 1) document.save().strokeColor(COLORS.line).lineWidth(0.5).moveTo(margin + 12, itemY + rowHeight - 1).lineTo(margin + listWidth - 12, itemY + rowHeight - 1).stroke().restore();
@@ -374,7 +374,7 @@ async function createProcedurePdf(procedure) {
         setFont("Helvetica", 8.5, COLORS.muted);
         document.text("Nenhum material informado.", margin + 12, y + 40, { width: listWidth - 24 });
       }
-      y += listHeight + 12;
+      y += listHeight + 8;
     };
     const getBlocks = (card) => {
       if (Array.isArray(card.blocks) && card.blocks.length) return card.blocks;
@@ -542,8 +542,12 @@ async function createProcedurePdf(procedure) {
     (source.sections || []).forEach((section, sectionIndex) => {
       const itemCount = section.materials?.length || 0;
       const hasItemsImage = Boolean(section.images?.[0]);
+      const estimatedListHeight = Math.max(62, 31 + itemCount * 30);
+      const estimatedImageHeight = hasItemsImage
+        ? contentWidth * (ITEM_SCENE_SIZE.height / ITEM_SCENE_SIZE.width) + 12
+        : 0;
       const minimumSpace = section.kind === "items"
-        ? (hasItemsImage ? 520 : Math.max(220, 80 + itemCount * 34))
+        ? Math.max(200, 54 + estimatedImageHeight + estimatedListHeight + 8)
         : section.stepCards?.length ? 380 : 80;
       ensureSpace(minimumSpace);
       heading(`${cleanText(section.number || "")}  ${cleanText(section.title || "Seção")}`, section.kind === "items" ? "Materiais, identificação e quantidade" : "Sequência operacional e pontos de controle");
