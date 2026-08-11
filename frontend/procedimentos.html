@@ -4,13 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Procedimentos | Equipamento</title>
-  <link rel="stylesheet" href="style.css?v=20260811-selection-side-1">
+  <link rel="stylesheet" href="style.css?v=20260811-loading-leave-1">
   <link rel="stylesheet" href="styles/responsive.css?v=20260803-responsive-1">
 </head>
 <body>
   <main class="page procedure-page">
     <a class="back-link" href="index.html">Voltar para o criador</a>
-    <section id="procedureRoot" aria-live="polite"></section>
+    <section id="procedureRoot" aria-live="polite">
+      <section class="procedure-loading-state" role="status" aria-live="polite">
+        <span class="procedure-loading-spinner" aria-hidden="true"></span>
+        <strong>Carregando procedimento</strong>
+        <p>Estamos preparando os dados e as imagens do documento.</p>
+      </section>
+    </section>
   </main>
 
   <script src="js/procedimentos/configuration.js?v=20260731-equipment-image-1"></script>
@@ -33,14 +39,14 @@
   <script src="js/fabric-scene-renderer.js?v=20260811-pdf-payload-1"></script>
   <script src="js/fabric-step-editor.js?v=20260805-guided-workflow-1"></script>
   <script src="js/procedimentos/quality-defaults.js?v=20260804-scene-graph-1"></script>
-  <script src="js/procedimentos/part-01.js?v=20260804-scene-graph-6"></script>
+   <script src="js/procedimentos/part-01.js?v=20260811-loading-leave-1"></script>
   <script src="js/procedimentos/ribbon-toolbar.js?v=20260805-guided-workflow-1"></script>
     <script src="js/procedimentos/part-02.js?v=20260811-security-input-1"></script>
-  <script src="js/procedimentos/part-03.js?v=20260805-guided-workflow-1"></script>
+   <script src="js/procedimentos/part-03.js?v=20260811-loading-leave-1"></script>
   <script src="js/pdf-render-hints.js?v=20260811-pdf-payload-1"></script>
   <script src="js/procedimentos/image-picker.js?v=20260804-fabric-1"></script>
   <script src="js/procedimentos/part-04.js?v=20260805-guided-workflow-1"></script>
   <script src="js/procedimentos/part-05.js?v=20260805-guided-workflow-1"></script>
-  <script src="js/procedimentos/part-06.js?v=20260804-dirty-json-1"></script>
+   <script src="js/procedimentos/part-06.js?v=20260811-loading-leave-1"></script>
 </body>
 </html>

@@ -87,9 +87,15 @@ async function leaveProcedureEditor(event) {
     title: "Baixar edição antes de sair?",
     message: "Este documento está em elaboração. Baixe o JSON para garantir que todas as alterações possam ser recuperadas antes de voltar.",
     confirmLabel: "Baixar JSON e voltar",
+    alternativeLabel: "Sair sem salvar",
     cancelLabel: "Continuar editando",
     variant: "primary",
   });
+  if (confirmed === "alternative") {
+    allowProcedureLeave = true;
+    window.location.href = link.href;
+    return;
+  }
   if (!confirmed) return;
   try {
     await flushProcedureSave();

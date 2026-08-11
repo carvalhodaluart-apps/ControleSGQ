@@ -396,7 +396,7 @@ function addInstruction(sectionIndex, tone) {
   refreshProcedureSection(sectionIndex);
 }
 
-function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLabel = "Cancelar", variant = "danger" }) {
+function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLabel = "Cancelar", alternativeLabel = "", variant = "danger" }) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "confirm-dialog-backdrop";
@@ -409,6 +409,7 @@ function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLab
         </div>
         <div class="confirm-dialog-actions">
           <button type="button" class="confirm-cancel"></button>
+          ${alternativeLabel ? '<button type="button" class="confirm-alternative"></button>' : ""}
           <button type="button" class="confirm-action confirm-${escapeHtml(variant)}"></button>
         </div>
       </div>
@@ -418,11 +419,13 @@ function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLab
     const titleElement = overlay.querySelector("h2");
     const messageElement = overlay.querySelector("p");
     const cancelButton = overlay.querySelector(".confirm-cancel");
+    const alternativeButton = overlay.querySelector(".confirm-alternative");
     const confirmButton = overlay.querySelector(".confirm-action");
 
     titleElement.textContent = title;
     messageElement.textContent = message;
     cancelButton.textContent = cancelLabel;
+    if (alternativeButton) alternativeButton.textContent = alternativeLabel;
     confirmButton.textContent = confirmLabel;
 
     const close = (confirmed) => {
@@ -439,6 +442,7 @@ function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLab
       if (!dialog.contains(event.target)) close(false);
     });
     cancelButton.addEventListener("click", () => close(false));
+    alternativeButton?.addEventListener("click", () => close("alternative"));
     confirmButton.addEventListener("click", () => close(true));
     document.addEventListener("keydown", handleKeydown);
 

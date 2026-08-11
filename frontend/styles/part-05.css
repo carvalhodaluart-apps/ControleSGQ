@@ -380,6 +380,16 @@
   color: var(--primary-dark);
 }
 
+.confirm-dialog-actions .confirm-alternative {
+  border-color: #f1b7b5;
+  color: #a32522;
+}
+
+.confirm-dialog-actions .confirm-alternative:hover {
+  border-color: #d92d20;
+  background: #fff1f0;
+}
+
 @media (max-width: 760px) {
   .page {
     width: min(100% - 24px, 1180px);

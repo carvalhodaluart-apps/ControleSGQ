@@ -17,6 +17,33 @@
   backdrop-filter: blur(8px);
 }
 
+.procedure-loading-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-height: 260px;
+  padding: 36px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+}
+
+.procedure-loading-state p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.procedure-loading-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #dbe7fb;
+  border-right-color: var(--primary);
+  border-radius: 50%;
+  animation: button-spinner-spin .75s linear infinite;
+}
+
 /* Canvas insertion controls stay aligned and use one exclusive dropdown. */
 .canvas-toolbar { align-items: center; }
 .canvas-toolbar button, .canvas-toolbar summary { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; height: var(--control-height-sm); font: inherit; line-height: 1; }
