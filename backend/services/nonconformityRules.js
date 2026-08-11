@@ -1,4 +1,5 @@
 const STATUS_VALUES = new Set(["Aberta", "Em tratamento", "Aguardando eficácia", "Encerrada"]);
+const { sanitizeImageData } = require("./securityInputRules");
 const ORIGIN_VALUES = new Set(["Auditoria interna", "Cliente", "Fornecedor", "Processo", "Produto", "Documento", "Outro"]);
 const ACTION_STATUS_VALUES = new Set(["Pendente", "Em andamento", "Concluída"]);
 
@@ -12,9 +13,7 @@ function date(value) {
 }
 
 function imageData(value) {
-  const image = String(value ?? "").trim();
-  if (!image) return "";
-  return /^data:image\/(?:png|jpe?g|webp);base64,/i.test(image) ? image.slice(0, 12_000_000) : "";
+  return sanitizeImageData(value);
 }
 
 function rawImageList(source, maxImages = 10) {
@@ -97,7 +96,7 @@ function validateNonconformity(input, options = {}) {
   const value = normalizeNonconformity(input, options);
   const rawImages = rawImageList(input, options.maxEvidenceImages || 10);
   const rawImageData = rawImages.map((entry) => typeof entry === "string" ? entry : entry?.image || entry?.data);
-  if (rawImageData.some((image) => !/^data:image\/(?:png|jpe?g|webp);base64,/i.test(String(image || "")))) {
+  if (rawImageData.some((image) => !sanitizeImageData(image))) {
     throw Object.assign(new Error("As imagens da evidência devem estar em PNG, JPEG ou WebP."), { status: 400 });
   }
   if (rawImageData.some((image) => String(image || "").length > 12_000_000)) {

@@ -316,7 +316,7 @@ function renderProcedure(procedure) {
           </header>
           ${editMode && !sections.length ? renderProcedureEmptyState() : ""}
         ${sections.map((section, sectionIndex) => `
-          <article class="procedure-section procedure-section-${section.kind}" id="${createSlug(section)}" ${editMode ? `data-reorder-item="section:${sectionIndex}"` : ""}>
+          <article class="procedure-section procedure-section-${section.kind}" id="${createSlug(section)}" data-section-index="${sectionIndex}" ${editMode ? `data-reorder-item="section:${sectionIndex}"` : ""}>
             <header class="procedure-section-header">
               <div class="section-header-main">
                 <div class="section-heading-inline">
@@ -330,7 +330,9 @@ function renderProcedure(procedure) {
                 ${editMode ? `<button type="button" class="section-remove-button" data-remove-section="${sectionIndex}">Excluir</button>` : ""}
               </div>
             </header>
-            ${renderSectionBody(section, sectionIndex)}
+            <div class="procedure-section-body" data-section-body>
+              ${renderSectionBody(section, sectionIndex)}
+            </div>
           </article>
         `).join("")}
         </section>
@@ -391,7 +393,7 @@ function addInstruction(sectionIndex, tone) {
   section.instructionTones.push(tone);
   section.instructionImages.push("");
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLabel = "Cancelar", variant = "danger" }) {

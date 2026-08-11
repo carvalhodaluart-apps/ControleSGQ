@@ -2,6 +2,7 @@ const crypto = require("crypto");
 
 const sessions = new Map();
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const MAX_CREDENTIAL_LENGTH = 256;
 const sessionCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [token, session] of sessions) if (session.expiresAt <= now) sessions.delete(token);
@@ -96,13 +97,13 @@ function createSession(user) {
 function createQualitySession(password) {
   const expectedPassword = process.env.QUALITY_PASSWORD;
   if (!expectedPassword) throw authError("A senha da qualidade nao foi configurada no servidor.", 503);
-  if (!safeEqual(password, expectedPassword)) throw authError("Senha incorreta.");
+  if (typeof password !== "string" || password.length > MAX_CREDENTIAL_LENGTH || !safeEqual(password, expectedPassword)) throw authError("Senha incorreta.");
   return createSession({ username: "qualidade", displayName: "Qualidade", role: "manager" });
 }
 
 async function createUserSession(username, password) {
   const normalizedUsername = String(username || "").trim().toLowerCase();
-  if (!normalizedUsername || !password) throw authError("Informe usuario e senha.");
+  if (!normalizedUsername || typeof password !== "string" || !password || normalizedUsername.length > 60 || password.length > MAX_CREDENTIAL_LENGTH) throw authError("Usuario ou senha incorretos.");
   const { getDatabasePool } = require("./procedureDatabase");
   const result = await getDatabasePool().query(`
     SELECT user_id AS "userId", username, display_name AS "displayName", password_hash AS "passwordHash", role
@@ -113,12 +114,22 @@ async function createUserSession(username, password) {
   return createSession({ userId: account.userId, username: account.username, displayName: account.displayName, role: account.role });
 }
 
-function getValidSession(token) {
+async function getValidSession(token) {
   const session = sessions.get(token) || readSignedSession(token);
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
     sessions.delete(token);
     return null;
+  }
+  if (session.user.userId) {
+    const { getDatabasePool } = require("./procedureDatabase");
+    const result = await getDatabasePool().query("SELECT display_name AS \"displayName\", role, active FROM app_users WHERE user_id = $1", [session.user.userId]);
+    const account = result.rows[0];
+    if (!account?.active) {
+      sessions.delete(token);
+      return null;
+    }
+    session.user = { ...session.user, displayName: account.displayName, role: account.role };
   }
   if (!sessions.has(token)) sessions.set(token, session);
   return session;
@@ -126,15 +137,19 @@ function getValidSession(token) {
 
 function requireRole(roles) {
   const allowedRoles = new Set(roles);
-  return (req, _res, next) => {
+  return async (req, _res, next) => {
     const authorization = String(req.headers.authorization || "");
     const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-    const session = getValidSession(token);
-    if (!session) return next(authError("Acesso autenticado necessario."));
-    if (!allowedRoles.has(session.user.role)) return next(authError("Permissao insuficiente.", 403));
-    req.qualityToken = token;
-    req.user = session.user;
-    return next();
+    try {
+      const session = await getValidSession(token);
+      if (!session) return next(authError("Acesso autenticado necessario."));
+      if (!allowedRoles.has(session.user.role)) return next(authError("Permissao insuficiente.", 403));
+      req.qualityToken = token;
+      req.user = session.user;
+      return next();
+    } catch (error) {
+      return next(error);
+    }
   };
 }
 

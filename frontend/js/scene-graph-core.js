@@ -10,7 +10,7 @@
   const HIERARCHY_RANKS = { image: 0, arrow: 1, circle: 1, square: 1, text: 2 };
   const TONES = {
     success: { fill: "#effaf3", stroke: "#159447", text: "#000000" },
-    warning: { fill: "#fff9d6", stroke: "#eab308", text: "#000000" },
+    warning: { fill: "#fff9d6", stroke: "#FFBF00", text: "#000000" },
     danger: { fill: "#fff1f0", stroke: "#d92d20", text: "#000000" },
   };
 
@@ -22,6 +22,11 @@
       "'": "&#39;",
       '"': "&quot;",
     }[char]));
+  }
+
+  function safeImageSource(value) {
+    const image = String(value ?? "").trim();
+    return /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/]+={0,2}$/i.test(image) && image.length <= 12_000_000 ? image : "";
   }
 
   function stripHtml(value) {
@@ -357,8 +362,10 @@
     const cy = element.y + element.height / 2;
     const transform = `rotate(${element.rotation} ${cx} ${cy})`;
     if (element.type === "image") {
+      const imageSource = safeImageSource(element.image);
+      if (!imageSource) return "";
       const flip = element.flipX || element.flipY ? ` translate(${cx} ${cy}) scale(${element.flipX ? -1 : 1} ${element.flipY ? -1 : 1}) translate(${-cx} ${-cy})` : "";
-      return `<g transform="${transform}${flip}"><image href="${escapeXml(element.image)}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" preserveAspectRatio="xMidYMid meet"></image>${renderAnnotations(element)}</g>`;
+      return `<g transform="${transform}${flip}"><image href="${escapeXml(imageSource)}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" preserveAspectRatio="xMidYMid meet"></image>${renderAnnotations(element)}</g>`;
     }
     if (element.type === "arrow") {
       const y = element.y + element.height / 2;
@@ -394,6 +401,7 @@
     sortSceneElements,
     sceneToBlocks,
     sceneToSvg,
+    safeImageSource,
     syncCardSceneFromBlocks,
     syncProcedureScenes,
   };

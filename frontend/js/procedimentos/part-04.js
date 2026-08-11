@@ -1,3 +1,28 @@
+function refreshProcedureSection(sectionIndex) {
+  const section = activeProcedure?.sections?.[sectionIndex];
+  const sectionNode = procedureRoot.querySelector(`[data-section-index="${sectionIndex}"]`);
+  const body = sectionNode?.querySelector("[data-section-body]");
+  if (!section || !body || typeof renderSectionBody !== "function") {
+    renderProcedure(activeProcedure);
+    return;
+  }
+  body.innerHTML = renderSectionBody(section, sectionIndex);
+  window.FabricStepEditor?.mountAll?.(activeProcedure)
+    .catch((error) => console.error("Falha ao atualizar o editor Fabric:", error));
+}
+
+function refreshRevisionEditor() {
+  const current = procedureRoot.querySelector(".revision-editor-card");
+  if (!current || typeof renderRevisionTable !== "function") {
+    renderProcedure(activeProcedure);
+    return;
+  }
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = renderRevisionTable(activeProcedure.revision);
+  const replacement = wrapper.firstElementChild;
+  if (replacement) current.replaceWith(replacement);
+}
+
 async function addStepBlock(sectionIndex, cardIndex, type, tone = "success") {
   const card = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex];
   if (!card) return;
@@ -49,7 +74,7 @@ async function addStepBlock(sectionIndex, cardIndex, type, tone = "success") {
   if (type === "text") window.fabricPendingTextEdit = { sectionIndex, cardIndex, id: card.blocks[card.blocks.length - 1].id };
   syncStepCardSceneFromBlocks(sectionIndex, cardIndex);
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function syncStepCardSceneFromBlocks(sectionIndex, cardIndex) { const card = activeProcedure.sections[sectionIndex]?.stepCards?.[cardIndex]; if (card) window.SceneGraphCore?.syncCardSceneFromBlocks?.(card, sectionIndex, cardIndex); }
@@ -93,14 +118,14 @@ function moveInstruction(sectionIndex, instructionIndex, direction) {
   });
 
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function removeInstruction(sectionIndex, instructionIndex) {
   const section = activeProcedure.sections[sectionIndex];
   ["instructions", "instructionTones", "instructionImages"].forEach((key) => section[key].splice(instructionIndex, 1));
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function getSectionImage(sectionIndex, imageIndex) {
@@ -173,7 +198,7 @@ function addAnnotation(sectionIndex, image, annotation) {
   section.annotations[image] = section.annotations[image] || [];
   section.annotations[image].push(annotation);
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function updateAnnotation(sectionIndex, image, annotationIndex, updates) {
@@ -188,7 +213,7 @@ function removeAnnotation(sectionIndex, image, annotationIndex) {
   if (!annotations) return;
   annotations.splice(annotationIndex, 1);
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function getCardAnnotationList(sectionIndex, cardIndex, blockIndex = null) {
@@ -209,7 +234,7 @@ function addCardAnnotation(sectionIndex, cardIndex, annotation, blockIndex = nul
   if (!annotations) return;
   annotations.push(annotation);
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function updateCardAnnotation(sectionIndex, cardIndex, annotationIndex, updates, blockIndex = null) {
@@ -224,7 +249,7 @@ function removeCardAnnotation(sectionIndex, cardIndex, annotationIndex, blockInd
   if (!annotations) return;
   annotations.splice(annotationIndex, 1);
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function addItemSection() {
@@ -276,7 +301,7 @@ function addStepCard(sectionIndex) {
   window.SceneGraphCore?.normalizeCardScene?.(card, sectionIndex, section.stepCards.length);
   section.stepCards.push(card);
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function addMaterial(sectionIndex) {
@@ -288,7 +313,7 @@ function addMaterial(sectionIndex) {
     description: "",
   });
   saveProcedure();
-  renderProcedure(activeProcedure);
+  refreshProcedureSection(sectionIndex);
 }
 
 function removeSection(sectionIndex) {

@@ -17,7 +17,7 @@ function getPool() {
     throw error;
   }
   const useSsl = process.env.DATABASE_SSL === "true" || /neon\.tech|sslmode=require/i.test(process.env.DATABASE_URL);
-  pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: useSsl ? { rejectUnauthorized: false } : false });
+  pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: useSsl ? { rejectUnauthorized: true, ...(process.env.DATABASE_SSL_CA ? { ca: process.env.DATABASE_SSL_CA } : {}) } : false });
   return pool;
 }
 

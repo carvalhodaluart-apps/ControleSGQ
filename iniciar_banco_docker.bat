@@ -3,6 +3,16 @@ setlocal
 
 cd /d "%~dp0"
 
+if not defined POSTGRES_PASSWORD (
+  set /p "POSTGRES_PASSWORD=Digite a senha do PostgreSQL local: "
+  echo.
+  if not defined POSTGRES_PASSWORD (
+    echo Nenhuma senha foi informada.
+    pause
+    exit /b 1
+  )
+)
+
 where docker >nul 2>nul
 if errorlevel 1 (
   echo Docker Desktop nao foi encontrado.

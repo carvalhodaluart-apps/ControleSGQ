@@ -3,6 +3,7 @@ const {
   getDefaultConfiguration,
   setProcedureConfiguration,
 } = require("./procedureRules");
+const { sanitizeImageData } = require("./securityInputRules");
 
 let pool;
 
@@ -14,7 +15,7 @@ function getPool() {
     throw error;
   }
   const useSsl = process.env.DATABASE_SSL === "true" || /neon\.tech|sslmode=require/i.test(process.env.DATABASE_URL);
-  pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: useSsl ? { rejectUnauthorized: false } : false });
+  pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: useSsl ? { rejectUnauthorized: true, ...(process.env.DATABASE_SSL_CA ? { ca: process.env.DATABASE_SSL_CA } : {}) } : false });
   return pool;
 }
 
@@ -83,11 +84,11 @@ function normalizeNonconformityConfig(input, defaults) {
 
 function normalizeCover(cover, defaults) {
   const validPositions = new Set(["top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right", "custom"]);
-  const imageData = text(cover?.imageData);
-  if (imageData && !/^data:image\/(?:png|jpe?g|webp);base64,/i.test(imageData)) {
+  const rawImageData = text(cover?.imageData);
+  const imageData = sanitizeImageData(rawImageData);
+  if (rawImageData && !imageData) {
     throw configurationError("A imagem da capa precisa ser PNG, JPG ou WebP.");
   }
-  if (imageData.length > 12_000_000) throw configurationError("A imagem da capa é grande demais. Importe uma imagem menor.");
   const coordinate = (value, fallback) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : fallback;
   return {
     imageData,

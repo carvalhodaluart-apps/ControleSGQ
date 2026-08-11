@@ -307,13 +307,13 @@ createButton?.addEventListener("click", () => {
 document.querySelectorAll("[data-close-drafts]").forEach((button) => button.addEventListener("click", closeDraftSelection));
 draftSelection?.addEventListener("click", (event) => {
   if (event.target === draftSelection) closeDraftSelection();
-  const savedButton = event.target.closest("[data-select-draft-saved]");
+  const savedButton = event.target?.closest?.("[data-select-draft-saved]");
   if (savedButton) {
     const fileInput = savedButton.closest(".draft-selection-item")?.querySelector("[data-draft-file]");
     if (fileInput) continueDraftFromServer(fileInput.dataset.draftFile, savedButton);
     return;
   }
-  const selectButton = event.target.closest("[data-select-draft-json]");
+  const selectButton = event.target?.closest?.("[data-select-draft-json]");
   if (!selectButton) return;
   const fileInput = selectButton.closest(".draft-selection-item")?.querySelector("[data-draft-file]");
   fileInput?.click();
@@ -419,7 +419,7 @@ async function continueDraftFromFile(file, draftId, fileInput) {
 }
 
 draftSelection?.addEventListener("change", (event) => {
-  const fileInput = event.target.closest("[data-draft-file]");
+  const fileInput = event.target?.closest?.("[data-draft-file]");
   if (!fileInput) return;
   const file = fileInput.files?.[0];
   if (file) continueDraftFromFile(file, fileInput.dataset.draftFile, fileInput);

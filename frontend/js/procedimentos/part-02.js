@@ -93,7 +93,7 @@ function renderInstructionEditor(section, sectionIndex, instructionIndex, tone, 
             type="button"
             class="tone-dot tone-${option} ${tone === option ? "is-active" : ""}"
             title="${getToneLabel(option)}"
-            data-set-tone="${sectionIndex}:${instructionIndex}:${option}">
+            aria-label="${getToneLabel(option)}" aria-pressed="${tone === option ? "true" : "false"}" data-set-tone="${sectionIndex}:${instructionIndex}:${option}">
           </button>
         `).join("")}
       </div>
@@ -130,15 +130,17 @@ function renderImages(section, sectionIndex) {
 }
 
 function renderSingleImage(section, sectionIndex, image, instructionIndex = "") {
+  const safeImage = window.SceneGraphCore?.safeImageSource?.(image) || "";
+  if (!safeImage) return "";
   const imageIndex = section.images.indexOf(image);
   const annotations = section.annotations?.[image] || [];
   const tag = editMode ? "div" : "a";
-  const href = editMode ? "" : ` href="${escapeHtml(image)}" target="_blank" rel="noopener"`;
+  const href = editMode ? "" : ` href="${escapeHtml(safeImage)}" target="_blank" rel="noopener"`;
 
   return `
     <${tag}${href} class="procedure-image-link ${editMode ? "is-editable" : ""}" data-section="${sectionIndex}" data-image-index="${imageIndex}">
       ${editMode ? renderImageEditor(sectionIndex, imageIndex, instructionIndex) : ""}
-      <img src="${escapeHtml(image)}" alt="${escapeHtml(`${section.number} ${section.title} - imagem ${imageIndex + 1}`)}" loading="lazy">
+      <img src="${escapeHtml(safeImage)}" alt="${escapeHtml(`${section.number} ${section.title} - imagem ${imageIndex + 1}`)}" loading="lazy">
       <div class="annotation-layer">
         ${annotations.map((annotation, annotationIndex) => renderAnnotation(annotation, sectionIndex, imageIndex, annotationIndex)).join("")}
       </div>
@@ -443,7 +445,7 @@ function renderStepTextTools(sectionIndex, cardIndex, block, blockIndex) {
       <button type="button" title="Aumentar letra" aria-label="Aumentar letra" data-step-text-size="${sectionIndex}:${cardIndex}:${blockIndex}:1">+</button>
       <div class="tone-picker" aria-label="Cor do bloco">
         ${["success", "warning", "danger"].map((tone) => `
-          <button type="button" class="tone-dot tone-${tone} ${block.tone === tone ? "is-active" : ""}" data-step-block-tone="${sectionIndex}:${cardIndex}:${blockIndex}:${tone}" title="${getToneLabel(tone)}"></button>
+           <button type="button" class="tone-dot tone-${tone} ${block.tone === tone ? "is-active" : ""}" data-step-block-tone="${sectionIndex}:${cardIndex}:${blockIndex}:${tone}" title="${getToneLabel(tone)}" aria-label="${getToneLabel(tone)}" aria-pressed="${block.tone === tone ? "true" : "false"}"></button>
         `).join("")}
       </div>
       <button type="button" class="icon-delete-button" title="Excluir" aria-label="Excluir" data-remove-step-block="${sectionIndex}:${cardIndex}:${blockIndex}">&times;</button>
@@ -460,7 +462,8 @@ function renderStepBlockText(sectionIndex, cardIndex, block, blockIndex) {
 }
 
 function renderStepBlockImage(section, sectionIndex, card, cardIndex, block, blockIndex) {
-  if (!block.image) {
+  const safeImage = window.SceneGraphCore?.safeImageSource?.(block.image) || "";
+  if (!safeImage) {
     if (!editMode) return `<div class="step-empty-image-view"></div>`;
     return `
       <button type="button" class="step-block-drag" title="Mover" aria-label="Mover" data-step-block-drag="${sectionIndex}:${cardIndex}:${blockIndex}">✥</button>
@@ -476,7 +479,7 @@ function renderStepBlockImage(section, sectionIndex, card, cardIndex, block, blo
   return `
     <div class="procedure-image-link step-card-image ${editMode ? "is-editable" : ""}" data-section="${sectionIndex}" data-card-index="${cardIndex}" data-block-index="${blockIndex}" data-image-index="${imageIndex}">
       ${editMode ? `<button type="button" class="step-block-drag" title="Mover" aria-label="Mover" data-step-block-drag="${sectionIndex}:${cardIndex}:${blockIndex}">✥</button>` : ""}
-      <img src="${escapeHtml(block.image)}" alt="${escapeHtml(`${section.number} ${section.title} - bloco ${blockIndex + 1}`)}" loading="lazy">
+      <img src="${escapeHtml(safeImage)}" alt="${escapeHtml(`${section.number} ${section.title} - bloco ${blockIndex + 1}`)}" loading="lazy">
       <div class="annotation-layer">
         ${annotations.map((annotation, annotationIndex) => renderAnnotation(annotation, sectionIndex, imageIndex, annotationIndex, cardIndex, blockIndex)).join("")}
       </div>

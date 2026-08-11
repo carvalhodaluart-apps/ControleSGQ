@@ -14,6 +14,7 @@ npm install
 set QUALITY_PASSWORD=sua_senha_da_qualidade
 set SESSION_SECRET=um_segredo_longo_para_assinar_sessoes
 set DATABASE_URL=postgresql://usuario:senha@servidor:5432/controle_sgq
+set POSTGRES_PASSWORD=uma_senha_forte_apenas_para_o_docker_local
 set APP_HOST=127.0.0.1
 npm start
 ```
@@ -37,6 +38,11 @@ configurações.
 O servidor escuta somente em `127.0.0.1` por padrao. Altere `APP_HOST` apenas
 quando houver uma necessidade controlada de acesso pela rede.
 
+O Docker local exige `POSTGRES_PASSWORD`. A porta do PostgreSQL fica vinculada
+somente a `127.0.0.1`; nunca publique essa porta em uma rede ou ambiente de
+producao. Os scripts `iniciar_app.bat` e `iniciar_banco_docker.bat` solicitam a
+senha quando ela nao estiver definida no ambiente.
+
 Para usar o Docker Desktop no Windows, abra o Docker e execute
 `iniciar_app.bat`; ele iniciara o container PostgreSQL automaticamente. O banco
 usa PostgreSQL 16, a porta `5432` e um volume persistente chamado
@@ -44,7 +50,7 @@ usa PostgreSQL 16, a porta `5432` e um volume persistente chamado
 ser usado para iniciar somente o banco.
 
 ```text
-postgresql://controle_sgq:controle_sgq_dev@127.0.0.1:5432/controle_sgq
+postgresql://controle_sgq:SENHA_DO_BANCO@127.0.0.1:5432/controle_sgq
 ```
 
 Acesse:

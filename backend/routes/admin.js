@@ -67,7 +67,7 @@ router.post("/users", requireQuality, async (req, res) => {
     if (!/^[a-z0-9._-]{3,60}$/.test(username)) throw Object.assign(new Error("Usuario invalido."), { status: 400 });
     if (!displayName || displayName.length > 120) throw Object.assign(new Error("Nome de exibição invalido."), { status: 400 });
     if (!["editor", "manager"].includes(role)) throw Object.assign(new Error("Perfil de usuario invalido."), { status: 400 });
-    if (password.length < 8) throw Object.assign(new Error("A senha deve ter pelo menos 8 caracteres."), { status: 400 });
+    if (password.length < 8 || password.length > 256) throw Object.assign(new Error("A senha deve ter entre 8 e 256 caracteres."), { status: 400 });
     const passwordHash = await hashPassword(password);
     const result = await getDatabasePool().query(`
       INSERT INTO app_users (username, display_name, password_hash, role)

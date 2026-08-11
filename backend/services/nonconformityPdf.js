@@ -29,7 +29,7 @@ function dataUriToBuffer(value) {
 async function toPdfImageBuffer(value) {
   const buffer = dataUriToBuffer(value);
   if (!buffer) return null;
-  return /^data:image\/webp/i.test(String(value)) ? sharp(buffer).png().toBuffer() : buffer;
+  return /^data:image\/webp/i.test(String(value)) ? sharp(buffer, { limitInputPixels: 25_000_000 }).png().toBuffer() : buffer;
 }
 
 function dateText(value) {

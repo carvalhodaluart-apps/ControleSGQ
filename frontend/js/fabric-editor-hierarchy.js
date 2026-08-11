@@ -47,6 +47,12 @@
     const step = Math.max(24, Math.min(element.width, element.height, 96));
     const xPositions = new Set([0, maxX, Math.min(maxX, Math.max(0, element.x))]);
     const yPositions = new Set([0, maxY, Math.min(maxY, Math.max(0, element.y))]);
+    images.forEach((image) => {
+      xPositions.add(Math.min(maxX, Math.max(0, image.x + image.width)));
+      xPositions.add(Math.min(maxX, Math.max(0, image.x - element.width)));
+      yPositions.add(Math.min(maxY, Math.max(0, image.y + image.height)));
+      yPositions.add(Math.min(maxY, Math.max(0, image.y - element.height)));
+    });
     for (let x = 0; x <= maxX; x += step) xPositions.add(x);
     for (let y = 0; y <= maxY; y += step) yPositions.add(y);
     const candidates = [];

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
-    "check": "node scripts/check-file-size.js && node scripts/check-js-syntax.js",
+    "check": "node scripts/check-file-size.js && node scripts/check-js-syntax.js && node scripts/security-check.js",
     "import:master": "node scripts/import-master-list.js",
     "backup:db": "node scripts/backup-database.js",
     "restore:db": "node scripts/restore-database.js"

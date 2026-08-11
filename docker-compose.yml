@@ -6,9 +6,9 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-controle_sgq}
       POSTGRES_USER: ${POSTGRES_USER:-controle_sgq}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-controle_sgq_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD em um arquivo .env local}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - controle_sgq_pgdata:/var/lib/postgresql/data
     healthcheck:

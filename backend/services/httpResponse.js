@@ -1,6 +1,6 @@
 function publicErrorMessage(error) {
   const status = error.status || 500;
-  if (status >= 500 && process.env.NODE_ENV === "production") return "Erro interno.";
+  if (status >= 500 && (process.env.NODE_ENV === "production" || process.env.RENDER)) return "Erro interno.";
   return error.message || "Erro interno.";
 }
 

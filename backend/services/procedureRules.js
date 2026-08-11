@@ -1,4 +1,5 @@
 const { STEP_SCENE_SIZE, normalizeScene, sceneFromBlocks, sceneToBlocks } = require("../../frontend/js/scene-graph-core");
+const { sanitizeImageData } = require("./securityInputRules");
 
 function cloneData(value) {
   return JSON.parse(JSON.stringify(value));
@@ -248,6 +249,7 @@ function normalizeProcedure(input) {
   procedure.procedureId = slugify(procedure.procedureId || procedure.documentCode || procedure.title);
   procedure.procedureType = String(procedure.procedureType || "").trim();
   procedure.procedureDescription = repairMojibake(procedure.procedureDescription || "").trim();
+  procedure.customEquipmentImage = sanitizeImageData(procedure.customEquipmentImage);
   procedure.documentStatus = String(procedure.documentStatus || procedure.qualityInfo?.status || STATUS_DRAFT).trim();
   procedure.elaborationAuthorized = Object.prototype.hasOwnProperty.call(procedure, "elaborationAuthorized")
     ? procedure.elaborationAuthorized === true
@@ -289,21 +291,26 @@ function normalizeProcedure(input) {
     section.title = String(section.title || "Nova seção");
     section.kind = section.kind || "step";
     section.instructions = Array.isArray(section.instructions) ? section.instructions : [];
-    section.images = Array.isArray(section.images) ? section.images : [];
+    section.images = Array.isArray(section.images) ? section.images.map((image) => sanitizeImageData(image)).filter(Boolean) : [];
     section.tables = Array.isArray(section.tables) ? section.tables : [];
     section.materials = Array.isArray(section.materials) ? section.materials : [];
     section.itemMarkers = Array.isArray(section.itemMarkers) ? section.itemMarkers : [];
     section.annotations = section.annotations || {};
     section.instructionTones = Array.isArray(section.instructionTones) ? section.instructionTones : section.instructions.map(() => "success");
-    section.instructionImages = Array.isArray(section.instructionImages) ? section.instructionImages : section.instructions.map(() => "");
+    section.instructionImages = Array.isArray(section.instructionImages)
+      ? section.instructionImages.map((image) => sanitizeImageData(image))
+      : section.instructions.map(() => "");
     section.stepCards = Array.isArray(section.stepCards) ? section.stepCards : [];
     section.stepCards.forEach((card, cardIndex) => {
       card.tone = card.tone || "success";
+      card.image = sanitizeImageData(card.image);
+      if (card.sceneExport && typeof card.sceneExport === "object") card.sceneExport.image = sanitizeImageData(card.sceneExport.image);
       card.blocks = Array.isArray(card.blocks) ? card.blocks : [];
       card.blocks = card.blocks.map((block, blockIndex) => normalizeBlock(block, card, blockIndex));
       const hasSceneElements = Array.isArray(card.scene?.elements) && card.scene.elements.length > 0;
       if (card.scene && (hasSceneElements || !card.blocks.length)) {
         card.scene = normalizeScene(card.scene, `scene-step-${index}-${cardIndex}`, STEP_SCENE_SIZE);
+        card.scene.elements.forEach((element) => { element.image = sanitizeImageData(element.image); });
         card.blocks = sceneToBlocks(card.scene, card).map((block, blockIndex) => normalizeBlock(block, card, blockIndex));
       } else {
         card.scene = sceneFromBlocks(card, index, cardIndex);
@@ -324,7 +331,7 @@ function normalizeBlock(block, card, blockIndex = 0) {
     text: String(block?.text || ""),
     html: String(block?.html || ""),
     tone: block?.tone || card?.tone || "success",
-    image: String(block?.image || ""),
+    image: sanitizeImageData(block?.image),
     annotations: Array.isArray(block?.annotations) ? block.annotations : [],
     rotation: Number.isFinite(Number(block?.rotation)) ? Number(block.rotation) : 0,
     flipX: Boolean(block?.flipX),

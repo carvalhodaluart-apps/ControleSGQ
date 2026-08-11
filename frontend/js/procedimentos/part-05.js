@@ -1,5 +1,13 @@
+function refreshItemNumberingButton(sectionIndex) {
+  const button = procedureRoot.querySelector(`[data-item-numbering="${sectionIndex}"]`);
+  if (!button) return;
+  const active = pendingAnnotation?.type === "itemMarker" && pendingAnnotation.sectionIndex === sectionIndex;
+  button.classList.toggle("is-active", active);
+  button.setAttribute("aria-pressed", active ? "true" : "false");
+}
+
 procedureRoot.addEventListener("click", async (event) => {
-  const toggleEdit = event.target.closest("[data-toggle-edit]");
+  const toggleEdit = event.target?.closest?.("[data-toggle-edit]");
   if (toggleEdit) {
     if (!canEditProcedures) return;
     if (!editMode) {
@@ -12,16 +20,16 @@ procedureRoot.addEventListener("click", async (event) => {
     renderProcedure(activeProcedure);
     return;
   }
-  if (event.target.closest("[data-add-item-section]")) {
+  if (event.target?.closest?.("[data-add-item-section]")) {
     addItemSection();
     return;
   }
 
-  if (event.target.closest("[data-add-step-section]")) {
+  if (event.target?.closest?.("[data-add-step-section]")) {
     addStepSection();
     return;
   }
-  const publishButton = event.target.closest("[data-publish-procedure]");
+  const publishButton = event.target?.closest?.("[data-publish-procedure]");
   if (publishButton) {
     if (!(await showPasswordDialog("Digite a senha da qualidade para publicar este procedimento."))) return;
     const confirmed = await showConfirmDialog({
@@ -41,7 +49,7 @@ procedureRoot.addEventListener("click", async (event) => {
     }
     return;
   }
-  const deleteProcedureButton = event.target.closest("[data-delete-procedure]");
+  const deleteProcedureButton = event.target?.closest?.("[data-delete-procedure]");
   if (deleteProcedureButton) {
     if (!(await showPasswordDialog("Digite a senha da qualidade para excluir este procedimento."))) return;
     const confirmed = await showConfirmDialog({
@@ -54,30 +62,30 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const addStepCardButton = event.target.closest("[data-add-step-card]");
+  const addStepCardButton = event.target?.closest?.("[data-add-step-card]");
   if (addStepCardButton) {
     addStepCard(Number(addStepCardButton.dataset.addStepCard));
     return;
   }
 
-  const addMaterialButton = event.target.closest("[data-add-material]");
+  const addMaterialButton = event.target?.closest?.("[data-add-material]");
   if (addMaterialButton) {
     addMaterial(Number(addMaterialButton.dataset.addMaterial));
     return;
   }
 
-  const removeMaterialButton = event.target.closest("[data-remove-material]");
+  const removeMaterialButton = event.target?.closest?.("[data-remove-material]");
   if (removeMaterialButton) {
     if (!(await confirmRemoval("este material"))) return;
     const [sectionIndex, materialIndex] = removeMaterialButton.dataset.removeMaterial.split(":").map(Number);
     const [removedMaterial] = activeProcedure.sections[sectionIndex].materials.splice(materialIndex, 1);
     if (removedMaterial?.number) removeMarkerForMaterial(sectionIndex, removedMaterial.number);
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshProcedureSection(sectionIndex);
     return;
   }
 
-  const clearItemMarkersButton = event.target.closest("[data-clear-item-markers]");
+  const clearItemMarkersButton = event.target?.closest?.("[data-clear-item-markers]");
   if (clearItemMarkersButton) {
     const confirmed = await showConfirmDialog({
       title: "Limpar elementos?",
@@ -88,18 +96,18 @@ procedureRoot.addEventListener("click", async (event) => {
     clearItemMarkers(Number(clearItemMarkersButton.dataset.clearItemMarkers));
     pendingAnnotation = null;
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshProcedureSection(Number(clearItemMarkersButton.dataset.clearItemMarkers));
     return;
   }
 
-  const removeSectionButton = event.target.closest("[data-remove-section]");
+  const removeSectionButton = event.target?.closest?.("[data-remove-section]");
   if (removeSectionButton) {
     if (!(await confirmRemoval("este card"))) return;
     removeSection(Number(removeSectionButton.dataset.removeSection));
     return;
   }
 
-  const addRevisionButton = event.target.closest("[data-add-revision-row]");
+  const addRevisionButton = event.target?.closest?.("[data-add-revision-row]");
   if (addRevisionButton && !await showConfirmDialog({ title: "Adicionar revisão?", message: "Uma nova revisão será criada no final do controle.", confirmLabel: "Adicionar", variant: "primary" })) return;
   if (addRevisionButton) {
     const columns = activeProcedure.revision[0]?.length || 5;
@@ -109,10 +117,10 @@ procedureRoot.addEventListener("click", async (event) => {
     normalizeRevisionNumbers(activeProcedure);
     refreshDocumentCodeDisplays();
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshRevisionEditor();
     return;
   }
-  const removeRevisionButton = event.target.closest("[data-remove-revision-row]");
+  const removeRevisionButton = event.target?.closest?.("[data-remove-revision-row]");
   if (removeRevisionButton) {
     if (activeProcedure.revision.length <= 2) return showConfirmDialog({ title: "Revisão inicial", message: "A revisão 00 é a base do documento e não pode ser removida.", confirmLabel: "Entendi", variant: "primary" });
     if (!(await showPasswordDialog("Digite a senha da qualidade para remover esta revisão."))) return;
@@ -120,32 +128,32 @@ procedureRoot.addEventListener("click", async (event) => {
     normalizeRevisionNumbers(activeProcedure);
     refreshDocumentCodeDisplays();
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshRevisionEditor();
     return;
   }
-  const addButton = event.target.closest("[data-add-instruction]");
+  const addButton = event.target?.closest?.("[data-add-instruction]");
   if (addButton) {
     addInstruction(Number(addButton.dataset.addInstruction), addButton.dataset.tone);
     return;
   }
 
-  const toneButton = event.target.closest("[data-set-tone]");
+  const toneButton = event.target?.closest?.("[data-set-tone]");
   if (toneButton) {
     const [sectionIndex, instructionIndex, tone] = toneButton.dataset.setTone.split(":");
     activeProcedure.sections[sectionIndex].instructionTones[instructionIndex] = tone;
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshProcedureSection(Number(sectionIndex));
     return;
   }
 
-  const addStepBlockButton = event.target.closest("[data-add-step-block]");
+  const addStepBlockButton = event.target?.closest?.("[data-add-step-block]");
   if (addStepBlockButton) {
     const [sectionIndex, cardIndex, type, tone] = addStepBlockButton.dataset.addStepBlock.split(":");
     await addStepBlock(Number(sectionIndex), Number(cardIndex), type, tone || "success");
     return;
   }
 
-  const moveStepCardButton = event.target.closest("[data-move-step-card]");
+  const moveStepCardButton = event.target?.closest?.("[data-move-step-card]");
   if (moveStepCardButton) {
     const [sectionIndex, cardIndex, direction] = moveStepCardButton.dataset.moveStepCard.split(":").map(Number);
     const cards = activeProcedure.sections[sectionIndex].stepCards;
@@ -153,29 +161,29 @@ procedureRoot.addEventListener("click", async (event) => {
     if (targetIndex >= 0 && targetIndex < cards.length) {
       [cards[cardIndex], cards[targetIndex]] = [cards[targetIndex], cards[cardIndex]];
       saveProcedure();
-      renderProcedure(activeProcedure);
+      refreshProcedureSection(Number(moveStepCardButton.dataset.moveStepCard.split(":")[0]));
     }
     return;
   }
 
-  const removeStepCardButton = event.target.closest("[data-remove-step-card]");
+  const removeStepCardButton = event.target?.closest?.("[data-remove-step-card]");
   if (removeStepCardButton) {
     if (!(await confirmRemoval("este card de etapa"))) return;
     const [sectionIndex, cardIndex] = removeStepCardButton.dataset.removeStepCard.split(":").map(Number);
     activeProcedure.sections[sectionIndex].stepCards.splice(cardIndex, 1);
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshProcedureSection(sectionIndex);
     return;
   }
 
-  const moveButton = event.target.closest("[data-move-instruction]");
+  const moveButton = event.target?.closest?.("[data-move-instruction]");
   if (moveButton) {
     const [sectionIndex, instructionIndex, direction] = moveButton.dataset.moveInstruction.split(":").map(Number);
     moveInstruction(sectionIndex, instructionIndex, direction);
     return;
   }
 
-  const removeButton = event.target.closest("[data-remove-instruction]");
+  const removeButton = event.target?.closest?.("[data-remove-instruction]");
   if (removeButton) {
     if (!(await confirmRemoval("esta caixa de texto"))) return;
     const [sectionIndex, instructionIndex] = removeButton.dataset.removeInstruction.split(":").map(Number);
@@ -183,14 +191,14 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const arrowButton = event.target.closest("[data-pending-arrow]");
+  const arrowButton = event.target?.closest?.("[data-pending-arrow]");
   if (arrowButton) {
     const [sectionIndex, imageIndex, tone] = arrowButton.dataset.pendingArrow.split(":");
     pendingAnnotation = { type: "arrow", sectionIndex: Number(sectionIndex), imageIndex: Number(imageIndex), tone };
     return;
   }
 
-  const markerButton = event.target.closest("[data-pending-marker]");
+  const markerButton = event.target?.closest?.("[data-pending-marker]");
   if (markerButton) {
     const [sectionIndex, imageIndex] = markerButton.dataset.pendingMarker.split(":").map(Number);
     const input = procedureRoot.querySelector(`[data-marker-number="${sectionIndex}:${imageIndex}"]`);
@@ -198,23 +206,23 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const itemNumberingButton = event.target.closest("[data-item-numbering]");
+  const itemNumberingButton = event.target?.closest?.("[data-item-numbering]");
   if (itemNumberingButton) {
     const sectionIndex = Number(itemNumberingButton.dataset.itemNumbering);
     const isSameTool = pendingAnnotation?.type === "itemMarker" && pendingAnnotation.sectionIndex === sectionIndex;
     pendingAnnotation = isSameTool ? null : { type: "itemMarker", sectionIndex, imageIndex: 0 };
-    renderProcedure(activeProcedure);
+    refreshItemNumberingButton(sectionIndex);
     return;
   }
 
-  const cardArrowButton = event.target.closest("[data-pending-card-arrow]");
+  const cardArrowButton = event.target?.closest?.("[data-pending-card-arrow]");
   if (cardArrowButton) {
     const [sectionIndex, cardIndex, blockIndex, tone] = cardArrowButton.dataset.pendingCardArrow.split(":");
     pendingAnnotation = { type: "cardArrow", sectionIndex: Number(sectionIndex), cardIndex: Number(cardIndex), blockIndex: Number(blockIndex), tone };
     return;
   }
 
-  const cardMarkerButton = event.target.closest("[data-pending-card-marker]");
+  const cardMarkerButton = event.target?.closest?.("[data-pending-card-marker]");
   if (cardMarkerButton) {
     const [sectionIndex, cardIndex, blockIndex] = cardMarkerButton.dataset.pendingCardMarker.split(":").map(Number);
     const input = procedureRoot.querySelector(`[data-card-marker-number="${sectionIndex}:${cardIndex}:${blockIndex}"]`);
@@ -222,7 +230,7 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const rotateButton = event.target.closest("[data-rotate-annotation]");
+  const rotateButton = event.target?.closest?.("[data-rotate-annotation]");
   if (rotateButton) {
     const [sectionIndex, imageIndex, annotationIndex, cardIndex, blockIndex, delta] = rotateButton.dataset.rotateAnnotation.split(":");
     if (cardIndex !== "") {
@@ -230,7 +238,7 @@ procedureRoot.addEventListener("click", async (event) => {
       if (annotation) {
         annotation.rotation = (annotation.rotation || 0) + Number(delta);
         saveProcedure();
-        renderProcedure(activeProcedure);
+        refreshProcedureSection(Number(sectionIndex));
       }
     } else {
       const image = getSectionImage(Number(sectionIndex), Number(imageIndex));
@@ -238,13 +246,13 @@ procedureRoot.addEventListener("click", async (event) => {
       if (annotation) {
         annotation.rotation = (annotation.rotation || 0) + Number(delta);
         saveProcedure();
-        renderProcedure(activeProcedure);
+        refreshProcedureSection(Number(sectionIndex));
       }
     }
     return;
   }
 
-  const removeAnnotationButton = event.target.closest("[data-remove-annotation]");
+  const removeAnnotationButton = event.target?.closest?.("[data-remove-annotation]");
   if (removeAnnotationButton) {
     if (!(await confirmRemoval("esta marcação"))) return;
     const [sectionIndex, imageIndex, annotationIndex, cardIndex, blockIndex] = removeAnnotationButton.dataset.removeAnnotation.split(":");
@@ -262,13 +270,13 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const exportButton = event.target.closest("[data-export-json]");
+  const exportButton = event.target?.closest?.("[data-export-json]");
   if (exportButton) {
     await withActionButtonLoading(exportButton, "Baixando...", () => exportProcedure());
     return;
   }
 
-  const exportPdfButton = event.target.closest("[data-export-pdf]");
+  const exportPdfButton = event.target?.closest?.("[data-export-pdf]");
   if (exportPdfButton) {
     try {
       await withActionButtonLoading(exportPdfButton, "Gerando PDF...", () => exportProcedurePdf());
@@ -278,7 +286,7 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const resetButton = event.target.closest("[data-reset-procedure]");
+  const resetButton = event.target?.closest?.("[data-reset-procedure]");
   if (resetButton) {
     const confirmed = await showConfirmDialog({
       title: "Limpar edição local?",
@@ -292,9 +300,9 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const imageContainer = event.target.closest(".procedure-image-link.is-editable");
+  const imageContainer = event.target?.closest?.(".procedure-image-link.is-editable");
   if (imageContainer && pendingAnnotation) {
-    if (event.target.closest(".image-editor-toolbar, .item-image-toolbar, .annotation-item")) return;
+    if (event.target?.closest?.(".image-editor-toolbar, .item-image-toolbar, .annotation-item")) return;
     event.preventDefault();
 
     if (pendingAnnotation.type === "cardArrow" || pendingAnnotation.type === "cardMarker") {
@@ -364,19 +372,19 @@ procedureRoot.addEventListener("click", async (event) => {
   }
 });
 procedureRoot.addEventListener("keydown", (event) => {
-  const sectionTitle = event.target.closest("[data-section-title]");
+  const sectionTitle = event.target?.closest?.("[data-section-title]");
   if (!sectionTitle || event.key !== "Enter") return;
   event.preventDefault();
   sectionTitle.blur();
 });
 
 procedureRoot.addEventListener("focusout", (event) => {
-  const revisionCell = event.target.closest("[data-revision-cell]");
+  const revisionCell = event.target?.closest?.("[data-revision-cell]");
   if (revisionCell) {
     const [rowIndex, cellIndex] = revisionCell.dataset.revisionCell.split(":").map(Number); if (cellIndex > 0 && activeProcedure.revision[rowIndex]) activeProcedure.revision[rowIndex][cellIndex] = revisionCell.value;
-    refreshDocumentCodeDisplays(); saveProcedure(); renderProcedure(activeProcedure); return;
+    refreshDocumentCodeDisplays(); saveProcedure(); refreshRevisionEditor(); return;
   }
-  const sectionTitle = event.target.closest("[data-section-title]");
+  const sectionTitle = event.target?.closest?.("[data-section-title]");
   if (!sectionTitle) return;
 
   const section = activeProcedure.sections[Number(sectionTitle.dataset.sectionTitle)];
@@ -387,7 +395,7 @@ procedureRoot.addEventListener("focusout", (event) => {
   refreshSectionNavigation(activeProcedure);
 });
 procedureRoot.addEventListener("input", (event) => {
-  const procedureTitle = event.target.closest("[data-procedure-title]");
+  const procedureTitle = event.target?.closest?.("[data-procedure-title]");
   if (procedureTitle) {
     activeProcedure.title = procedureTitle.value;
     if (hasProcedureTitle() && !activeProcedure.documentNumber) {
@@ -398,21 +406,21 @@ procedureRoot.addEventListener("input", (event) => {
     return;
   }
 
-  const qualityField = event.target.closest("[data-quality-field]");
+  const qualityField = event.target?.closest?.("[data-quality-field]");
   if (qualityField) {
     activeProcedure.qualityInfo[qualityField.dataset.qualityField] = qualityField.value;
     saveProcedure();
     return;
   }
 
-  const sectionTitle = event.target.closest("[data-section-title]");
+  const sectionTitle = event.target?.closest?.("[data-section-title]");
   if (sectionTitle) {
     activeProcedure.sections[Number(sectionTitle.dataset.sectionTitle)].title = sectionTitle.value;
     saveProcedure();
     return;
   }
 
-  const revisionCell = event.target.closest("[data-revision-cell]");
+  const revisionCell = event.target?.closest?.("[data-revision-cell]");
   if (revisionCell) {
     const [rowIndex, cellIndex] = revisionCell.dataset.revisionCell.split(":").map(Number);
     if (cellIndex === 0) return;
@@ -421,7 +429,7 @@ procedureRoot.addEventListener("input", (event) => {
     return;
   }
 
-  const materialField = event.target.closest("[data-material-field]");
+  const materialField = event.target?.closest?.("[data-material-field]");
   if (materialField) {
     const [sectionIndex, materialIndex, field] = materialField.dataset.materialField.split(":");
     activeProcedure.sections[sectionIndex].materials[materialIndex][field] = materialField.value;
@@ -429,7 +437,7 @@ procedureRoot.addEventListener("input", (event) => {
     return;
   }
 
-  const stepCardText = event.target.closest("[data-step-card-text]");
+  const stepCardText = event.target?.closest?.("[data-step-card-text]");
   if (stepCardText) {
     const [sectionIndex, cardIndex] = stepCardText.dataset.stepCardText.split(":").map(Number);
     activeProcedure.sections[sectionIndex].stepCards[cardIndex].text = stepCardText.value;
@@ -437,7 +445,7 @@ procedureRoot.addEventListener("input", (event) => {
     return;
   }
 
-  const textField = event.target.closest("[data-instruction-text]");
+  const textField = event.target?.closest?.("[data-instruction-text]");
   if (textField) {
     const [sectionIndex, instructionIndex] = textField.dataset.instructionText.split(":").map(Number);
     activeProcedure.sections[sectionIndex].instructions[instructionIndex] = textField.value;

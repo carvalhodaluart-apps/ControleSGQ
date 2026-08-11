@@ -44,7 +44,6 @@ async function reserveAutomaticDocumentNumber() {
     activeProcedure.documentNumber = data.documentNumber;
     refreshDocumentCodeDisplays();
     saveProcedure();
-    renderProcedure(activeProcedure);
   } catch (error) {
     console.error("Falha ao reservar número do documento:", error);
     updateSaveState("error", "Número não reservado");
@@ -168,7 +167,7 @@ procedureRoot.addEventListener("change", async (event) => {
     const [sectionIndex, instructionIndex] = imageSelect.dataset.setInstructionImage.split(":").map(Number);
     activeProcedure.sections[sectionIndex].instructionImages[instructionIndex] = imageSelect.value;
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshProcedureSection(sectionIndex);
     return;
   }
 
@@ -178,7 +177,7 @@ procedureRoot.addEventListener("change", async (event) => {
     const convertedImages = await Promise.all([...imageInput.files].map(resizeImage));
     activeProcedure.sections[sectionIndex].images.push(...convertedImages);
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshProcedureSection(sectionIndex);
     return;
   }
 
@@ -191,7 +190,7 @@ procedureRoot.addEventListener("change", async (event) => {
     section.annotations = convertedImage ? { [convertedImage]: [] } : {};
     pendingAnnotation = null;
     saveProcedure();
-    renderProcedure(activeProcedure);
+    refreshProcedureSection(sectionIndex);
     return;
   }
 

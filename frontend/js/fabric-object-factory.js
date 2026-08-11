@@ -7,7 +7,7 @@
   function toneOf(tone) {
     return Core.TONES?.[tone] || {
       fill: tone === "warning" ? "#fff9d6" : tone === "danger" ? "#fff1f0" : "#effaf3",
-      stroke: tone === "warning" ? "#eab308" : tone === "danger" ? "#d92d20" : "#159447",
+      stroke: tone === "warning" ? "#FFBF00" : tone === "danger" ? "#d92d20" : "#159447",
       text: "#000000",
     };
   }
@@ -146,8 +146,9 @@
   }
 
   async function imageObject(element, options) {
-    if (!element.image) return null;
-    const image = await Fabric.FabricImage.fromURL(element.image, { crossOrigin: "anonymous" });
+    const imageSource = Core.safeImageSource?.(element.image) || "";
+    if (!imageSource) return null;
+    const image = await Fabric.FabricImage.fromURL(imageSource, { crossOrigin: "anonymous" });
     const fit = element.fit === "cover" ? "cover" : "contain";
     const scale = (fit === "cover" ? Math.max : Math.min)(element.width / image.width, element.height / image.height);
     const centerX = element.width / 2;

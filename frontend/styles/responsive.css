@@ -125,7 +125,7 @@
   }
 
   .step-card {
-    overflow-x: auto;
+    overflow-x: visible;
     padding: 12px;
   }
 
@@ -137,8 +137,8 @@
 
   .canvas-toolbar {
     width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
+    overflow-x: visible;
+    flex-wrap: wrap;
   }
 
   .step-card-canvas {
@@ -148,7 +148,8 @@
   }
 
   .step-card-canvas.is-editable {
-    min-width: 720px;
+    min-width: 0;
+    width: 100%;
   }
 
   .procedure-section-header,

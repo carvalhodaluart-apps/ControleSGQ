@@ -11,8 +11,9 @@
 
   function toneButtons(element) {
     if (element.type === "image") return "";
+    const labels = { success: "Verde", warning: "Amarela", danger: "Vermelha" };
     return ["success", "warning", "danger"].map((tone) => (
-      `<button type="button" class="editor-tool-button fabric-tone-dot fabric-tone-${tone} ${element.tone === tone ? "is-active" : ""}" title="Cor ${tone}" aria-label="Cor ${tone}" data-fabric-action="tone" data-tone="${tone}"></button>`
+      `<button type="button" class="editor-tool-button fabric-tone-dot fabric-tone-${tone} ${element.tone === tone ? "is-active" : ""}" title="Cor ${labels[tone]}" aria-label="Cor ${labels[tone]}" data-fabric-action="tone" data-tone="${tone}"></button>`
     )).join("");
   }
 
@@ -101,16 +102,16 @@
     ribbon.dataset.fabricRibbonReady = "true";
     ["mousedown", "pointerdown"].forEach((type) => {
       ribbon.addEventListener(type, (event) => {
-        if (!event.target.closest("[data-fabric-action], [data-fabric-tool], [data-add-step-block], [data-fabric-select]")) return;
+        if (!event.target?.closest?.("[data-fabric-action], [data-fabric-tool], [data-add-step-block], [data-fabric-select]")) return;
         event.preventDefault();
         event.stopPropagation();
       });
     });
     ribbon.addEventListener("click", (event) => {
-      const selectButton = event.target.closest("[data-fabric-select]");
-      const imageButton = event.target.closest("[data-add-step-block]");
-      const toolButton = event.target.closest("[data-fabric-tool]");
-      const actionButton = event.target.closest("[data-fabric-action]");
+      const selectButton = event.target?.closest?.("[data-fabric-select]");
+      const imageButton = event.target?.closest?.("[data-add-step-block]");
+      const toolButton = event.target?.closest?.("[data-fabric-tool]");
+      const actionButton = event.target?.closest?.("[data-fabric-action]");
       if (!selectButton && !imageButton && !toolButton && !actionButton) return;
       event.preventDefault();
       event.stopPropagation();

@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableExtensions EnableDelayedExpansion
 
 cd /d "%~dp0"
 if exist ".env.local" (
@@ -18,12 +18,35 @@ if not defined QUALITY_PASSWORD (
     exit /b 1
   )
 )
-if not defined DATABASE_URL set "DATABASE_URL=postgresql://controle_sgq:controle_sgq_dev@127.0.0.1:5432/controle_sgq"
-if /I "%DATABASE_URL%"=="postgresql://controle_sgq:controle_sgq_dev@127.0.0.1:5432/controle_sgq" goto start_local_database
+if not defined DATABASE_URL (
+  if not defined POSTGRES_PASSWORD (
+    set /p "POSTGRES_PASSWORD=Digite a senha do PostgreSQL local: "
+    echo.
+    if not defined POSTGRES_PASSWORD (
+      echo Nenhuma senha foi informada.
+      pause
+      exit /b 1
+    )
+  )
+  set "DATABASE_URL=postgresql://controle_sgq:!POSTGRES_PASSWORD!@127.0.0.1:5432/controle_sgq"
+  set "LOCAL_DATABASE_CONFIGURED=1"
+)
+if defined LOCAL_DATABASE_CONFIGURED goto start_local_database
+echo %DATABASE_URL% | findstr /I /R "@127\.0\.0\.1:5432/" >nul
+if not errorlevel 1 goto start_local_database
 goto database_ready
 
 :start_local_database
-echo Usando o PostgreSQL local do Docker: %DATABASE_URL%
+echo Usando o PostgreSQL local do Docker.
+if not defined POSTGRES_PASSWORD (
+  set /p "POSTGRES_PASSWORD=Digite a senha do PostgreSQL local: "
+  echo.
+  if not defined POSTGRES_PASSWORD (
+    echo Nenhuma senha foi informada.
+    pause
+    exit /b 1
+  )
+)
 where docker >nul 2>nul
 if errorlevel 1 (
   echo Docker Desktop nao foi encontrado.

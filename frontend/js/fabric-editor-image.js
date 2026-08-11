@@ -6,10 +6,12 @@
 
   function readSize(source) {
     return new Promise((resolve) => {
+      const safeSource = Core.safeImageSource?.(source) || "";
+      if (!safeSource) return resolve(null);
       const image = new window.Image();
       image.onload = () => resolve({ width: image.naturalWidth || image.width, height: image.naturalHeight || image.height });
       image.onerror = () => resolve(null);
-      image.src = source;
+      image.src = safeSource;
     });
   }
 
@@ -105,6 +107,8 @@
 
   function cropSource(source, element, rect) {
     return new Promise((resolve) => {
+      const safeSource = Core.safeImageSource?.(source) || "";
+      if (!safeSource) return resolve(null);
       const image = new window.Image();
       image.onload = () => {
         const fit = element.fit === "cover" ? "cover" : "contain";
@@ -124,7 +128,7 @@
         resolve({ image: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height });
       };
       image.onerror = () => resolve(null);
-      image.src = source;
+      image.src = safeSource;
     });
   }
 

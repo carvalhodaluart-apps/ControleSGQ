@@ -273,9 +273,9 @@
     root.innerHTML = `
       <div class="procedure-text-panel" aria-hidden="true"></div>
       <div class="procedure-text-stripe" aria-hidden="true"></div>
-      <button type="button" class="procedure-text-move-handle" title="Mover caixa de texto" aria-label="Mover caixa de texto">&#x2637;</button>
+      <button type="button" class="procedure-text-move-handle" title="Mover caixa de texto" aria-label="Mover caixa de texto"><span aria-hidden="true"></span></button>
       <div class="procedure-text-content" contenteditable="false" spellcheck="true"></div>
-      <button type="button" class="procedure-text-resize-handle" title="Redimensionar caixa de texto" aria-label="Redimensionar caixa de texto">&#x25E2;</button>
+      <button type="button" class="procedure-text-resize-handle" title="Redimensionar caixa de texto" aria-label="Redimensionar caixa de texto"><span aria-hidden="true"></span></button>
     `;
     root.style.setProperty("--procedure-fill", tone.fill);
     root.style.setProperty("--procedure-stroke", tone.stroke);
@@ -295,10 +295,10 @@
     component.root.dataset.sceneId = element.id;
     component.root.addEventListener("pointerdown", (event) => handlePointerDown(component, event));
     component.root.addEventListener("click", (event) => {
-      if (!event.target.closest(".procedure-text-move-handle, .procedure-text-resize-handle")) select(session, component);
+      if (!event.target?.closest?.(".procedure-text-move-handle, .procedure-text-resize-handle")) select(session, component);
     });
     component.root.addEventListener("dblclick", (event) => {
-      if (event.target.closest(".procedure-text-content, .procedure-text-box")) enterEdit(session, component);
+      if (event.target?.closest?.(".procedure-text-content, .procedure-text-box")) enterEdit(session, component);
     });
     component.content.addEventListener("pointerdown", (event) => startPointerSelection(component, event));
     component.content.addEventListener("click", (event) => {
@@ -426,9 +426,9 @@
 
   function handlePointerDown(component, event) {
     const { session } = component;
-    if (event.target.closest(".procedure-text-resize-handle, .procedure-text-move-handle")) {
+    if (event.target?.closest?.(".procedure-text-resize-handle, .procedure-text-move-handle")) {
       if (session.isEditingText && session.textEditingComponent === component) finishEdit(session, component, true);
-      if (event.target.closest(".procedure-text-resize-handle")) return startResize(component, event);
+      if (event.target?.closest?.(".procedure-text-resize-handle")) return startResize(component, event);
       return startMove(component, event);
     }
     if (component.root.classList.contains("is-editing")) {

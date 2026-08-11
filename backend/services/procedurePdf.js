@@ -16,7 +16,7 @@ const COLORS = {
   orange: "#f97316",
   success: "#16834b",
   successSoft: "#d7f1e1",
-  warning: "#eab308",
+  warning: "#FFBF00",
   warningSoft: "#fff9d6",
   danger: "#c92f35",
   dangerSoft: "#fbd3d3",
@@ -159,7 +159,7 @@ async function convertLegacyImages(value, cache = new Map()) {
   if (typeof value === "string" && /^data:image\/webp;base64,/i.test(value)) {
     if (cache.has(value)) return cache.get(value);
     const encoded = value.split(",", 2)[1];
-    const png = await sharp(Buffer.from(encoded, "base64")).png().toBuffer();
+    const png = await sharp(Buffer.from(encoded, "base64"), { limitInputPixels: 25_000_000 }).png().toBuffer();
     const converted = `data:image/png;base64,${png.toString("base64")}`;
     cache.set(value, converted);
     return converted;

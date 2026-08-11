@@ -46,7 +46,7 @@ async function imageBuffer(value) {
   const match = String(value || "").match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/i);
   if (!match) return null;
   const buffer = Buffer.from(match[2], "base64");
-  return match[1].toLowerCase() === "webp" ? sharp(buffer).png().toBuffer() : buffer;
+  return match[1].toLowerCase() === "webp" ? sharp(buffer, { limitInputPixels: 25_000_000 }).png().toBuffer() : buffer;
 }
 
 function coverPosition(cover, pageWidth, pageHeight, width, height) {
