@@ -126,19 +126,39 @@
     if (!handle) return { found: false, reason: "missing-folder" };
     if (await requestPermission(handle, "readwrite") !== "granted") return { found: false, reason: "permission-denied" };
     const safeId = safeName(procedureId);
+    const candidates = [];
+    const seenNames = new Set();
+    const readCandidate = async (entry) => {
+      if (!entry || entry.kind !== "file" || seenNames.has(entry.name)) return;
+      seenNames.add(entry.name);
+      const fileData = await entry.getFile();
+      const procedure = JSON.parse(await fileData.text());
+      if (safeName(procedure?.procedureId) !== safeId) return;
+      candidates.push({
+        found: true,
+        fileName: entry.name,
+        lastModified: fileData.lastModified || 0,
+        procedure,
+      });
+    };
     try {
-      const file = await handle.getFileHandle(getProcedureFileName(procedureId));
-      return { found: true, procedure: JSON.parse(await (await file.getFile()).text()) };
+      await readCandidate(await handle.getFileHandle(getProcedureFileName(procedureId)));
     } catch (error) {
       if (error.name !== "NotFoundError") throw error;
     }
     for await (const entry of handle.values()) {
       const name = String(entry.name || "").toLowerCase();
       if (entry.kind !== "file" || (!name.endsWith(`${safeId}.json`) && !name.endsWith(`__${safeId}.json`))) continue;
-      const procedure = JSON.parse(await (await entry.getFile()).text());
-      if (safeName(procedure?.procedureId) === safeId) return { found: true, procedure };
+      await readCandidate(entry);
     }
-    return { found: false, reason: "not-found" };
+    if (!candidates.length) return { found: false, reason: "not-found" };
+    return candidates.reduce((latest, candidate) => {
+      const latestTime = Date.parse(latest.procedure?.updatedAt || "");
+      const candidateTime = Date.parse(candidate.procedure?.updatedAt || "");
+      const latestSort = Number.isFinite(latestTime) ? latestTime : latest.lastModified;
+      const candidateSort = Number.isFinite(candidateTime) ? candidateTime : candidate.lastModified;
+      return candidateSort >= latestSort ? candidate : latest;
+    });
   }
 
   window.secureProcedureFolder = {

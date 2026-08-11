@@ -203,6 +203,41 @@ router.post("/continue", requireProcedureEditor, async (req, res) => {
   }
 });
 
+router.post("/restore", requireProcedureEditor, async (req, res) => {
+  try {
+    const draftProcedureId = String(req.body?.draftProcedureId || "").trim();
+    const received = normalizeProcedure(validateProcedurePayload(req.body?.procedure));
+    const stored = await loadProcedure(draftProcedureId);
+    const expected = stored ? normalizeProcedure(stored) : null;
+    if (!expected || expected.documentStatus !== STATUS_DRAFT || expected.elaborationAuthorized !== true) {
+      const error = new Error("Documento em elaboraÃ§Ã£o nÃ£o encontrado ou nÃ£o autorizado.");
+      error.status = 404;
+      throw error;
+    }
+    if (!sameDraftIdentity(expected, received)) {
+      const error = new Error("Este JSON nÃ£o pertence ao documento em elaboraÃ§Ã£o selecionado.");
+      error.status = 400;
+      throw error;
+    }
+    const receivedTime = Date.parse(received.updatedAt || "");
+    const storedTime = Date.parse(expected.updatedAt || "");
+    if (!Number.isFinite(receivedTime) || !Number.isFinite(storedTime) || receivedTime <= storedTime) {
+      const error = new Error("O JSON selecionado nÃ£o Ã© mais recente que a versÃ£o salva no servidor.");
+      error.status = 409;
+      throw error;
+    }
+    received.procedureId = expected.procedureId;
+    received.elaborationAuthorized = true;
+    markStatus(received, STATUS_DRAFT);
+    await saveProcedure(received, { allowVersionMismatch: true });
+    await upsertMasterDocument(received);
+    await recordAudit({ procedureId: received.procedureId, action: "draft-restored-from-json", user: getRequestUser(req) });
+    res.json({ ok: true, procedure: received });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
 router.post("/next-number", requireProcedureEditor, async (req, res) => {
   try {
     const procedureId = String(req.body?.procedureId || "").trim();

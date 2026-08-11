@@ -122,7 +122,7 @@ function renderDraftSelection(drafts) {
         <p>${escapeText(draft.equipmentCode || "Sem equipamento")} · ${escapeText(draft.documentType || "")} · ${escapeText(draft.sector || "")}</p>
       </div>
       <div class="draft-continue-control">
-        <button type="button" class="primary-button draft-continue-button" data-select-draft-secure>Continuar</button>
+        <button type="button" class="primary-button draft-continue-button" data-select-draft-saved>Continuar</button>
         <button type="button" class="secondary-button draft-continue-button" data-select-draft-json>Escolher JSON</button>
         <input type="file" accept=".json,application/json" hidden data-draft-file="${escapeText(draft.procedureId)}" data-draft-code="${escapeText(draft.documentCode || "")}">
       </div>
@@ -307,10 +307,10 @@ createButton?.addEventListener("click", () => {
 document.querySelectorAll("[data-close-drafts]").forEach((button) => button.addEventListener("click", closeDraftSelection));
 draftSelection?.addEventListener("click", (event) => {
   if (event.target === draftSelection) closeDraftSelection();
-  const secureButton = event.target.closest("[data-select-draft-secure]");
-  if (secureButton) {
-    const fileInput = secureButton.closest(".draft-selection-item")?.querySelector("[data-draft-file]");
-    if (fileInput) continueDraftFromSecureFolder(fileInput.dataset.draftFile, fileInput);
+  const savedButton = event.target.closest("[data-select-draft-saved]");
+  if (savedButton) {
+    const fileInput = savedButton.closest(".draft-selection-item")?.querySelector("[data-draft-file]");
+    if (fileInput) continueDraftFromServer(fileInput.dataset.draftFile, savedButton);
     return;
   }
   const selectButton = event.target.closest("[data-select-draft-json]");
@@ -328,7 +328,7 @@ async function continueDraftWithProcedure(procedure, draftId, fileInput) {
   const item = fileInput.closest(".draft-selection-item");
   const itemError = item?.querySelector("[data-draft-error]");
   if (itemError) itemError.textContent = "";
-  const button = item?.querySelector("[data-select-draft-secure]");
+  const button = item?.querySelector("[data-select-draft-saved]");
   if (button) {
     button.disabled = true;
     button.textContent = "Validando...";
@@ -339,10 +339,17 @@ async function continueDraftWithProcedure(procedure, draftId, fileInput) {
     if (!expectedCode || receivedCode !== expectedCode) {
       throw Object.assign(new Error("Este arquivo JSON não corresponde ao código do documento selecionado."), { status: 400 });
     }
-    const continued = await apiPost("/api/procedures/continue", { draftProcedureId: draftId, procedure });
+    const current = await apiGet(`/api/procedures/load?id=${encodeURIComponent(draftId)}`);
+    const receivedTime = Date.parse(procedure.updatedAt || "");
+    const currentTime = Date.parse(current.procedure?.updatedAt || "");
+    const path = Number.isFinite(receivedTime) && Number.isFinite(currentTime) && receivedTime > currentTime
+      ? "/api/procedures/restore"
+      : "/api/procedures/continue";
+    const continued = await apiPost(path, { draftProcedureId: draftId, procedure });
     closeDraftSelection();
     openProcedure(continued.procedure);
   } catch (error) {
+    if (error.status === 409) error.message = "Este JSON e uma versao anterior do rascunho. Clique em Continuar para abrir a versao salva no servidor ou escolha um JSON mais recente.";
     const message = error.status === 400
       ? "Este arquivo JSON não corresponde ao código do documento selecionado. Escolha o JSON correto para continuar."
       : error.message || "Não foi possível continuar este documento. Verifique o arquivo e tente novamente.";
@@ -364,33 +371,40 @@ async function continueDraftWithProcedure(procedure, draftId, fileInput) {
   }
 }
 
-async function continueDraftFromSecureFolder(draftId, fileInput) {
-  const item = fileInput.closest(".draft-selection-item");
+async function continueDraftFromServer(draftId, button) {
+  const item = button.closest(".draft-selection-item");
   const itemError = item?.querySelector("[data-draft-error]");
   if (itemError) itemError.textContent = "";
-  if (!window.secureProcedureFolder?.isSupported()) {
-    if (itemError) itemError.textContent = "Este navegador nao permite abrir a pasta segura. Use Escolher JSON.";
-    return;
-  }
-  const button = item?.querySelector("[data-select-draft-secure]");
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Procurando...";
-  }
+  button.disabled = true;
+  button.textContent = "Verificando...";
   try {
-    const result = await window.secureProcedureFolder.readProcedureJson(draftId);
-    if (!result.found) {
-      if (itemError) itemError.textContent = "JSON nao encontrado na pasta segura. Use Escolher JSON ou configure a pasta.";
+    const result = await apiGet(`/api/procedures/load?id=${encodeURIComponent(draftId)}`);
+    let local = { found: false };
+    try {
+      local = await window.secureProcedureFolder?.readProcedureJson(draftId) || local;
+    } catch (error) {
+      console.warn("NÃ£o foi possÃ­vel verificar o JSON local do procedimento:", error);
+    }
+    const localProcedure = local.found ? local.procedure : null;
+    const localMatchesDraft = localProcedure
+      && String(localProcedure.procedureId || "") === String(draftId)
+      && String(localProcedure.documentCode || "").trim().toUpperCase() === String(result.procedure?.documentCode || "").trim().toUpperCase();
+    const localTime = Date.parse(localProcedure?.updatedAt || "");
+    const serverTime = Date.parse(result.procedure?.updatedAt || "");
+    if (localMatchesDraft && Number.isFinite(localTime) && Number.isFinite(serverTime) && localTime > serverTime) {
+      button.textContent = "Recuperando...";
+      const restored = await apiPost("/api/procedures/restore", { draftProcedureId: draftId, procedure: localProcedure });
+      closeDraftSelection();
+      openProcedure(restored.procedure);
       return;
     }
-    await continueDraftWithProcedure(result.procedure, draftId, fileInput);
+    closeDraftSelection();
+    openProcedure(result.procedure);
   } catch (error) {
-    if (itemError) itemError.textContent = error.message || "Nao foi possivel ler a pasta segura.";
+    if (itemError) itemError.textContent = error.message || "Nao foi possivel abrir a versao salva.";
   } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = "Continuar";
-    }
+    button.disabled = false;
+    button.textContent = "Continuar";
   }
 }
 

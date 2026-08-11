@@ -22,18 +22,19 @@ async function ensureStorage() {
   await fsp.mkdir(STORAGE_ROOT, { recursive: true });
 }
 
-async function saveProcedure(procedure) {
+async function saveProcedure(procedure, options = {}) {
   await ensureStorage();
   const content = { ...procedure };
-  const expectedUpdatedAt = content.updatedAt || null;
+  const expectedUpdatedAt = options.expectedUpdatedAt ?? content.updatedAt ?? null;
+  const allowVersionMismatch = options.allowVersionMismatch === true;
   delete content.updatedAt;
   const result = await getDatabasePool().query(`
     INSERT INTO procedure_documents (procedure_id, content)
     VALUES ($1, $2::jsonb)
     ON CONFLICT (procedure_id) DO UPDATE SET content = EXCLUDED.content, updated_at = NOW()
-      WHERE $3::timestamptz IS NULL OR date_trunc('milliseconds', procedure_documents.updated_at) = $3::timestamptz
+      WHERE $3::boolean OR $4::timestamptz IS NULL OR date_trunc('milliseconds', procedure_documents.updated_at) = $4::timestamptz
     RETURNING updated_at AS "updatedAt"
-  `, [procedure.procedureId, JSON.stringify(content), expectedUpdatedAt]);
+  `, [procedure.procedureId, JSON.stringify(content), allowVersionMismatch, expectedUpdatedAt]);
   if (!result.rows.length) {
     const error = new Error("O procedimento foi alterado em outra janela. Recarregue antes de salvar.");
     error.status = 409;
