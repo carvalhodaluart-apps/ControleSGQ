@@ -159,7 +159,8 @@
   flex: 1 1 auto;
   width: 100%;
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-columns: minmax(330px, 1fr) minmax(360px, 1.25fr);
+  grid-template-rows: auto auto;
   align-items: stretch;
   gap: 8px;
   padding: 8px;
@@ -169,6 +170,8 @@
 }
 
 .canvas-ribbon-main {
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   align-items: stretch;
   gap: 8px;
@@ -178,8 +181,9 @@
 .canvas-toolbar.canvas-ribbon .fabric-selection-toolbar {
   position: relative;
   inset: auto;
-  grid-column: 1;
-  grid-row: 3;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
   justify-self: stretch;
   width: auto;
   min-width: 0;
@@ -432,7 +436,8 @@
 
 /* Fluxo guiado do editor de procedimentos */
 .canvas-toolbar.canvas-ribbon {
-  grid-template-rows: auto auto auto;
+  grid-template-columns: minmax(330px, 1fr) minmax(360px, 1.25fr);
+  grid-template-rows: auto auto;
   overflow: visible;
 }
 
@@ -477,6 +482,8 @@
 }
 
 .canvas-tool-status {
+  grid-column: 1;
+  grid-row: 2;
   min-height: 18px;
   display: flex;
   align-items: center;
@@ -506,7 +513,19 @@
 }
 
 @media (max-width: 860px) {
+  .canvas-toolbar.canvas-ribbon {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+
+  .canvas-toolbar.canvas-ribbon .fabric-selection-toolbar {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
   .canvas-ribbon-main {
+    grid-column: 1;
+    grid-row: 1;
     min-width: 0;
     width: 100%;
   }
@@ -530,5 +549,10 @@
     width: 100%;
     min-width: 0;
     flex: 0 1 auto;
+  }
+
+  .canvas-tool-status {
+    grid-column: 1;
+    grid-row: 2;
   }
 }
