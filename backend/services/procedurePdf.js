@@ -16,8 +16,8 @@ const COLORS = {
   orange: "#f97316",
   success: "#16834b",
   successSoft: "#d7f1e1",
-  warning: "#efef11",
-  warningSoft: "#ffff8a",
+  warning: "#eab308",
+  warningSoft: "#fff9d6",
   danger: "#c92f35",
   dangerSoft: "#fbd3d3",
 };

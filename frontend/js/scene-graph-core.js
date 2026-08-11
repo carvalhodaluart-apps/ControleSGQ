@@ -10,7 +10,7 @@
   const HIERARCHY_RANKS = { image: 0, arrow: 1, circle: 1, square: 1, text: 2 };
   const TONES = {
     success: { fill: "#effaf3", stroke: "#159447", text: "#000000" },
-    warning: { fill: "#ffff8a", stroke: "#efef11", text: "#000000" },
+    warning: { fill: "#fff9d6", stroke: "#eab308", text: "#000000" },
     danger: { fill: "#fff1f0", stroke: "#d92d20", text: "#000000" },
   };
 

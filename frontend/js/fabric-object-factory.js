@@ -6,8 +6,8 @@
 
   function toneOf(tone) {
     return Core.TONES?.[tone] || {
-      fill: tone === "warning" ? "#ffff8a" : tone === "danger" ? "#fff1f0" : "#effaf3",
-      stroke: tone === "warning" ? "#efef11" : tone === "danger" ? "#d92d20" : "#159447",
+      fill: tone === "warning" ? "#fff9d6" : tone === "danger" ? "#fff1f0" : "#effaf3",
+      stroke: tone === "warning" ? "#eab308" : tone === "danger" ? "#d92d20" : "#159447",
       text: "#000000",
     };
   }
