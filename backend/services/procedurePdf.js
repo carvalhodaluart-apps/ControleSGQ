@@ -229,8 +229,10 @@ async function createProcedurePdf(procedure) {
     const finishPage = () => {
       const footerLineY = pageHeight - 56;
       document.save().strokeColor(COLORS.line).lineWidth(0.7).moveTo(margin, footerLineY).lineTo(pageWidth - margin, footerLineY).stroke().restore();
-      setFont("Helvetica", 7.5, COLORS.muted);
-      document.text("Documento controlado pelo SGQ", margin, pageHeight - 45, { width: 250, lineBreak: false });
+      setFont("Helvetica-Bold", 7.5, COLORS.muted);
+      document.text("CÓPIA CONTROLADA", margin, pageHeight - 51, { width: 250, lineBreak: false });
+      setFont("Helvetica", 6.5, COLORS.muted);
+      document.text("Não é permitida cópia, reprodução ou divulgação deste documento sem consultar ao SGQ", margin, pageHeight - 40, { width: contentWidth - 92, lineBreak: false });
       document.text(`Página ${pageNumber}`, margin, pageHeight - 45, { width: contentWidth, align: "right", lineBreak: false });
     };
     const nextPage = () => {

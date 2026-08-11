@@ -59,6 +59,45 @@
     return segments.length ? segments : [{ text: stripHtml(value), bold: false }];
   }
 
+  function decodeInlineText(value) {
+    return String(value || "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'");
+  }
+
+  function stylesFromHtml(text, html, existingStyles = {}) {
+    const styles = JSON.parse(JSON.stringify(existingStyles || {}));
+    if (!/<\/?(?:b|strong)\b/i.test(String(html || ""))) return styles;
+    let lineIndex = 0;
+    let charIndex = 0;
+    let bold = false;
+    const tokens = String(html || "").split(/(<br\s*\/?\s*>|<\/?(?:b|strong)\b[^>]*>)/gi);
+    tokens.forEach((token) => {
+      if (/^<br\b/i.test(token)) {
+        lineIndex += 1;
+        charIndex = 0;
+        return;
+      }
+      if (/^<\/?(?:b|strong)\b/i.test(token)) {
+        bold = /^<(?:b|strong)\b/i.test(token);
+        return;
+      }
+      [...decodeInlineText(token)].forEach(() => {
+        if (bold) {
+          styles[lineIndex] = styles[lineIndex] || {};
+          styles[lineIndex][charIndex] = { ...(styles[lineIndex][charIndex] || {}), fontWeight: "bold" };
+        }
+        charIndex += 1;
+      });
+    });
+    return styles;
+  }
+
   function scaleRect(block, size) {
     return {
       x: (Number(block.x) || 0) * size.width / 100,
@@ -148,7 +187,7 @@
       text: element?.text || stripHtml(element?.html),
       html: element?.html || "",
       renderLines: Array.isArray(element?.renderLines) ? element.renderLines : [],
-      styles: element?.styles || {},
+      styles: stylesFromHtml(element?.text || stripHtml(element?.html), element?.html, element?.styles || {}),
       fontSize: Math.max(8, toFinite(element?.fontSize, 20)),
       fontFamily: element?.fontFamily || "Arial, Helvetica, sans-serif",
       fontWeight: toFinite(element?.fontWeight, 400),
