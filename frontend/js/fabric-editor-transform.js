@@ -136,7 +136,9 @@
 
   function normalizeObjectTransform(object, size, options = {}) {
     if (!object || !size) return;
-    normalizeScaleByType(object);
+    // Durante o gesto, preserve a escala que o Fabric calcula para evitar saltos.
+    // A normalização definitiva continua acontecendo em object:modified.
+    if (!options.live) normalizeScaleByType(object);
     if (options.keepInside !== false) {
       scaleObjectToFit(object, size);
       keepInsideBounds(object, size);

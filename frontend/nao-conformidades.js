@@ -39,7 +39,7 @@ async function request(path, options = {}) {
   const token = sessionStorage.getItem(tokenKey) || "";
   const response = await fetch(`/api/nonconformities${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(window.SharedModuleLock?.headers?.() || {}), ...(options.headers || {}) },
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(data.error || "Não foi possível concluir a operação."); error.status = response.status; throw error; }
@@ -47,6 +47,7 @@ async function request(path, options = {}) {
 }
 
 function showList() {
+  window.SharedModuleLock?.release?.();
   listPanel.classList.remove("is-hidden");
   editorPanel.classList.add("is-hidden");
   window.history.replaceState({}, "", "nao-conformidades.html");
@@ -222,6 +223,7 @@ async function loadNonconformityConfiguration() {
 
 async function openNew() {
   try {
+    await window.SharedModuleLock?.release?.();
     renderEditor((await request("/new")).nonconformity);
     setEditorUrl("novo");
   } catch (error) { formError.textContent = error.message; }
@@ -230,6 +232,7 @@ async function openNew() {
 async function openExisting(id) {
   try {
     renderEditor((await request(`/${encodeURIComponent(id)}`)).nonconformity);
+    await window.SharedModuleLock?.acquire?.("nao-conformidades", id);
     setEditorUrl("editar", id);
   } catch (error) { formError.textContent = error.message; }
 }
@@ -241,7 +244,7 @@ async function requestPdf(id) {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || "NÃ£o foi possÃ­vel gerar o PDF.");
+    throw new Error(data.error || "Não foi possível gerar o PDF.");
   }
   return response.blob();
 }
@@ -250,9 +253,9 @@ function showPdfPreview(blob) {
   const url = URL.createObjectURL(blob);
   const backdrop = document.createElement("div");
   backdrop.className = "nc-pdf-preview-backdrop";
-  backdrop.innerHTML = `<section class="nc-pdf-preview-dialog" role="dialog" aria-modal="true" aria-label="VisualizaÃ§Ã£o do PDF">
-    <header><strong>VisualizaÃ§Ã£o do PDF</strong><button type="button" class="nc-pdf-preview-close" aria-label="Fechar visualizaÃ§Ã£o">Ã—</button></header>
-    <iframe title="VisualizaÃ§Ã£o do documento PDF" src="${url}"></iframe>
+  backdrop.innerHTML = `<section class="nc-pdf-preview-dialog" role="dialog" aria-modal="true" aria-label="Visualização do PDF">
+    <header><strong>Visualização do PDF</strong><button type="button" class="nc-pdf-preview-close" aria-label="Fechar visualização">×</button></header>
+    <iframe title="Visualização do documento PDF" src="${url}"></iframe>
   </section>`;
   document.body.appendChild(backdrop);
   let onKey;
@@ -317,6 +320,7 @@ form.addEventListener("submit", async (event) => {
     const path = current?.nonconformityId ? `/${encodeURIComponent(current.nonconformityId)}` : "/";
     const response = await request(path, { method: current?.nonconformityId ? "PUT" : "POST", body: JSON.stringify({ nonconformity: data }) });
     renderEditor(response.nonconformity);
+    await window.SharedModuleLock?.acquire?.("nao-conformidades", response.nonconformity.nonconformityId);
     setEditorUrl("editar", response.nonconformity.nonconformityId);
     await loadRecords();
     saveStatus.textContent = "Salvo";
@@ -414,8 +418,8 @@ async function boot() {
     if (params.get("modo") === "editar" && params.get("id")) await openExisting(params.get("id"));
   } catch (error) {
     if (error.status === 401 || error.status === 403) window.location.href = "index.html";
-    else { app.classList.remove("is-locked"); list.innerHTML = `<div class="nc-empty"><strong>Não foi possível carregar o módulo.</strong><span>${escapeHtml(error.message)}</span></div>`; }
+    else { app.classList.remove("is-locked"); list.innerHTML = `<div class="nc-empty"><strong>Não foi possível carregar o módulo.</strong><span>${escapeHtml(error.message)}</span></div>`; window.AppBoot?.error(error.message, () => boot()); }
   }
 }
 
-boot();
+boot().finally(() => window.AppBoot?.ready());

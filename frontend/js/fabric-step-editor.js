@@ -9,7 +9,6 @@
   const Hierarchy = window.FabricEditorHierarchy;
   const TextLayer = window.FabricProcedureTextLayer;
   if (!Core || !Fabric || !Factory || !Session || !Toolbar || !Transform || !ImageEditor || !Hierarchy || !TextLayer) return;
-
   const TOOL_TYPES = ["text", "arrow", "circle", "square"];
   const MARKUP_TYPES = ["arrow", "circle", "square"];
   const objectFromElement = (element) => Factory.create(element, { interactive: true });
@@ -53,7 +52,7 @@
   }
   function setToolStatus(session, message) {
     const status = session.canvasElement.closest("[data-step-card]")?.querySelector("[data-fabric-tool-status]");
-    if (status) status.textContent = message;
+    if (status) { status.textContent = message; status.title = message || ""; }
   }
   function refreshToolButtons(session) {
     const cardNode = session.canvasElement.closest("[data-step-card]");
@@ -104,8 +103,8 @@
         height,
         order,
         tone: state.tone,
-        text: "Digite o texto",
-        html: "Digite o texto",
+        text: "",
+        html: "",
         fontWeight: 400,
       });
     }
@@ -396,15 +395,16 @@
   function bindEvents(session) {
     const canvas = session.canvas;
     const liveNormalize = (event, options = {}) => {
-      const object = event.target;
+      const object = event.target; const endpointTransform = object?.sceneType === "arrow" && object.__arrowEndpointTransform;
+      if (endpointTransform) session.lastTransformType = "arrow-endpoint";
       if (ImageEditor.handleCropTransform(session, object)) return;
-      Transform.normalizeObjectTransform(object, Transform.sceneSize(session.card), { snap: false, ...options });
+      Transform.normalizeObjectTransform(object, Transform.sceneSize(session.card), { snap: false, live: true, keepInside: !endpointTransform, ...options });
       if (object?.sceneType === "image") {
         session.lastValidTransform = Hierarchy.constrainImageObject(object, canvas, session.lastValidTransform);
       }
     };
     canvas.on("object:moving", (event) => { session.lastTransformType = "move"; liveNormalize(event); });
-    canvas.on("object:scaling", (event) => { session.lastTransformType = "scale"; liveNormalize(event); });
+    canvas.on("object:scaling", (event) => { session.lastTransformType = event.target?.__arrowEndpointTransform ? "arrow-endpoint" : "scale"; liveNormalize(event); });
     canvas.on("object:rotating", (event) => { session.lastTransformType = "rotate"; liveNormalize(event, { keepInside: false }); });
     canvas.on("mouse:down", (event) => {
       Session.setActive(session);
@@ -433,11 +433,11 @@
     canvas.on("object:modified", (event) => {
       const object = event.target;
       const transformType = session.lastTransformType;
-      session.lastTransformType = null;
+      session.lastTransformType = null; object.__arrowEndpointGesture = null; object.__arrowEndpointTransform = false;
       if (ImageEditor.handleCropTransform(session, object)) return;
       if (!object?.sceneId || object.sceneType === "text-editor") return;
-      const preserveManualRotation = transformType === "rotate" && (object.sceneType === "image" || MARKUP_TYPES.includes(object.sceneType));
-      const element = Transform.syncElementFromObject(session.card, object, { keepInside: !preserveManualRotation });
+      const preserveManualRotation = transformType === "rotate" && (object.sceneType === "image" || MARKUP_TYPES.includes(object.sceneType)); const preserveEndpointTransform = transformType === "arrow-endpoint";
+      const element = Transform.syncElementFromObject(session.card, object, { keepInside: !(preserveManualRotation || preserveEndpointTransform) });
       Core.enforceSceneOrder(session.card.scene);
       Hierarchy.enforceCanvasOrder(canvas, session.card.scene);
       session.history.commit(session.card);
@@ -495,6 +495,7 @@
       getElement: selectedElement,
       handleAction: (item, action, dataset) => handleToolbarAction(item, action, dataset)
         .catch((error) => console.error("Falha na toolbar Fabric:", error)),
+      history: (item, direction) => undoRedo(item, direction === "redo"),
       select: (item) => deactivateTool(item),
       setActive: Session.setActive,
     });
@@ -513,7 +514,6 @@
       .map((element) => mount(element, procedure));
     await Promise.all(pending);
   }
-
   let resizeTimer = null;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);

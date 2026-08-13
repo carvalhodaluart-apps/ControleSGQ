@@ -14,7 +14,11 @@ const { deleteProcedure, loadProcedure, saveProcedure, storageExists } = require
 const { createProcedurePdf } = require("../services/procedurePdf");
 const { createProcedureBundle } = require("../services/procedureBundle");
 const { getProcedureConfiguration } = require("../services/procedureConfiguration");
+const { configureDesktop, consumeSetupImportToken, getSetupStatus, isDesktopSetupSupported, isSetupImportToken } = require("../services/desktopSetup");
+const { restoreDatabaseBackup } = require("../services/databaseBackup");
+const { deleteProcedureRecovery, loadProcedureRecovery, saveProcedureRecovery } = require("../services/procedureRecovery");
 const { sendError } = require("../services/httpResponse");
+const sharedStorage = require("../services/sharedProcedureStorage");
 const {
   databaseConfigured,
   deleteMasterDocument,
@@ -90,7 +94,7 @@ function markStatus(procedure, status) {
 router.get("/health", async (_req, res) => {
   try {
     if (databaseConfigured()) await getDatabasePool().query("SELECT 1");
-    res.json({ ok: true, storage: storageExists() ? "files" : "files-not-created", database: databaseConfigured() ? "postgresql" : "not-configured" });
+    res.json({ ok: true, storage: storageExists() ? "files" : "files-not-created", database: String(process.env.DATABASE_DRIVER || "").toLowerCase() === "sqlite" ? "sqlite" : databaseConfigured() ? "postgresql" : "not-configured" });
   } catch (error) {
     res.status(503).json({ ok: false, error: "Banco de dados indisponível." });
   }
@@ -100,9 +104,9 @@ router.get("/session", requireProcedureEditor, (req, res) => {
   res.json({ user: getRequestUser(req) });
 });
 
-router.post("/auth/quality", (req, res) => {
+router.post("/auth/quality", async (req, res) => {
   try {
-    res.json(createQualitySession(req.body?.password));
+    res.json(await createQualitySession(req.body?.password));
   } catch (error) {
     handleError(res, error);
   }
@@ -155,6 +159,7 @@ async function validateElaborationAuthorization(procedure) {
 router.post("/authorize", requireProcedureEditor, async (req, res) => {
   try {
     const procedure = normalizeProcedure(getProcedureBody(req));
+    await sharedStorage.assertLock(procedure.procedureId, getRequestUser(req), String(req.headers["x-procedure-lock"] || ""));
     await validateElaborationAuthorization(procedure);
     procedure.elaborationAuthorized = true;
     markStatus(procedure, STATUS_DRAFT);
@@ -178,6 +183,7 @@ function sameDraftIdentity(expected, received) {
 router.post("/continue", requireProcedureEditor, async (req, res) => {
   try {
     const draftProcedureId = String(req.body?.draftProcedureId || "").trim();
+    if (sharedStorage.isConfigured() && req.headers["x-procedure-lock"]) await sharedStorage.assertLock(draftProcedureId, getRequestUser(req), String(req.headers["x-procedure-lock"]));
     const received = normalizeProcedure(validateProcedurePayload(req.body?.procedure));
     const stored = await loadProcedure(draftProcedureId);
     const expected = stored ? normalizeProcedure(stored) : null;
@@ -203,26 +209,75 @@ router.post("/continue", requireProcedureEditor, async (req, res) => {
   }
 });
 
+router.get("/recovery", requireProcedureEditor, async (req, res) => {
+  try {
+    res.json({ recovery: await loadProcedureRecovery(String(req.query.id || "")) });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post("/recovery", requireProcedureEditor, async (req, res) => {
+  try {
+    res.json(await saveProcedureRecovery(req.body?.procedure));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.delete("/recovery", requireProcedureEditor, async (req, res) => {
+  try {
+    res.json({ deleted: await deleteProcedureRecovery(String(req.query.id || req.body?.procedureId || "")) });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.get("/setup/status", (_req, res) => res.json(getSetupStatus()));
+
+router.post("/setup", async (req, res) => {
+  try {
+    res.json(await configureDesktop(req.body || {}));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post("/setup/import", async (req, res) => {
+  try {
+    if (!isDesktopSetupSupported()) return res.status(404).json({ error: "Importacao inicial disponivel apenas no modo desktop." });
+    if (!getSetupStatus().configured) return res.status(409).json({ error: "Configure a senha inicial antes de importar o backup." });
+    const token = req.headers["x-setup-token"];
+    if (!isSetupImportToken(token)) return res.status(403).json({ error: "Sessao de configuracao inicial invalida." });
+    const result = await restoreDatabaseBackup(req.body?.backup || req.body);
+    consumeSetupImportToken(token);
+    res.json(result);
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
 router.post("/restore", requireProcedureEditor, async (req, res) => {
   try {
     const draftProcedureId = String(req.body?.draftProcedureId || "").trim();
+    if (sharedStorage.isConfigured() && req.headers["x-procedure-lock"]) await sharedStorage.assertLock(draftProcedureId, getRequestUser(req), String(req.headers["x-procedure-lock"]));
     const received = normalizeProcedure(validateProcedurePayload(req.body?.procedure));
     const stored = await loadProcedure(draftProcedureId);
     const expected = stored ? normalizeProcedure(stored) : null;
     if (!expected || expected.documentStatus !== STATUS_DRAFT || expected.elaborationAuthorized !== true) {
-      const error = new Error("Documento em elaboraÃ§Ã£o nÃ£o encontrado ou nÃ£o autorizado.");
+      const error = new Error("Documento em elaboração não encontrado ou não autorizado.");
       error.status = 404;
       throw error;
     }
     if (!sameDraftIdentity(expected, received)) {
-      const error = new Error("Este JSON nÃ£o pertence ao documento em elaboraÃ§Ã£o selecionado.");
+      const error = new Error("Este JSON não pertence ao documento em elaboração selecionado.");
       error.status = 400;
       throw error;
     }
     const receivedTime = Date.parse(received.updatedAt || "");
     const storedTime = Date.parse(expected.updatedAt || "");
     if (!Number.isFinite(receivedTime) || !Number.isFinite(storedTime) || receivedTime <= storedTime) {
-      const error = new Error("O JSON selecionado nÃ£o Ã© mais recente que a versÃ£o salva no servidor.");
+      const error = new Error("O JSON selecionado não é mais recente que a versão salva no servidor.");
       error.status = 409;
       throw error;
     }
@@ -267,6 +322,7 @@ router.post("/import", requireProcedureEditor, async (req, res) => {
   try {
     const procedure = normalizeProcedure(getProcedureBody(req));
     procedure.procedureId = procedure.procedureId || createProcedureId();
+    if (sharedStorage.isConfigured() && req.headers["x-procedure-lock"]) await sharedStorage.assertLock(procedure.procedureId, getRequestUser(req), String(req.headers["x-procedure-lock"]));
     procedure.elaborationAuthorized = true;
     markStatus(procedure, STATUS_DRAFT);
     if (hasProcedureContent(procedure)) {
@@ -287,6 +343,30 @@ router.get("/load", requireProcedureEditor, async (req, res) => {
     const stored = await loadProcedure(req.query.id);
     if (!stored) return res.status(404).json({ error: "Procedimento não encontrado." });
     res.json({ procedure: normalizeProcedure(stored) });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post("/lock", requireProcedureEditor, async (req, res) => {
+  try {
+    res.json(await sharedStorage.acquireLock(String(req.body?.procedureId || "").trim(), getRequestUser(req)));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post("/lock/heartbeat", requireProcedureEditor, async (req, res) => {
+  try {
+    res.json(await sharedStorage.refreshLock(String(req.body?.procedureId || "").trim(), getRequestUser(req), String(req.headers["x-procedure-lock"] || "")));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.delete("/lock", requireProcedureEditor, async (req, res) => {
+  try {
+    res.json(await sharedStorage.releaseLock(String(req.query.id || req.body?.procedureId || "").trim(), getRequestUser(req), String(req.headers["x-procedure-lock"] || "")));
   } catch (error) {
     handleError(res, error);
   }
@@ -319,6 +399,7 @@ router.patch("/master/locations", requireQuality, async (req, res) => {
 router.post("/save", requireProcedureEditor, async (req, res) => {
   try {
     const procedure = markStatus(normalizeProcedure(getProcedureBody(req)), STATUS_DRAFT);
+    await sharedStorage.assertLock(procedure.procedureId, getRequestUser(req), String(req.headers["x-procedure-lock"] || ""));
     const hasContent = hasProcedureContent(procedure);
     if (hasContent) {
       await ensureDocumentNumber(procedure);
@@ -337,6 +418,7 @@ router.post("/save", requireProcedureEditor, async (req, res) => {
 router.post("/publish", requireQuality, async (req, res) => {
   try {
     const procedure = markStatus(normalizeProcedure(getProcedureBody(req)), STATUS_PUBLISHED);
+    await sharedStorage.assertLock(procedure.procedureId, getRequestUser(req), String(req.headers["x-procedure-lock"] || ""));
     if (!hasProcedureContent(procedure)) return res.status(400).json({ error: "Preencha o procedimento antes de publicar." });
     await ensureDocumentNumber(procedure);
     normalizeProcedure(procedure);
@@ -354,6 +436,7 @@ router.delete("/delete", requireQuality, async (req, res) => {
   try {
     const procedureId = String(req.query.id || req.body?.procedureId || "").trim();
     if (!procedureId) return res.status(400).json({ error: "Identificador do procedimento obrigat\u00f3rio." });
+    await sharedStorage.assertLock(procedureId, getRequestUser(req), String(req.headers["x-procedure-lock"] || ""));
     await deleteProcedure(procedureId);
     await deleteMasterDocument(procedureId);
     await recordAudit({ procedureId, action: "deleted", user: getRequestUser(req) });

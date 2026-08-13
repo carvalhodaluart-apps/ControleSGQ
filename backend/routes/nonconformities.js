@@ -6,11 +6,16 @@ const { createNonconformity, deleteNonconformity, getNonconformity, listNonconfo
 const { createNonconformityPdf } = require("../services/nonconformityPdf");
 const { getProcedureConfiguration } = require("../services/procedureConfiguration");
 const { sendError } = require("../services/httpResponse");
+const sharedStorage = require("../services/sharedProcedureStorage");
 
 const router = express.Router();
 
 function handleError(res, error) {
   sendError(res, error);
+}
+
+async function assertSharedLock(req, id) {
+  if (sharedStorage.isConfigured()) await sharedStorage.assertModuleLock("nao-conformidades", id, getRequestUser(req), req.get("X-Module-Lock"));
 }
 
 router.get("/", requireProcedureEditor, async (_req, res) => {
@@ -19,6 +24,16 @@ router.get("/", requireProcedureEditor, async (_req, res) => {
 
 router.get("/new", requireProcedureEditor, (req, res) => {
   res.json({ nonconformity: createBlankNonconformity(getRequestUser(req).displayName) });
+});
+
+router.post("/:id/lock", requireProcedureEditor, async (req, res) => {
+  try { res.json(await sharedStorage.acquireModuleLock("nao-conformidades", req.params.id, getRequestUser(req))); } catch (error) { handleError(res, error); }
+});
+router.post("/:id/lock/heartbeat", requireProcedureEditor, async (req, res) => {
+  try { res.json(await sharedStorage.refreshModuleLock("nao-conformidades", req.params.id, getRequestUser(req), req.get("X-Module-Lock"))); } catch (error) { handleError(res, error); }
+});
+router.delete("/:id/lock", requireProcedureEditor, async (req, res) => {
+  try { res.json(await sharedStorage.releaseModuleLock("nao-conformidades", req.params.id, getRequestUser(req), req.get("X-Module-Lock"))); } catch (error) { handleError(res, error); }
 });
 
 router.get("/configuration", requireProcedureEditor, async (_req, res) => {
@@ -66,6 +81,7 @@ router.post("/", requireProcedureEditor, async (req, res) => {
 
 router.put("/:id", requireProcedureEditor, async (req, res) => {
   try {
+    await assertSharedLock(req, req.params.id);
     const settings = (await getProcedureConfiguration()).nonconformity;
     const options = { origins: settings.origins.filter((item) => item.active).map((item) => item.label), sections: settings.sections.filter((item) => item.active).map((item) => item.key), maxEvidenceImages: settings.maxEvidenceImages };
     const content = validateNonconformity({ ...(req.body?.nonconformity || req.body), nonconformityId: req.params.id }, options);
@@ -77,6 +93,7 @@ router.put("/:id", requireProcedureEditor, async (req, res) => {
 
 router.delete("/:id", requireManager, async (req, res) => {
   try {
+    await assertSharedLock(req, req.params.id);
     await deleteNonconformity(req.params.id);
     await recordAudit({ action: "nonconformity-deleted", user: getRequestUser(req), details: { nonconformityId: req.params.id } });
     res.json({ ok: true });

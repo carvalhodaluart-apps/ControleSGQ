@@ -87,6 +87,55 @@
     return object;
   }
 
+  function arrowEndpointControl(side) {
+    const movingEnd = side === "end";
+    return new Fabric.Control({
+      x: movingEnd ? 0.5 : -0.5,
+      y: -0.5,
+      cursorStyleHandler: () => "crosshair",
+      actionHandler: (_event, transform, pointerX, pointerY) => {
+        const target = transform.target;
+        const pointer = new Fabric.Point(pointerX, pointerY);
+        const fixedLocal = new Fabric.Point(movingEnd ? -target.width / 2 : target.width / 2, 0);
+        const matrix = target.calcTransformMatrix();
+        const gesture = target.__arrowEndpointGesture?.transform === transform
+          ? target.__arrowEndpointGesture
+          : (target.__arrowEndpointGesture = { transform, fixed: Fabric.util.transformPoint(fixedLocal, matrix), moving: Fabric.util.transformPoint(new Fabric.Point(movingEnd ? target.width / 2 : -target.width / 2, 0), matrix), pointer: { x: pointer.x, y: pointer.y } });
+        const fixed = gesture.fixed;
+        let dx = gesture.moving.x + pointer.x - gesture.pointer.x - fixed.x;
+        let dy = gesture.moving.y + pointer.y - gesture.pointer.y - fixed.y;
+        const length = Math.max(24, Math.hypot(dx, dy));
+        if (Math.hypot(dx, dy) < 24) {
+          const angle = Number(target.angle || 0) * Math.PI / 180;
+          dx = Math.cos(angle) * 24 * (movingEnd ? 1 : -1);
+          dy = Math.sin(angle) * 24 * (movingEnd ? 1 : -1);
+        }
+        const moving = { x: fixed.x + dx, y: fixed.y + dy };
+        const center = { x: (fixed.x + moving.x) / 2, y: (fixed.y + moving.y) / 2 };
+        const axisX = movingEnd ? dx : -dx;
+        const axisY = movingEnd ? dy : -dy;
+        target.set({
+          left: center.x,
+          top: center.y,
+          angle: Math.atan2(axisY, axisX) * 180 / Math.PI,
+          scaleX: length / Math.max(1, target.width),
+          scaleY: 1,
+        });
+        target.__arrowEndpointTransform = true;
+        target.setCoords();
+        return true;
+      },
+    });
+  }
+
+  function configureArrowControls(group) {
+    group.controls.tl = arrowEndpointControl("start");
+    group.controls.bl = arrowEndpointControl("start");
+    group.controls.tr = arrowEndpointControl("end");
+    group.controls.br = arrowEndpointControl("end");
+    group.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false });
+  }
+
   function arrowObject(element, options) {
     const tone = toneOf(element.tone);
     const stroke = Math.max(1, Number(element.borderWidth) || 3);
@@ -115,6 +164,7 @@
     });
     group.objectRole = "procedure-arrow";
     group.arrowParts = { line, head };
+    if (options.interactive) configureArrowControls(group);
     return group;
   }
 

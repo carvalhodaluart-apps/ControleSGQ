@@ -64,6 +64,8 @@
 .configuration-restore-button { position: relative; overflow: hidden; cursor: pointer; }
 .configuration-restore-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .configuration-secure-folder { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-soft); }
+.configuration-local-backups { display: grid; gap: 4px; margin-top: 12px; padding: 12px 14px; border-left: 4px solid var(--primary); background: #f4f8ff; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+.configuration-local-backups strong { color: var(--text); }
 .configuration-secure-folder strong, .configuration-secure-folder small { display: block; }
 .configuration-secure-folder small { margin-top: 4px; color: var(--muted); line-height: 1.4; }
 .configuration-list, .configuration-quality-list { display: grid; gap: 10px; }
@@ -102,3 +104,5 @@
 .configuration-confirm-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #fff0f0; color: var(--danger-dark); font-weight: 900; }
 .configuration-confirm-actions { grid-column: 2; display: flex; justify-content: end; gap: 10px; }
 @media (max-width: 760px) { .configuration-header, .configuration-card-heading { align-items: start; flex-direction: column; } .configuration-row, .configuration-row-quality, .configuration-row-origin, .configuration-cover-grid, .configuration-cover-editor, .configuration-user-form, .configuration-number-field, .configuration-secure-folder { grid-template-columns: 1fr; } .configuration-footer { justify-content: stretch; } .configuration-footer > * { flex: 1; text-align: center; } .configuration-remove-button { width: 100%; } .configuration-confirm-actions { grid-column: 1 / -1; } }
+.configuration-network-path { display: block; width: fit-content; margin-top: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #f5f8fc; color: var(--text); font-size: .82rem; user-select: all; }
+.configuration-network-path.is-hidden { display: none; }

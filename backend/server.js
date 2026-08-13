@@ -4,7 +4,7 @@ const path = require("path");
 function loadLocalEnvironment() {
   if (process.env.RENDER || process.env.NODE_ENV === "production") return;
 
-  const envPath = path.resolve(__dirname, "..", ".env.local");
+  const envPath = process.env.APP_ENV_FILE || path.resolve(__dirname, "..", ".env.local");
   if (!fs.existsSync(envPath)) return;
 
   const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
@@ -111,17 +111,26 @@ app.get("*", (_req, res) => {
   res.sendFile(path.join(FRONTEND_DIR, "index.html"));
 });
 
-async function startServer() {
+async function startServer({ port = PORT, host = HOST } = {}) {
   try {
     assertSessionSecret();
     await initDatabase();
-    app.listen(PORT, HOST, () => {
-      console.log(`Criador de procedimentos rodando em http://${HOST}:${PORT}`);
+    const server = await new Promise((resolve, reject) => {
+      const instance = app.listen(port, host, () => resolve(instance));
+      instance.once("error", reject);
     });
+    const address = server.address();
+    const actualPort = typeof address === "object" && address ? address.port : port;
+    console.log(`Criador de procedimentos rodando em http://${host}:${actualPort}`);
+    return { app, server, host, port: actualPort, url: `http://${host}:${actualPort}` };
   } catch (error) {
-    console.error(`Não foi possível iniciar o PostgreSQL: ${error.message}`);
-    process.exitCode = 1;
+    console.error(`Não foi possível iniciar o banco local: ${error.message}`);
+    throw error;
   }
 }
 
-startServer();
+if (require.main === module) {
+  startServer().catch(() => { process.exitCode = 1; });
+}
+
+module.exports = { app, startServer };

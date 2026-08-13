@@ -8,14 +8,20 @@
   <link rel="stylesheet" href="styles/settings-icon.css?v=20260803-settings-icon-1">
   <link rel="stylesheet" href="styles/module-home.css?v=20260803-module-home-3">
   <link rel="stylesheet" href="styles/responsive.css?v=20260803-responsive-1">
+  <link rel="stylesheet" href="styles/desktop-setup.css?v=20260812-desktop-setup-1">
 </head>
 <body>
+  <div class="app-boot-state" id="appBootState" role="status" aria-live="polite">
+    <span class="app-boot-spinner" aria-hidden="true"></span>
+    <strong>Preparando o Controle SGQ</strong>
+    <span>Validando o acesso e os dados locais.</span>
+  </div>
   <main class="page creator-home is-locked">
     <header class="creator-hero">
       <div>
         <span class="eyebrow">Qualidade</span>
         <h1>Gestão da Qualidade Total</h1>
-        <p>Monte procedimentos internos, edite imagens e etapas, depois baixe o PDF final e o JSON para futuras altera&ccedil;&otilde;es.</p>
+        <p>Monte procedimentos internos, edite imagens e etapas, depois salve o trabalho localmente e exporte o PDF final.</p>
       </div>
       <div class="creator-home-actions">
         <button type="button" class="creator-master-link" data-open-protected="lista-mestra.html">Lista mestra</button>
@@ -30,7 +36,7 @@
         <div class="creator-module-actions">
           <button type="button" class="primary-link creator-start-button" data-create-procedure>Criar novo procedimento</button>
           <label class="secondary-button creator-import-button">
-            Editar procedimento
+            Importar procedimento
             <input id="procedureJsonInput" type="file" accept="application/json">
           </label>
         </div>
@@ -73,7 +79,7 @@
         <div>
           <span class="eyebrow">Em elaboração</span>
           <h2 id="draftSelectionTitle">Continuar procedimento</h2>
-          <p>Selecione um documento já autorizado e escolha o JSON correspondente para continuar a edição.</p>
+          <p>Selecione um documento já autorizado e importe o arquivo correspondente para continuar a edição.</p>
         </div>
         <button type="button" class="draft-selection-close" data-close-drafts aria-label="Fechar">&times;</button>
       </div>
@@ -109,7 +115,81 @@
     </form>
   </div>
 
+  <div class="desktop-setup-backdrop is-hidden" id="desktopSetup" role="dialog" aria-modal="true" aria-labelledby="desktopSetupTitle">
+    <section class="desktop-setup-dialog">
+      <div class="desktop-setup-heading">
+        <span class="eyebrow">Primeiro acesso</span>
+        <h2 id="desktopSetupTitle">Vamos preparar o Controle SGQ</h2>
+        <p>O aplicativo esta usando um banco local. Escolha o tipo de acesso deste computador para criar sua instalacao.</p>
+      </div>
+      <form id="desktopSetupForm" class="desktop-setup-form">
+        <label for="desktopSetupPassword">Senha inicial de acesso</label>
+        <input id="desktopSetupPassword" type="password" minlength="8" maxlength="256" autocomplete="new-password" required>
+        <label for="desktopSetupPasswordConfirm">Confirme a senha</label>
+        <input id="desktopSetupPasswordConfirm" type="password" minlength="8" maxlength="256" autocomplete="new-password" required>
+        <label for="desktopSetupRole">Tipo de acesso deste computador</label>
+        <select id="desktopSetupRole">
+          <option value="manager">Gestor - acesso às configurações</option>
+          <option value="editor">Editor - sem acesso às configurações</option>
+        </select>
+        <label for="desktopSetupDisplayName">Nome exibido</label>
+        <input id="desktopSetupDisplayName" type="text" maxlength="120" value="Qualidade" autocomplete="organization">
+        <div class="desktop-setup-editor-fields is-hidden" id="desktopSetupEditorFields">
+          <label for="desktopSetupUsername">Usuário do editor</label>
+          <input id="desktopSetupUsername" type="text" minlength="3" maxlength="60" autocomplete="username" placeholder="Ex.: joao.silva">
+          <p class="desktop-setup-hint">Use esse usuário e a senha acima para entrar neste computador.</p>
+        </div>
+        <label class="desktop-setup-file">
+          <span>Importar backup existente (opcional)</span>
+          <input id="desktopSetupBackup" type="file" accept="application/json,.json">
+        </label>
+        <p class="desktop-setup-hint">O backup deve ter sido exportado pelo Controle SGQ. Sem backup, o sistema inicia vazio.</p>
+        <label class="desktop-setup-host-option"><input id="desktopSetupCreateShared" type="checkbox"> Este computador será o central da empresa</label>
+        <div class="desktop-setup-shared-fields is-hidden" id="desktopSetupSharedFields">
+          <label for="desktopSetupSharedPassword">Senha para acessar a pasta em outros computadores</label>
+          <input id="desktopSetupSharedPassword" type="password" minlength="8" maxlength="256" autocomplete="new-password">
+          <label for="desktopSetupSharedPasswordConfirm">Confirme a senha da pasta</label>
+          <input id="desktopSetupSharedPasswordConfirm" type="password" minlength="8" maxlength="256" autocomplete="new-password">
+          <p class="desktop-setup-hint">Essa senha será usada com o usuário de rede criado automaticamente. Ela é diferente da senha do gestor.</p>
+        </div>
+        <p class="desktop-setup-error" id="desktopSetupError" role="alert"></p>
+        <div class="desktop-setup-actions">
+          <button type="submit" class="primary-button" id="desktopSetupSubmit">Criar acesso e continuar</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <section class="desktop-setup-result is-hidden" id="desktopSetupHostResult" role="status" aria-live="polite">
+    <strong>Pasta central criada</strong>
+    <span>Use este endereço nos outros computadores:</span>
+    <code id="desktopSetupHostPath"></code>
+    <div class="desktop-setup-actions">
+      <button type="button" class="secondary-button" id="desktopSetupCopyHostPath">Copiar endereço</button>
+      <button type="button" class="primary-button" id="desktopSetupFinish">Continuar</button>
+    </div>
+  </section>
+
+  <div class="desktop-setup-backdrop is-hidden" id="sharedFolderSetup" role="dialog" aria-modal="true" aria-labelledby="sharedFolderSetupTitle">
+    <section class="desktop-setup-dialog">
+      <div class="desktop-setup-heading">
+        <span class="eyebrow">Conexão inicial</span>
+        <h2 id="sharedFolderSetupTitle">Conectar pasta compartilhada</h2>
+        <p>Selecione a mesma pasta de rede usada pelo gestor para que este computador acesse os procedimentos da empresa.</p>
+      </div>
+      <div class="desktop-setup-form">
+        <p class="desktop-setup-hint">A pasta precisa estar acessível neste computador e permitir leitura e gravação. Não selecione uma pasta sincronizada por nuvem.</p>
+        <p class="desktop-setup-error" id="sharedFolderSetupError" role="alert"></p>
+        <div class="desktop-setup-actions">
+          <button type="button" class="secondary-button" id="sharedFolderSetupSkip">Continuar sem conectar</button>
+          <button type="button" class="primary-button" id="sharedFolderSetupSelect">Selecionar pasta de rede</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <script src="js/secure-folder.js?v=20260804-secure-folder-1"></script>
   <script src="script.js?v=20260804-secure-folder-1"></script>
+  <script src="desktop-setup.js?v=20260812-desktop-setup-1"></script>
 </body>
 </html>

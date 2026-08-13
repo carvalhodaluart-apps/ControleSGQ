@@ -18,7 +18,7 @@ function walk(dir, files = []) {
     const fullPath = path.join(dir, entry.name);
     const relativePath = path.relative(ROOT, fullPath);
     if (entry.isDirectory()) {
-      if (!IGNORED_DIRS.has(entry.name) && !shouldIgnore(relativePath, entry.name)) {
+      if (!IGNORED_DIRS.has(entry.name) && !/^release/i.test(entry.name) && !shouldIgnore(relativePath, entry.name)) {
         walk(fullPath, files);
       }
       continue;

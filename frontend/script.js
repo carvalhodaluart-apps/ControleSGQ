@@ -11,6 +11,7 @@ const creatorUserState = document.querySelector("#creatorUserState");
 const creatorLogout = document.querySelector("#creatorLogout");
 const creatorSettingsButton = document.querySelector("#creatorSettingsButton");
 const creatorHome = document.querySelector(".creator-home");
+const appBootState = document.querySelector("#appBootState");
 const draftSelection = document.querySelector("#draftSelection");
 const draftSelectionList = document.querySelector("#draftSelectionList");
 const draftSelectionError = document.querySelector("#draftSelectionError");
@@ -21,6 +22,11 @@ const configurationEntryTokenKey = "configuration-entry-token";
 const masterEntryTokenKey = "master-entry-token";
 const procedureEntryTokenKey = "procedure-entry-token";
 let pendingProtectedAction = null;
+let lastFocusedElement = null;
+
+function finishBoot() {
+  appBootState?.setAttribute("hidden", "");
+}
 
 function normalizeRole(role) {
   return role === "quality" ? "manager" : role || "manager";
@@ -123,7 +129,7 @@ function renderDraftSelection(drafts) {
       </div>
       <div class="draft-continue-control">
         <button type="button" class="primary-button draft-continue-button" data-select-draft-saved>Continuar</button>
-        <button type="button" class="secondary-button draft-continue-button" data-select-draft-json>Escolher JSON</button>
+        <button type="button" class="secondary-button draft-continue-button" data-select-draft-json>Importar arquivo</button>
         <input type="file" accept=".json,application/json" hidden data-draft-file="${escapeText(draft.procedureId)}" data-draft-code="${escapeText(draft.documentCode || "")}">
       </div>
       <p class="draft-item-error" data-draft-error="${escapeText(draft.procedureId)}" role="alert" tabindex="-1"></p>
@@ -168,6 +174,7 @@ function closeConfigurationAccess(force = false) {
 }
 
 function showLogin(target = null) {
+  lastFocusedElement = document.activeElement;
   const title = target === "configuracoes.html" ? "Acesso do gestor" : target === "lista-mestra.html" ? "Acesso à lista mestra" : target ? "Acesso ao editor" : "Entrar no sistema";
   const message = target === "configuracoes.html"
     ? "Use um usuário gestor ou a senha da qualidade."
@@ -247,6 +254,21 @@ document.querySelectorAll("[data-open-instrument]").forEach((button) => {
 document.querySelector("[data-close-configuration]")?.addEventListener("click", closeConfigurationAccess);
 configurationAccess?.addEventListener("click", (event) => {
   if (event.target === configurationAccess) closeConfigurationAccess();
+});
+configurationAccess?.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && configurationAccess.dataset.required !== "true") {
+    event.preventDefault();
+    closeConfigurationAccess();
+    lastFocusedElement?.focus?.();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = [...configurationAccess.querySelectorAll("button:not([hidden]), input:not([disabled])")];
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 });
 
 configurationAccessForm?.addEventListener("submit", async (event) => {
@@ -337,7 +359,7 @@ async function continueDraftWithProcedure(procedure, draftId, fileInput) {
     const expectedCode = String(fileInput.dataset.draftCode || "").trim().toUpperCase();
     const receivedCode = String(procedure.documentCode || "").trim().toUpperCase();
     if (!expectedCode || receivedCode !== expectedCode) {
-      throw Object.assign(new Error("Este arquivo JSON não corresponde ao código do documento selecionado."), { status: 400 });
+      throw Object.assign(new Error("Este arquivo não corresponde ao código do documento selecionado."), { status: 400 });
     }
     const current = await apiGet(`/api/procedures/load?id=${encodeURIComponent(draftId)}`);
     const receivedTime = Date.parse(procedure.updatedAt || "");
@@ -349,9 +371,9 @@ async function continueDraftWithProcedure(procedure, draftId, fileInput) {
     closeDraftSelection();
     openProcedure(continued.procedure);
   } catch (error) {
-    if (error.status === 409) error.message = "Este JSON e uma versao anterior do rascunho. Clique em Continuar para abrir a versao salva no servidor ou escolha um JSON mais recente.";
+    if (error.status === 409) error.message = "Este arquivo é uma versão anterior do rascunho. Clique em Continuar para abrir a versão salva ou importe um arquivo mais recente.";
     const message = error.status === 400
-      ? "Este arquivo JSON não corresponde ao código do documento selecionado. Escolha o JSON correto para continuar."
+      ? "Este arquivo não corresponde ao código do documento selecionado. Escolha o arquivo correto para continuar."
       : error.message || "Não foi possível continuar este documento. Verifique o arquivo e tente novamente.";
     if (itemError) {
       itemError.textContent = message;
@@ -383,7 +405,7 @@ async function continueDraftFromServer(draftId, button) {
     try {
       local = await window.secureProcedureFolder?.readProcedureJson(draftId) || local;
     } catch (error) {
-      console.warn("NÃ£o foi possÃ­vel verificar o JSON local do procedimento:", error);
+      console.warn("Não foi possível verificar o arquivo local do procedimento:", error);
     }
     const localProcedure = local.found ? local.procedure : null;
     const localMatchesDraft = localProcedure
@@ -413,7 +435,7 @@ async function continueDraftFromFile(file, draftId, fileInput) {
     await continueDraftWithProcedure(JSON.parse(await file.text()), draftId, fileInput);
   } catch (error) {
     const itemError = fileInput.closest(".draft-selection-item")?.querySelector("[data-draft-error]");
-    if (itemError) itemError.textContent = error.message || "Nao foi possivel ler este JSON.";
+    if (itemError) itemError.textContent = error.message || "Não foi possível ler este arquivo.";
     fileInput.value = "";
   }
 }
@@ -434,7 +456,7 @@ jsonInput?.addEventListener("change", (event) => {
       const imported = await apiPost("/api/procedures/import", { procedure: data });
       openProcedure(imported.procedure);
     } catch (error) {
-      importError.textContent = error.message || "Não foi possível importar este JSON.";
+      importError.textContent = error.message || "Não foi possível importar este arquivo.";
       event.target.value = "";
     }
   });
@@ -450,4 +472,4 @@ creatorLogout?.addEventListener("click", () => {
   openProtectedAccess(null);
 });
 
-validateStoredSession();
+validateStoredSession().finally(finishBoot);

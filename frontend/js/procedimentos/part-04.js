@@ -369,13 +369,13 @@ async function exportProcedure(asDraft = true) {
     console.warn("Falha ao salvar na pasta segura:", error);
   }
   if (secureSave.saved) {
-    updateSaveState("saved", `JSON salvo em ${secureSave.folderName || "pasta segura"}`);
-    markProcedureJsonClean();
+      updateSaveState("saved", `Arquivo salvo em ${secureSave.folderName || "pasta segura"}`);
+    markProcedureSaved();
     return;
   }
   const blob = new Blob([JSON.stringify(procedure, null, 2)], { type: "application/json" });
   triggerBlobDownload(blob, `${procedure.documentCode || procedure.equipmentCode || "procedimento"}.json`);
-  markProcedureJsonClean();
+  markProcedureSaved();
 }
 
 async function withActionButtonLoading(button, label, task) {
@@ -429,12 +429,10 @@ async function requestProcedurePdf(shouldSave = true, procedure = activeProcedur
   return response.blob();
 }
 
-const PROCEDURE_PDF_PRELOAD_DELAY = 2000;
 let procedurePdfVersion = 0;
 let procedurePdfCachedVersion = -1;
 let procedurePdfCachedBlob = null;
 let procedurePdfPreloadVersion = -1;
-let procedurePdfPreloadTimer = null;
 let procedurePdfPreloadPromise = null;
 let procedurePdfAbortController = null;
 let procedurePdfState = "outdated";
@@ -468,19 +466,11 @@ function resetProcedurePdfCache() {
   procedurePdfCachedBlob = null;
   procedurePdfAbortController?.abort();
   procedurePdfAbortController = null;
-  clearTimeout(procedurePdfPreloadTimer);
-  procedurePdfPreloadTimer = null;
   updateProcedurePdfState("outdated");
 }
 
 function markProcedurePdfOutdated() {
   resetProcedurePdfCache();
-  if (!canPreloadProcedurePdf()) return;
-  updateProcedurePdfState("scheduled");
-  procedurePdfPreloadTimer = setTimeout(() => {
-    procedurePdfPreloadTimer = null;
-    preloadProcedurePdf();
-  }, PROCEDURE_PDF_PRELOAD_DELAY);
 }
 
 function getProcedurePdfBlob() {

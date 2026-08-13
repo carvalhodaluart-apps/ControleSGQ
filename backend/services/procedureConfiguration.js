@@ -4,10 +4,15 @@ const {
   setProcedureConfiguration,
 } = require("./procedureRules");
 const { sanitizeImageData } = require("./securityInputRules");
+const sharedStorage = require("./sharedProcedureStorage");
 
 let pool;
 
 function getPool() {
+  if (String(process.env.DATABASE_DRIVER || "").toLowerCase() === "sqlite") {
+    if (!pool) pool = require("./procedureDatabase").getDatabasePool();
+    return pool;
+  }
   if (pool) return pool;
   if (!process.env.DATABASE_URL) {
     const error = new Error("DATABASE_URL não configurada para o PostgreSQL.");
@@ -140,6 +145,12 @@ function configurationError(message) {
 
 async function ensureProcedureConfiguration() {
   const defaults = getDefaultConfiguration();
+  if (sharedStorage.isConfigured()) {
+    const existing = await sharedStorage.getConfiguration();
+    const configuration = existing ? normalizeConfiguration(existing) : await sharedStorage.saveConfiguration(defaults);
+    setProcedureConfiguration(configuration);
+    return configuration;
+  }
   await getPool().query(`
     INSERT INTO procedure_configuration (configuration_id, document_types, sectors, quality_fields, cover, nonconformity)
     VALUES (1, $1::jsonb, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb)
@@ -151,6 +162,10 @@ async function ensureProcedureConfiguration() {
 }
 
 async function getProcedureConfiguration() {
+  if (sharedStorage.isConfigured()) {
+    const configuration = await sharedStorage.getConfiguration();
+    return configuration ? { ...normalizeConfiguration(configuration), updatedAt: configuration.updatedAt || null } : normalizeConfiguration();
+  }
   const result = await getPool().query(`
     SELECT document_types AS "documentTypes", sectors, quality_fields AS "qualityFields", cover, nonconformity, updated_at AS "updatedAt"
     FROM procedure_configuration
@@ -162,10 +177,21 @@ async function getProcedureConfiguration() {
 
 async function saveProcedureConfiguration(input) {
   const configuration = normalizeConfiguration(input);
+  if (sharedStorage.isConfigured()) {
+    const saved = await sharedStorage.saveConfiguration(configuration);
+    setProcedureConfiguration(configuration);
+    return { ...configuration, updatedAt: saved.updatedAt || null };
+  }
   const result = await getPool().query(`
-    UPDATE procedure_configuration
-    SET document_types = $1::jsonb, sectors = $2::jsonb, quality_fields = $3::jsonb, cover = $4::jsonb, nonconformity = $5::jsonb, updated_at = NOW()
-    WHERE configuration_id = 1
+    INSERT INTO procedure_configuration (configuration_id, document_types, sectors, quality_fields, cover, nonconformity, updated_at)
+    VALUES (1, $1::jsonb, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, NOW())
+    ON CONFLICT (configuration_id) DO UPDATE SET
+      document_types = EXCLUDED.document_types,
+      sectors = EXCLUDED.sectors,
+      quality_fields = EXCLUDED.quality_fields,
+      cover = EXCLUDED.cover,
+      nonconformity = EXCLUDED.nonconformity,
+      updated_at = NOW()
     RETURNING updated_at AS "updatedAt"
   `, [JSON.stringify(configuration.documentTypes), JSON.stringify(configuration.sectors), JSON.stringify(configuration.qualityFields), JSON.stringify(configuration.cover), JSON.stringify(configuration.nonconformity)]);
   setProcedureConfiguration(configuration);

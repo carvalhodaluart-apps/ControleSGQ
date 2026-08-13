@@ -172,13 +172,13 @@ function renderProcedureActionBar(procedure) {
       <div class="procedure-action-context">
         <span class="procedure-action-title">Edição do procedimento</span>
         <span class="procedure-status-badge ${isPublished ? "is-published" : "is-draft"}">${escapeHtml(procedure.documentStatus || "Em elaboração")}</span>
-        <span class="save-state" data-save-state="${saveState}">${saveState === "pending" ? "Salvando..." : saveState === "error" ? "Erro ao salvar" : "Alterações salvas"}</span>
+        <span class="save-state" data-save-state="${saveState}">${saveState === "dirty" ? "Alterações pendentes" : saveState === "pending" ? "Salvando..." : saveState === "error" ? "Erro ao salvar" : typeof formatSavedAt === "function" ? formatSavedAt(lastSavedAt) : "Pronto para editar"}</span>
         <span class="pdf-state" data-pdf-state="${typeof procedurePdfState === "string" ? procedurePdfState : "outdated"}">${typeof getProcedurePdfStateLabel === "function" ? getProcedurePdfStateLabel() : "PDF desatualizado"}</span>
       </div>
       <div class="procedure-action-buttons">
          ${isManagerUser ? '<button type="button" class="primary-button" data-publish-procedure>Publicar</button>' : ''}
         <button type="button" class="secondary-button" data-export-pdf>Visualizar PDF</button>
-        <button type="button" class="secondary-button" data-export-json>Baixar JSON</button>
+        <button type="button" class="primary-button" data-save-procedure>Salvar</button>
          ${isManagerUser ? '<button type="button" class="danger-button" data-delete-procedure>Excluir</button>' : ''}
       </div>
     </section>
@@ -242,7 +242,7 @@ function renderProcedure(procedure) {
             </label>
           </div>
         ` : `<h1>${escapeHtml(procedure.title)}</h1>`}
-        <p>Crie e ajuste o procedimento. Ao finalizar, baixe o PDF para uso e o JSON para futuras alterações.</p>
+        <p>Crie e ajuste o procedimento. Ao finalizar, salve o trabalho e gere o PDF para uso.</p>
       </div>
       <div class="procedure-hero-image">
         ${equipmentImage
@@ -381,7 +381,7 @@ function renderEmptyState() {
     <section class="missing-page">
       <span class="eyebrow">Sem procedimento</span>
       <h1>Nenhum procedimento cadastrado para ${escapeHtml(readableCode)}</h1>
-      <p>Use a tela inicial para criar um novo procedimento ou importar um JSON existente.</p>
+      <p>Use a tela inicial para criar um novo procedimento ou importar um arquivo existente.</p>
       <a class="primary-link" href="index.html">Voltar para o criador</a>
     </section>
   `;
@@ -396,7 +396,7 @@ function addInstruction(sectionIndex, tone) {
   refreshProcedureSection(sectionIndex);
 }
 
-function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLabel = "Cancelar", alternativeLabel = "", variant = "danger" }) {
+function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLabel = "Cancelar", alternativeLabel = "", variant = "danger", cancelResult = false }) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "confirm-dialog-backdrop";
@@ -441,7 +441,7 @@ function showConfirmDialog({ title, message, confirmLabel = "Remover", cancelLab
     overlay.addEventListener("click", (event) => {
       if (!dialog.contains(event.target)) close(false);
     });
-    cancelButton.addEventListener("click", () => close(false));
+    cancelButton.addEventListener("click", () => close(cancelResult));
     alternativeButton?.addEventListener("click", () => close("alternative"));
     confirmButton.addEventListener("click", () => close(true));
     document.addEventListener("keydown", handleKeydown);

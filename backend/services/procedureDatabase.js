@@ -2,15 +2,25 @@ const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
 const { Pool } = require("pg");
+const { getLocalDatabasePool, initLocalDatabase } = require("./localDatabase");
 const { hasProcedureContent, normalizeProcedure } = require("./procedureRules");
 const { ensureProcedureConfiguration } = require("./procedureConfiguration");
+const sharedStorage = require("./sharedProcedureStorage");
 
 const SCHEMA_PATH = path.resolve(__dirname, "..", "database", "schema.sql");
 const DRAFTS_PATH = path.resolve(__dirname, "..", "dados_procedimentos", "rascunhos");
 let pool;
 
+function isLocalDatabase() {
+  return String(process.env.DATABASE_DRIVER || "").toLowerCase() === "sqlite";
+}
+
 function getPool() {
   if (pool) return pool;
+  if (isLocalDatabase()) {
+    pool = getLocalDatabasePool();
+    return pool;
+  }
   if (!process.env.DATABASE_URL) {
     const error = new Error("DATABASE_URL não configurada para o PostgreSQL.");
     error.status = 503;
@@ -54,6 +64,7 @@ function metadataFromProcedure(procedure) {
     equipmentCode: procedure.equipmentCode || "",
     documentOriginalLocation: procedure.documentOriginalLocation || "",
     documentPublicLocation: procedure.documentPublicLocation || "",
+    updatedAt: procedure.updatedAt || "",
   };
 }
 
@@ -93,6 +104,15 @@ async function upsertMasterDocument(procedure) {
 }
 
 async function updateSequence(client, documentType, sector, sectorPrefix, nextNumber) {
+  if (isLocalDatabase()) {
+    const existing = await client.query("SELECT next_number AS nextNumber FROM document_number_sequences WHERE document_type = $1 AND sector = $2 AND sector_prefix = $3", [documentType, sector, sectorPrefix]);
+    if (existing.rows.length) {
+      await client.query("UPDATE document_number_sequences SET next_number = CASE WHEN next_number < $4 THEN $4 ELSE next_number END WHERE document_type = $1 AND sector = $2 AND sector_prefix = $3", [documentType, sector, sectorPrefix, nextNumber]);
+    } else {
+      await client.query("INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number) VALUES ($1, $2, $3, $4)", [documentType, sector, sectorPrefix, nextNumber]);
+    }
+    return;
+  }
   await client.query(`
     INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number)
     VALUES ($1, $2, $3, $4)
@@ -103,6 +123,11 @@ async function updateSequence(client, documentType, sector, sectorPrefix, nextNu
 
 async function resetSequenceFromMasterDocuments(client, documentType, sector, sectorPrefix = "") {
   if (!documentType || !sector) return;
+  if (isLocalDatabase()) {
+    const result = await client.query("SELECT COALESCE(MAX(document_number) + 1, 1) AS nextNumber FROM master_documents WHERE document_type = $1 AND sector = $2", [documentType, sector]);
+    await client.query("INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number) VALUES ($1, $2, $3, $4) ON CONFLICT (document_type, sector, sector_prefix) DO UPDATE SET next_number = excluded.next_number", [documentType, sector, sectorPrefix, Number(result.rows[0]?.nextNumber || 1)]);
+    return;
+  }
   const result = await client.query(`
     SELECT COALESCE(MAX(document_number) + 1, 1) AS "nextNumber"
     FROM master_documents
@@ -120,6 +145,18 @@ async function resetSequenceFromMasterDocuments(client, documentType, sector, se
 }
 
 async function reserveNextDocumentNumberWithClient(client, documentType, sector, sectorPrefix = "") {
+  if (isLocalDatabase()) {
+    const current = await client.query("SELECT next_number AS nextNumber FROM document_number_sequences WHERE document_type = $1 AND sector = $2 AND sector_prefix = $3", [documentType, sector, sectorPrefix]);
+    let reservedNumber = Number(current.rows[0]?.nextNumber || 0);
+    if (!reservedNumber) {
+      const result = await client.query("SELECT COALESCE(MAX(document_number), 0) AS maxNumber FROM master_documents WHERE document_type = $1 AND sector = $2", [documentType, sector]);
+      reservedNumber = Number(result.rows[0]?.maxNumber || 0) + 1;
+      await client.query("INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number) VALUES ($1, $2, $3, $4)", [documentType, sector, sectorPrefix, reservedNumber + 1]);
+    } else {
+      await client.query("UPDATE document_number_sequences SET next_number = $4 WHERE document_type = $1 AND sector = $2 AND sector_prefix = $3", [documentType, sector, sectorPrefix, reservedNumber + 1]);
+    }
+    return String(reservedNumber).padStart(4, "0");
+  }
   const result = await client.query(`
       INSERT INTO document_number_sequences (document_type, sector, sector_prefix, next_number)
       VALUES (
@@ -159,6 +196,7 @@ async function reserveNextDocumentNumber(documentType, sector, sectorPrefix = ""
 
 async function rememberDocumentNumberReservation(procedureId, documentType, sector, sectorPrefix, documentNumber) {
   if (!procedureId || !documentType || !sector || Number(documentNumber) <= 0) return;
+  if (sharedStorage.isConfigured()) return sharedStorage.rememberDocumentNumber(procedureId, documentType, sector, sectorPrefix, documentNumber);
   await getPool().query(`
     INSERT INTO procedure_number_reservations
       (procedure_id, document_type, sector, sector_prefix, document_number)
@@ -169,6 +207,7 @@ async function rememberDocumentNumberReservation(procedureId, documentType, sect
 
 async function reserveDocumentNumberForProcedure(procedureId, documentType, sector, sectorPrefix = "") {
   if (!procedureId) throw new Error("Identificador do procedimento obrigatorio.");
+  if (sharedStorage.isConfigured()) return sharedStorage.reserveDocumentNumber(procedureId, documentType, sector, sectorPrefix);
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
@@ -199,6 +238,11 @@ async function reserveDocumentNumberForProcedure(procedureId, documentType, sect
 }
 
 async function getMasterDocument(procedureId) {
+  if (sharedStorage.isConfigured()) {
+    const procedure = await sharedStorage.loadProcedure(procedureId);
+    if (!procedure) return null;
+    return { documentCode: procedure.documentCode, documentType: procedure.qualityInfo?.documentType || "", sector: procedure.qualityInfo?.area || "", documentNumber: procedure.documentNumber || 0 };
+  }
   const result = await getPool().query(`
     SELECT document_code AS "documentCode", document_type AS "documentType", sector, document_number AS "documentNumber"
     FROM master_documents
@@ -208,6 +252,7 @@ async function getMasterDocument(procedureId) {
 }
 
 async function listMasterDocuments() {
+  if (sharedStorage.isConfigured()) return (await sharedStorage.listProcedures()).filter(hasProcedureContent).map(metadataFromProcedure).sort((a, b) => `${a.documentCode} ${a.title}`.localeCompare(`${b.documentCode} ${b.title}`, "pt-BR", { numeric: true }));
   const result = await getPool().query(`
     SELECT procedure_id AS "procedureId", document_code AS "documentCode", title,
       revision, elaborator, elaboration_date AS "elaborationDate", approver,
@@ -221,6 +266,7 @@ async function listMasterDocuments() {
 }
 
 async function listDraftDocuments() {
+  if (sharedStorage.isConfigured()) return (await sharedStorage.listProcedures()).filter((procedure) => String(procedure.documentStatus || "").toLowerCase().includes("elabora")).map(metadataFromProcedure).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
   const result = await getPool().query(`
     SELECT procedure_id AS "procedureId", document_code AS "documentCode", title,
       document_number AS "documentNumber", document_type AS "documentType", sector,
@@ -252,6 +298,18 @@ async function deleteMasterDocument(procedureId) {
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
+    if (isLocalDatabase()) {
+      const master = await client.query("SELECT document_type AS documentType, sector, document_number AS documentNumber, document_code AS documentCode FROM master_documents WHERE procedure_id = $1", [procedureId]);
+      const reservations = await client.query("SELECT document_type AS documentType, sector, sector_prefix AS sectorPrefix FROM procedure_number_reservations WHERE procedure_id = $1", [procedureId]);
+      await client.query("DELETE FROM master_documents WHERE procedure_id = $1", [procedureId]);
+      await client.query("DELETE FROM procedure_number_reservations WHERE procedure_id = $1", [procedureId]);
+      const affected = [...master.rows, ...reservations.rows];
+      for (const item of new Map(affected.map((row) => [`${row.documentType}|${row.sector}|${row.sectorPrefix || ""}`, row])).values()) {
+        await resetSequenceFromMasterDocuments(client, item.documentType, item.sector, item.sectorPrefix || "");
+      }
+      await client.query("COMMIT");
+      return;
+    }
     const affected = [];
     const master = await client.query(`
       DELETE FROM master_documents
@@ -301,6 +359,22 @@ async function migrateDrafts() {
 }
 
 async function synchronizeDocumentNumberSequences() {
+  if (isLocalDatabase()) {
+    await getPool().query("DELETE FROM procedure_number_reservations WHERE NOT EXISTS (SELECT 1 FROM master_documents AS documents WHERE documents.procedure_id = procedure_number_reservations.procedure_id)");
+    const result = await getPool().query("SELECT document_type AS documentType, sector, document_number AS documentNumber FROM master_documents WHERE document_number > 0");
+    const client = await getPool().connect();
+    try {
+      await client.query("BEGIN");
+      for (const row of result.rows) await updateSequence(client, row.documentType, row.sector, "", Number(row.documentNumber) + 1);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
+  }
   await getPool().query(`
     DELETE FROM procedure_number_reservations AS reservations
     WHERE NOT EXISTS (
@@ -339,6 +413,12 @@ async function synchronizeDocumentNumberSequences() {
 }
 
 async function initDatabase() {
+  if (isLocalDatabase()) {
+    await initLocalDatabase();
+    await require("./localFiles").ensureLocalDataDirectories();
+    await ensureProcedureConfiguration();
+    return;
+  }
   const schema = await fsp.readFile(SCHEMA_PATH, "utf8");
   await getPool().query(schema);
   await ensureProcedureConfiguration();
@@ -347,7 +427,7 @@ async function initDatabase() {
 }
 
 function databaseConfigured() {
-  return Boolean(process.env.DATABASE_URL);
+  return isLocalDatabase() || Boolean(process.env.DATABASE_URL);
 }
 
-module.exports = { databaseConfigured, deleteMasterDocument, getDatabasePool, getMasterDocument, initDatabase, listDraftDocuments, listMasterDocuments, rememberDocumentNumberReservation, reserveDocumentNumberForProcedure, reserveNextDocumentNumber, updateMasterDocumentLocations, upsertMasterDocument };
+module.exports = { databaseConfigured, deleteMasterDocument, getDatabasePool, getMasterDocument, initDatabase, isLocalDatabase, listDraftDocuments, listMasterDocuments, metadataFromProcedure, rememberDocumentNumberReservation, reserveDocumentNumberForProcedure, reserveNextDocumentNumber, updateMasterDocumentLocations, upsertMasterDocument };

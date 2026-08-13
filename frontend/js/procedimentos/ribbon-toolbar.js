@@ -16,6 +16,10 @@ function renderFabricCanvasRibbon(sectionIndex, cardIndex) {
           ${renderRibbonButton("circle", "Adicionar círculo", 'data-fabric-tool="circle" data-tone="success"', 'class="canvas-command-button editor-tool-button"')}
           ${renderRibbonButton("square", "Adicionar retângulo", 'data-fabric-tool="square" data-tone="success"', 'class="canvas-command-button editor-tool-button"')}
         </div>
+        <div class="canvas-ribbon-group canvas-ribbon-history" aria-label="Histórico de edição">
+          ${renderRibbonButton("undo", "Desfazer", 'data-fabric-history="undo"', 'class="canvas-command-button editor-tool-button"')}
+          ${renderRibbonButton("redo", "Refazer", 'data-fabric-history="redo"', 'class="canvas-command-button editor-tool-button"')}
+        </div>
       </div>
       <div class="canvas-tool-status" data-fabric-tool-status="${target}" aria-live="polite">
         Selecione uma ferramenta ou clique em um elemento.

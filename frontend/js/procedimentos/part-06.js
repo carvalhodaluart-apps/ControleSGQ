@@ -21,7 +21,7 @@ function renderElaborationAuthorization() {
       <div>
         <span class="eyebrow">Próximo passo</span>
         <h2 id="elaboration-authorization-title">Autorizar elaboração</h2>
-        <p>Preencha os campos do controle do documento. Depois da autorização, este documento será salvo como “Em elaboração” e poderá ser continuado pelo JSON correspondente.</p>
+        <p>Preencha os campos do controle do documento. Depois da autorização, este documento será salvo como “Em elaboração” e poderá ser continuado no aplicativo.</p>
         <p class="elaboration-authorization-error" data-elaboration-authorize-error role="alert"></p>
       </div>
       <button type="button" class="primary-button" data-authorize-elaboration>Autorizar elaboração</button>
@@ -72,11 +72,7 @@ async function authorizeElaboration() {
 }
 
 function requiresDraftExportBeforeLeave() {
-  return !allowProcedureLeave
-    && builderMode
-    && elaborationAuthorized
-    && procedureDirtySinceJsonExport
-    && activeProcedure?.documentStatus !== "Publicado";
+  return !allowProcedureLeave && procedureDirtySinceSave;
 }
 
 async function leaveProcedureEditor(event) {
@@ -84,14 +80,15 @@ async function leaveProcedureEditor(event) {
   event.preventDefault();
   const link = event.currentTarget;
   const confirmed = await showConfirmDialog({
-    title: "Baixar edição antes de sair?",
-    message: "Este documento está em elaboração. Baixe o JSON para garantir que todas as alterações possam ser recuperadas antes de voltar.",
-    confirmLabel: "Baixar JSON e voltar",
-    alternativeLabel: "Sair sem salvar",
+    title: "Sair sem salvar?",
+    message: "Existem alterações que ainda não foram confirmadas no armazenamento local.",
+    confirmLabel: "Salvar",
+    alternativeLabel: "Fechar sem salvar",
     cancelLabel: "Continuar editando",
     variant: "primary",
   });
   if (confirmed === "alternative") {
+    await window.localProcedureRecovery?.discard?.(activeProcedure);
     allowProcedureLeave = true;
     window.location.href = link.href;
     return;
@@ -99,13 +96,12 @@ async function leaveProcedureEditor(event) {
   if (!confirmed) return;
   try {
     await flushProcedureSave();
-    await exportProcedure(true);
     allowProcedureLeave = true;
     window.location.href = link.href;
   } catch (error) {
-    updateSaveState("error", "JSON não baixado");
+    updateSaveState("error", "Não foi possível salvar");
     await showConfirmDialog({
-      title: "Não foi possível baixar o JSON",
+      title: "Não foi possível salvar",
       message: error.message || "Verifique a conexão com o backend e tente novamente.",
       confirmLabel: "Fechar",
       cancelLabel: "",
@@ -323,6 +319,8 @@ window.addEventListener("pointerup", () => {
 function renderProcedureLoadError(error) {
   const statusMessage = error?.status === 401
     ? "Sua sessão expirou. Volte ao criador, entre novamente e tente continuar o documento."
+    : error?.status === 423
+      ? "Este procedimento está sendo editado por outra pessoa ou a sessão de edição expirou."
     : error?.status === 404
       ? "Este documento não foi encontrado no armazenamento atual. Confirme se o backend está conectado ao mesmo banco de dados."
       : "Não foi possível carregar este documento. Verifique a conexão com o backend e tente novamente.";
@@ -348,6 +346,7 @@ async function bootProcedureEditor() {
     try {
       await loadProcedureConfiguration();
       await loadProcedureFromServer();
+      await acquireProcedureEditingLock();
     } catch (error) {
       if (!String(error.message).toLowerCase().includes("acesso")) throw error;
       qualityToken = "";
@@ -355,6 +354,7 @@ async function bootProcedureEditor() {
       if (!await showPasswordDialog()) return builderMode ? window.location.assign("index.html") : renderEmptyState();
       await loadProcedureConfiguration();
       await loadProcedureFromServer();
+      await acquireProcedureEditingLock();
     }
     syncElaborationAuthorization();
     if (builderMode) {
@@ -365,7 +365,8 @@ async function bootProcedureEditor() {
       }
     }
     renderProcedure(activeProcedure);
-    markProcedureJsonClean();
+    markProcedureSaved();
+    await window.localProcedureRecovery?.checkForRecovery?.();
   } catch (error) {
     console.error("Falha ao carregar procedimento:", error);
     if (builderMode && (!requestedProcedureId || params.get("novo") === "1")) {

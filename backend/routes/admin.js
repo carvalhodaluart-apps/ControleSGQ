@@ -1,9 +1,12 @@
 const express = require("express");
+const crypto = require("crypto");
 const { getDatabasePool } = require("../services/procedureDatabase");
 const { getRequestUser, hashPassword, requireQuality } = require("../services/procedureAuth");
 const { createDatabaseBackup, restoreDatabaseBackup } = require("../services/databaseBackup");
 const { listAudit, recordAudit } = require("../services/procedureAudit");
 const { sendError } = require("../services/httpResponse");
+const { listLocalBackups, writeLocalBackup } = require("../services/localBackup");
+const sharedStorage = require("../services/sharedProcedureStorage");
 
 const router = express.Router();
 
@@ -38,6 +41,22 @@ router.post("/restore", requireQuality, async (req, res) => {
   }
 });
 
+router.get("/local-backups", requireQuality, async (_req, res) => {
+  try {
+    res.json({ backups: await listLocalBackups() });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post("/local-backups/create", requireQuality, async (_req, res) => {
+  try {
+    res.json(await writeLocalBackup("manual"));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
 router.get("/audit", requireQuality, async (req, res) => {
   try {
     res.json({ audit: await listAudit({ procedureId: req.query.procedureId, actorUsername: req.query.actorUsername, date: req.query.date, limit: req.query.limit }) });
@@ -48,6 +67,7 @@ router.get("/audit", requireQuality, async (req, res) => {
 
 router.get("/users", requireQuality, async (_req, res) => {
   try {
+    if (sharedStorage.isConfigured()) return res.json({ users: (await sharedStorage.listUsers()).map(({ passwordHash, ...user }) => user) });
     const result = await getDatabasePool().query(`
       SELECT user_id AS "userId", username, display_name AS "displayName", role, active, created_at AS "createdAt"
       FROM app_users ORDER BY username
@@ -69,6 +89,14 @@ router.post("/users", requireQuality, async (req, res) => {
     if (!["editor", "manager"].includes(role)) throw Object.assign(new Error("Perfil de usuario invalido."), { status: 400 });
     if (password.length < 8 || password.length > 256) throw Object.assign(new Error("A senha deve ter entre 8 e 256 caracteres."), { status: 400 });
     const passwordHash = await hashPassword(password);
+    if (sharedStorage.isConfigured()) {
+      const users = await sharedStorage.listUsers();
+      if (users.some((item) => item.username === username)) throw Object.assign(new Error("Usuário já cadastrado."), { status: 409 });
+      const user = await sharedStorage.upsertUser({ userId: crypto.randomUUID(), username, displayName, passwordHash, role, active: true });
+      await recordAudit({ action: "user-created", user: getRequestUser(req), details: { username, role } });
+      const { passwordHash: _hidden, ...safeUser } = user;
+      return res.status(201).json({ user: safeUser });
+    }
     const result = await getDatabasePool().query(`
       INSERT INTO app_users (username, display_name, password_hash, role)
       VALUES ($1,$2,$3,$4)
@@ -85,6 +113,13 @@ router.post("/users", requireQuality, async (req, res) => {
 router.patch("/users/:id", requireQuality, async (req, res) => {
   try {
     const active = Boolean(req.body?.active);
+    if (sharedStorage.isConfigured()) {
+      const user = await sharedStorage.updateUser(req.params.id, { active });
+      if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+      await recordAudit({ action: active ? "user-enabled" : "user-disabled", user: getRequestUser(req), details: { userId: req.params.id } });
+      const { passwordHash: _hidden, ...safeUser } = user;
+      return res.json({ user: safeUser });
+    }
     const result = await getDatabasePool().query(`UPDATE app_users SET active = $2, updated_at = NOW() WHERE user_id = $1 RETURNING user_id AS "userId", username, display_name AS "displayName", role, active`, [req.params.id, active]);
     if (!result.rows.length) return res.status(404).json({ error: "Usuario não encontrado." });
     await recordAudit({ action: active ? "user-enabled" : "user-disabled", user: getRequestUser(req), details: { userId: req.params.id } });

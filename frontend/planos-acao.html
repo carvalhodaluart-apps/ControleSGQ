@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="styles/responsive.css?v=20260803-responsive-1">
 </head>
 <body>
+  <div class="app-boot-state" id="appBootState" role="status" aria-live="polite"><span class="app-boot-spinner" aria-hidden="true"></span><strong>Carregando planos de ação</strong><span>Estamos preparando os registros locais.</span></div>
   <main class="page action-plan-page is-locked" id="actionPlanApp">
     <header class="action-plan-header">
       <div>
@@ -35,7 +36,7 @@
         <div class="action-plan-editor-actions"><span id="actionPlanSaveStatus"></span><button type="button" class="secondary-button" id="previewActionPlanPdf">Visualizar PDF</button><button type="button" class="secondary-button" id="downloadActionPlanPdf">Baixar PDF</button><button type="button" class="secondary-button" id="cancelActionPlan">Cancelar</button><button type="button" class="danger-button" id="deleteActionPlan">Excluir</button><button type="submit" class="primary-button" form="actionPlanForm">Salvar plano</button></div>
       </header>
       <div class="action-plan-editor-body">
-        <nav class="action-plan-section-nav" aria-label="Se&ccedil;&otilde;es do plano"><strong>Se&ccedil;&otilde;es</strong><a href="#plan-identification">Identifica&ccedil;&atilde;o</a><a href="#plan-problem">Problema e evid&ecirc;ncias</a><a href="#plan-containment">Corre&ccedil;&atilde;o imediata</a><a href="#plan-cause">An&aacute;lise de causa</a><a href="#plan-actions">A&ccedil;&otilde;es</a><a href="#plan-effectiveness">Verifica&ccedil;&atilde;o e encerramento</a></nav>
+        <nav class="action-plan-section-nav" data-form-progress-nav aria-label="Se&ccedil;&otilde;es do plano"><strong>Se&ccedil;&otilde;es</strong><a href="#plan-identification">Identifica&ccedil;&atilde;o</a><a href="#plan-problem">Problema e evid&ecirc;ncias</a><a href="#plan-containment">Corre&ccedil;&atilde;o imediata</a><a href="#plan-cause">An&aacute;lise de causa</a><a href="#plan-actions">A&ccedil;&otilde;es</a><a href="#plan-effectiveness">Verifica&ccedil;&atilde;o e encerramento</a></nav>
         <form id="actionPlanForm" class="action-plan-form">
           <section class="action-plan-card" id="plan-identification"><div class="action-plan-card-heading"><span>1</span><div><h3>Identifica&ccedil;&atilde;o</h3><p>Defina o contexto, a origem e a prioridade do plano.</p></div></div><div class="action-plan-fields action-plan-fields-four"><label>C&oacute;digo <input data-field="documentCode" readonly placeholder="Gerado ao salvar"></label><label class="field-span-two">T&iacute;tulo do plano <input data-field="title" required placeholder="Ex.: Plano de corre&ccedil;&atilde;o do processo"></label><label>Tipo <select data-field="type"><option>Corre&ccedil;&atilde;o</option><option>A&ccedil;&atilde;o corretiva</option><option>A&ccedil;&atilde;o preventiva</option><option>Melhoria</option><option>CAPA</option></select></label><label>Origem <select data-field="origin"><option>N&atilde;o conformidade</option><option>Auditoria</option><option>Calibra&ccedil;&atilde;o</option><option>Treinamento</option><option>Reclama&ccedil;&atilde;o</option><option>Risco</option><option>Cria&ccedil;&atilde;o manual</option></select></label><label>Documento de origem <input data-field="sourceDocument" placeholder="C&oacute;digo ou refer&ecirc;ncia"></label><label>Setor <input data-field="sector" placeholder="Setor respons&aacute;vel"></label><label>Respons&aacute;vel pelo plano <input data-field="responsible" placeholder="Nome do respons&aacute;vel"></label><label>Data de abertura <input type="date" data-field="openingDate"></label><label>Prioridade <select data-field="priority"><option>Baixa</option><option selected>M&eacute;dia</option><option>Alta</option><option>Cr&iacute;tica</option></select></label><label>Status <select data-field="status"><option>Rascunho</option><option>Aberto</option><option>An&aacute;lise de causa</option><option>Em execu&ccedil;&atilde;o</option><option>Aguardando efic&aacute;cia</option><option>Conclu&iacute;do</option><option>Reaberto</option></select></label></div></section>
 
@@ -53,6 +54,9 @@
       </div>
     </section>
   </main>
+  <script src="js/form-progress.js?v=20260813-form-progress-1"></script>
+  <script src="js/app-boot.js?v=20260813-ux-review-1"></script>
+  <script src="js/shared-module-lock.js?v=20260813-shared-modules-1"></script>
   <script src="planos-acao.js?v=20260803-action-plans-1"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ sessionStorage.removeItem(configurationEntryTokenKey);
 let qualityToken = enteredFromHome ? sessionStorage.getItem(qualityTokenKey) || "" : "";
 if (!enteredFromHome) sessionStorage.removeItem(qualityTokenKey);
 let configuration = null;
+let configurationDirty = false;
 
 const auth = document.querySelector("#configurationAuth");
 const authForm = document.querySelector("#configurationAuthForm");
@@ -17,11 +18,20 @@ const coverPreview = document.querySelector("#coverPreview");
 const coverEmpty = document.querySelector("#coverEmpty");
 const coverOverlay = document.querySelector("#coverOverlay");
 const coverImageInput = document.querySelector("#coverImageInput");
-const secureFolderName = document.querySelector("#secureFolderName");
-const secureFolderStatus = document.querySelector("#secureFolderStatus");
-const selectSecureFolderButton = document.querySelector("#selectSecureFolder");
-const testSecureFolderButton = document.querySelector("#testSecureFolder");
-const forgetSecureFolderButton = document.querySelector("#forgetSecureFolder");
+const sharedFolderName = document.querySelector("#sharedFolderName");
+const sharedFolderStatus = document.querySelector("#sharedFolderStatus");
+const sharedFolderNetworkPath = document.querySelector("#sharedFolderNetworkPath");
+const copySharedFolderPathButton = document.querySelector("#copySharedFolderPath");
+const selectSharedFolderButton = document.querySelector("#selectSharedFolder");
+const testSharedFolderButton = document.querySelector("#testSharedFolder");
+const forgetSharedFolderButton = document.querySelector("#forgetSharedFolder");
+const createLocalBackupButton = document.querySelector("#createLocalBackup");
+const localBackupHistory = document.querySelector("#localBackupHistory");
+
+function markConfigurationDirty() {
+  configurationDirty = true;
+  if (statusMessage) statusMessage.textContent = "Alterações não salvas.";
+}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
@@ -211,6 +221,7 @@ async function removeConfigurationEntry(kind, key) {
 async function loadConfiguration() {
   const data = await request("/api/configuration");
   configuration = data.configuration;
+  configurationDirty = false;
   configuration.cover ||= { imageData: "", overlayPosition: "center", overlayX: 0.5, overlayY: 0.5 };
   configuration.nonconformity ||= {
     origins: ["Auditoria interna", "Cliente", "Fornecedor", "Processo", "Produto", "Documento", "Outro"].map((label) => ({ key: label.toLowerCase().replaceAll(" ", "-"), label, active: true })),
@@ -235,31 +246,61 @@ async function loadUsers() {
   renderUsers(data.users || []);
 }
 
-function renderSecureFolderStatus(status) {
-  const supported = status?.supported !== false;
+function renderSharedFolderStatus(status) {
+  const supported = Boolean(window.desktopSharedFolder?.supported);
   const configured = Boolean(status?.configured);
-  selectSecureFolderButton.disabled = !supported;
-  testSecureFolderButton.disabled = false;
-  forgetSecureFolderButton.disabled = !supported || !configured;
+  selectSharedFolderButton.disabled = !supported;
+  testSharedFolderButton.disabled = !supported || !configured;
+  forgetSharedFolderButton.disabled = !supported || !configured;
   if (!supported) {
-    secureFolderName.textContent = "Navegador sem suporte";
-    secureFolderStatus.textContent = "Use Chrome ou Edge desktop para salvar JSON diretamente em uma pasta local controlada.";
+    sharedFolderName.textContent = "Disponível apenas no aplicativo instalado";
+    sharedFolderStatus.textContent = "Abra o Controle SGQ pelo instalador para selecionar uma pasta de rede.";
+    sharedFolderNetworkPath.classList.add("is-hidden");
+    copySharedFolderPathButton.classList.add("is-hidden");
     return;
   }
   if (!configured) {
-    secureFolderName.textContent = "Nenhuma pasta configurada";
-    secureFolderStatus.textContent = "Selecione uma pasta corporativa para os JSON em processo.";
+    sharedFolderName.textContent = "Nenhuma pasta configurada";
+    sharedFolderStatus.textContent = "Selecione uma pasta de rede com leitura e gravação.";
+    sharedFolderNetworkPath.textContent = "";
+    sharedFolderNetworkPath.classList.add("is-hidden");
+    copySharedFolderPathButton.classList.add("is-hidden");
     return;
   }
-  secureFolderName.textContent = status.name || "Pasta selecionada";
-  secureFolderStatus.textContent = status.permission === "granted"
-    ? "Pasta pronta para salvar e localizar JSON em processo."
-    : "Pasta configurada; o navegador pedira permissao no proximo acesso.";
+  sharedFolderName.textContent = status.name || "Pasta selecionada";
+  const networkPath = status.networkPath || (String(status.path || "").startsWith("\\\\") ? status.path : "");
+  sharedFolderNetworkPath.textContent = networkPath;
+  sharedFolderNetworkPath.classList.toggle("is-hidden", !networkPath);
+  copySharedFolderPathButton.classList.toggle("is-hidden", !networkPath);
+  sharedFolderStatus.textContent = status.accessible === false
+    ? `A pasta não está acessível. Verifique a conexão e as permissões.${status.error ? ` ${status.error}` : ""}`
+    : `Pasta de rede pronta${status.path ? `: ${status.path}` : "."}`;
 }
 
-async function refreshSecureFolderStatus() {
-  if (!window.secureProcedureFolder) return;
-  renderSecureFolderStatus(await window.secureProcedureFolder.getStatus());
+copySharedFolderPathButton?.addEventListener("click", async () => {
+  const value = sharedFolderNetworkPath?.textContent?.trim();
+  if (!value) return;
+  await navigator.clipboard?.writeText(value);
+  statusMessage.textContent = "Endereco copiado.";
+});
+
+async function refreshSharedFolderStatus() {
+  if (!window.desktopSharedFolder) {
+    renderSharedFolderStatus({ configured: false });
+    return;
+  }
+  renderSharedFolderStatus(await window.desktopSharedFolder.getStatus());
+}
+
+async function refreshLocalBackupHistory() {
+  if (!localBackupHistory) return;
+  try {
+    const data = await request("/api/admin/local-backups");
+    const backups = data.backups || [];
+    localBackupHistory.innerHTML = `<strong>Histórico local</strong><span>${backups.length ? `${backups.length} versões armazenadas. O backup diário é criado automaticamente.` : "O primeiro backup diário será criado automaticamente."}</span>`;
+  } catch (_error) {
+    localBackupHistory.innerHTML = "";
+  }
 }
 
 async function downloadBackup() {
@@ -303,7 +344,8 @@ authForm.addEventListener("submit", async (event) => {
     password.value = "";
     await loadConfiguration();
     await loadUsers();
-    await refreshSecureFolderStatus();
+    await refreshSharedFolderStatus();
+    await refreshLocalBackupHistory();
     configurationPage.classList.remove("is-locked");
   } catch (requestError) {
     auth.classList.remove("is-hidden");
@@ -317,6 +359,13 @@ document.querySelector("#addNonconformityOrigin").addEventListener("click", () =
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-config-remove-kind]");
   if (button) removeConfigurationEntry(button.dataset.configRemoveKind, button.dataset.configRemoveKey);
+  if (event.target.closest("#addDocumentType, #addSector, #addNonconformityOrigin, #clearCoverImage, [data-cover-position]")) markConfigurationDirty();
+});
+configurationPage?.addEventListener("input", (event) => {
+  if (event.target.matches("input, textarea, select")) markConfigurationDirty();
+});
+configurationPage?.addEventListener("change", (event) => {
+  if (event.target.matches("input, textarea, select")) markConfigurationDirty();
 });
 coverImageInput.addEventListener("change", async () => {
   if (!coverImageInput.files?.[0]) return;
@@ -364,6 +413,7 @@ document.querySelector("#saveConfiguration").addEventListener("click", async () 
   try {
     const data = await request("/api/configuration", { method: "PUT", body: JSON.stringify({ configuration: collectConfiguration() }) });
     configuration = data.configuration;
+    configurationDirty = false;
     window.location.assign("index.html");
   } catch (requestError) {
     statusMessage.textContent = "";
@@ -416,6 +466,17 @@ document.querySelector("#downloadDatabaseBackup").addEventListener("click", asyn
   }
 });
 
+createLocalBackupButton?.addEventListener("click", async () => {
+  try {
+    statusMessage.textContent = "Criando backup local...";
+    await request("/api/admin/local-backups/create", { method: "POST" });
+    statusMessage.textContent = "Backup local criado.";
+    await refreshLocalBackupHistory();
+  } catch (requestError) {
+    errorMessage.textContent = requestError.message;
+  }
+});
+
 document.querySelector("#restoreDatabaseBackup").addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   event.target.value = "";
@@ -433,38 +494,38 @@ document.querySelector("#restoreDatabaseBackup").addEventListener("change", asyn
   }
 });
 
-selectSecureFolderButton?.addEventListener("click", async () => {
+selectSharedFolderButton?.addEventListener("click", async () => {
   errorMessage.textContent = "";
   statusMessage.textContent = "Selecionando pasta...";
   try {
-    renderSecureFolderStatus(await window.secureProcedureFolder.selectFolder());
-    statusMessage.textContent = "Pasta dos JSON em processo configurada.";
+    const result = await window.desktopSharedFolder.select();
+    if (result?.canceled) return;
+    renderSharedFolderStatus(result);
+    statusMessage.textContent = "Pasta de rede configurada. Atualize os outros computadores com o mesmo caminho.";
   } catch (requestError) {
     statusMessage.textContent = "";
     errorMessage.textContent = requestError.message;
   }
 });
 
-testSecureFolderButton?.addEventListener("click", async () => {
+testSharedFolderButton?.addEventListener("click", async () => {
   errorMessage.textContent = "";
   statusMessage.textContent = "Testando acesso...";
   try {
-    if (!window.secureProcedureFolder?.isSupported()) throw new Error("Este navegador nao permite testar uma pasta fixa. Use Chrome ou Edge desktop.");
-    const status = await window.secureProcedureFolder.getStatus();
-    if (!status.configured) throw new Error("Selecione uma pasta antes de testar o acesso.");
-    renderSecureFolderStatus(await window.secureProcedureFolder.testAccess());
-    statusMessage.textContent = "Acesso a pasta confirmado.";
+    if (!window.desktopSharedFolder?.supported) throw new Error("Abra o aplicativo instalado para testar uma pasta de rede.");
+    renderSharedFolderStatus(await window.desktopSharedFolder.testAccess());
+    statusMessage.textContent = "Acesso à pasta de rede confirmado.";
   } catch (requestError) {
     statusMessage.textContent = "";
     errorMessage.textContent = requestError.message;
   }
 });
 
-forgetSecureFolderButton?.addEventListener("click", async () => {
+forgetSharedFolderButton?.addEventListener("click", async () => {
   errorMessage.textContent = "";
   try {
-    renderSecureFolderStatus(await window.secureProcedureFolder.forgetFolder());
-    statusMessage.textContent = "Pasta removida deste navegador.";
+    renderSharedFolderStatus(await window.desktopSharedFolder.forget());
+    statusMessage.textContent = "Pasta de rede removida deste computador.";
   } catch (requestError) {
     errorMessage.textContent = requestError.message;
   }
@@ -473,20 +534,27 @@ forgetSecureFolderButton?.addEventListener("click", async () => {
 async function bootConfiguration() {
   if (!qualityToken) {
     showAuth();
+    window.AppBoot?.ready();
     return;
   }
   try {
     auth.classList.add("is-hidden");
     await loadConfiguration();
     await loadUsers();
-    await refreshSecureFolderStatus();
+    await refreshSharedFolderStatus();
     configurationPage.classList.remove("is-locked");
   } catch (requestError) {
     qualityToken = "";
     sessionStorage.removeItem(qualityTokenKey);
     authError.textContent = requestError.message;
     showAuth();
+    window.AppBoot?.error(requestError.message, () => bootConfiguration());
   }
 }
 
-bootConfiguration();
+bootConfiguration().finally(() => window.AppBoot?.ready());
+window.addEventListener("beforeunload", (event) => {
+  if (!configurationDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});

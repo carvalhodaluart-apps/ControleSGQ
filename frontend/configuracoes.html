@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="styles/responsive.css?v=20260803-responsive-1">
 </head>
 <body>
+  <div class="app-boot-state" id="appBootState" role="status" aria-live="polite"><span class="app-boot-spinner" aria-hidden="true"></span><strong>Carregando configurações</strong><span>Verificando o banco local e as permissões.</span></div>
   <main class="page configuration-page is-locked">
     <a class="back-link" href="index.html">Voltar para o criador</a>
     <header class="configuration-header">
@@ -149,10 +150,12 @@
       <div class="configuration-user-list" id="configurationUserList"></div>
       <div class="configuration-backup-actions">
         <button type="button" class="secondary-button" id="downloadDatabaseBackup">Baixar backup</button>
+        <button type="button" class="secondary-button" id="createLocalBackup">Criar backup local agora</button>
         <label class="secondary-button configuration-restore-button">
           Restaurar backup
           <input type="file" id="restoreDatabaseBackup" accept="application/json">
         </label>
+      <div class="configuration-local-backups" id="localBackupHistory" aria-live="polite"></div>
       </div>
       <small class="configuration-cover-note">A restauração substitui os dados atuais e deve ser usada apenas com um backup confiável.</small>
     </details>
@@ -160,24 +163,26 @@
     <details class="configuration-card">
       <summary class="configuration-card-heading">
         <div>
-          <h2>Pasta dos JSON em processo</h2>
+          <h2>Pasta compartilhada dos procedimentos</h2>
           <span class="configuration-module-badge configuration-module-badge-system">M&oacute;dulo: Sistema</span>
-          <p>Defina uma pasta local controlada para salvar e localizar os arquivos JSON de trabalho.</p>
+          <p>Escolha a pasta de rede que será usada pelos computadores da empresa.</p>
         </div>
         <span class="configuration-card-toggle" aria-hidden="true">+</span>
       </summary>
       <div class="configuration-secure-folder">
         <div>
-          <strong id="secureFolderName">Nenhuma pasta configurada</strong>
-          <small id="secureFolderStatus">Configure em um navegador compat&iacute;vel para salvar sem escolher local a cada arquivo.</small>
+          <strong id="sharedFolderName">Nenhuma pasta configurada</strong>
+          <code class="configuration-network-path is-hidden" id="sharedFolderNetworkPath"></code>
+          <small id="sharedFolderStatus">Use uma pasta de rede com leitura e gravação para os usuários autorizados.</small>
         </div>
         <div class="configuration-backup-actions">
-          <button type="button" class="secondary-button" id="selectSecureFolder">Selecionar pasta</button>
-          <button type="button" class="secondary-button" id="testSecureFolder">Testar acesso</button>
-          <button type="button" class="danger-button" id="forgetSecureFolder">Remover pasta</button>
+          <button type="button" class="secondary-button" id="selectSharedFolder">Selecionar pasta de rede</button>
+          <button type="button" class="secondary-button" id="testSharedFolder">Testar acesso</button>
+          <button type="button" class="secondary-button is-hidden" id="copySharedFolderPath">Copiar endereco</button>
+          <button type="button" class="danger-button" id="forgetSharedFolder">Remover pasta</button>
         </div>
       </div>
-      <small class="configuration-cover-note">O navegador guarda apenas a permiss&atilde;o da pasta. O conte&uacute;do dos JSON n&atilde;o &eacute; salvo no armazenamento do navegador.</small>
+      <small class="configuration-cover-note">Todos os computadores devem apontar para a mesma pasta de rede, com permiss&atilde;o de leitura e grava&ccedil;&atilde;o. N&atilde;o use uma pasta sincronizada por nuvem.</small>
     </details>
 
     <footer class="configuration-footer">
@@ -202,6 +207,7 @@
     </form>
   </div>
   <script src="js/secure-folder.js?v=20260804-secure-folder-1"></script>
+  <script src="js/app-boot.js?v=20260813-ux-review-1"></script>
   <script src="configuracoes.js?v=20260804-secure-folder-2"></script>
 </body>
 </html>

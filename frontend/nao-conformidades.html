@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles/responsive.css?v=20260803-responsive-1">
 </head>
 <body>
+  <div class="app-boot-state" id="appBootState" role="status" aria-live="polite"><span class="app-boot-spinner" aria-hidden="true"></span><strong>Carregando não conformidades</strong><span>Estamos preparando os registros locais.</span></div>
   <main class="page nonconformity-page is-locked" id="nonconformityApp">
     <header class="nc-page-header">
       <div>
@@ -58,7 +59,7 @@
       </div>
 
       <div class="nc-editor-body">
-        <nav class="nc-section-nav" aria-label="Seções da não conformidade">
+        <nav class="nc-section-nav" data-form-progress-nav aria-label="Seções da não conformidade">
           <strong>Seções</strong>
           <a href="#nc-identification" data-nc-nav="identification">Identificação</a>
           <a href="#nc-description" data-nc-nav="description">Descrição e evidências</a>
@@ -163,6 +164,9 @@
       <div class="nc-unsaved-actions"><button type="button" class="secondary-button" id="keepNcEditing">Continuar editando</button><button type="button" class="danger-button" id="discardNcChanges">Descartar alterações</button></div>
     </section>
   </div>
+  <script src="js/form-progress.js?v=20260813-form-progress-1"></script>
+  <script src="js/app-boot.js?v=20260813-ux-review-1"></script>
+  <script src="js/shared-module-lock.js?v=20260813-shared-modules-1"></script>
   <script src="nao-conformidades.js?v=20260803-nc-pdf-2"></script>
 </body>
 </html>

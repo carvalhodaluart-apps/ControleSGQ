@@ -63,6 +63,30 @@ O `iniciar_app.bat` tambem importa a lista mestra antes de iniciar o backend.
 O arquivo `iniciar_banco_docker.bat` permanece disponivel para iniciar somente
 o PostgreSQL quando necessario.
 
+## Aplicativo desktop Electron
+
+O projeto tambem pode ser aberto como uma janela independente do Windows:
+
+```bash
+npm run desktop
+```
+
+Para gerar o instalador Windows com atalho na area de trabalho:
+
+```bash
+npm run desktop:dist
+```
+
+No modo desktop, o Electron inicia o mesmo Express local, cria um banco SQLite
+automaticamente na pasta de dados do usuario e abre o assistente de primeiro
+acesso. O assistente permite definir a senha inicial e importar um backup JSON.
+O Render e o PostgreSQL externo nao sao necessarios nesse modo.
+
+Os arquivos persistentes do desktop ficam em `%APPDATA%\\Controle SGQ\\arquivos`:
+JSON, imagens, PDFs, pacotes exportados, backups diarios e historico de versoes.
+O sistema cria um backup automatico diario e mantem snapshots de recuperacao para
+retomar uma edicao interrompida.
+
 ## Backup e restauração
 
 Na tela `Configuracoes`, a qualidade pode baixar um backup JSON e restaura-lo

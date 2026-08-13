@@ -68,7 +68,6 @@ const isManagerUser = ["quality", "manager"].includes(procedureUserRole);
 const procedureEntryTokenKey = "procedure-entry-token";
 const enteredFromHome = sessionStorage.getItem(procedureEntryTokenKey) === "1";
 sessionStorage.removeItem(procedureEntryTokenKey);
-
 let qualityToken = enteredFromHome ? sessionStorage.getItem(qualityTokenKey) || "" : "";
 if (!enteredFromHome) sessionStorage.removeItem(qualityTokenKey);
 let activeProcedure = (selectedProcedure?.data ? cloneData(selectedProcedure.data) : null) || (builderMode ? createBlankProcedure() : null);
@@ -76,14 +75,16 @@ let editMode = builderMode;
 let pendingAnnotation = null;
 let dragState = null;
 let reorderDrag = null;
-let saveTimer = null, savePromise = Promise.resolve(), saveState = "saved", procedureDirtySinceJsonExport = false;
+let saveTimer = null, savePromise = Promise.resolve(), saveState = "saved", procedureDirtySinceSave = false, lastSavedAt = null; const AUTO_SAVE_DELAY_MS = 60000;
 function clearAuthenticationState() { qualityToken = ""; sessionStorage.removeItem(qualityTokenKey); sessionStorage.removeItem("procedure-user-role"); }
-function markProcedureChanged() { procedureDirtySinceJsonExport = true; } function markProcedureJsonClean() { procedureDirtySinceJsonExport = false; }
+function formatSavedAt(value) { const date = value ? new Date(value) : null; return date && !Number.isNaN(date.getTime()) ? `Alterações salvas às ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "Pronto para editar"; }
+function markProcedureChanged() { procedureDirtySinceSave = true; window.localProcedureRecovery?.schedule?.(activeProcedure); if (saveState !== "pending") updateSaveState("dirty"); }
+function markProcedureSaved(value = new Date().toISOString()) { procedureDirtySinceSave = false; lastSavedAt = value; }
 function updateSaveState(state, message) {
   saveState = state;
   document.querySelectorAll("[data-save-state]").forEach((element) => {
     element.dataset.saveState = state;
-    element.textContent = message || ({ pending: "Salvando...", error: "Erro ao salvar", saved: "Alterações salvas" }[state] || "");
+    element.textContent = message || ({ dirty: "Alterações pendentes", pending: "Salvando...", error: "Erro ao salvar", saved: formatSavedAt(lastSavedAt) }[state] || "");
   });
 }
 async function apiRequest(path, options = {}) {
@@ -112,9 +113,10 @@ function handleSaveFailure(error) {
   updateSaveState("error", message); console.error("Falha ao salvar procedimento:", { status: error.status, path: error.path, message: error.message }, error);
 } function applySavedProcedureVersion(data) {
   if (data?.procedure?.updatedAt && activeProcedure?.procedureId === data.procedure.procedureId) activeProcedure.updatedAt = data.procedure.updatedAt;
+  markProcedureSaved(data?.procedure?.updatedAt || activeProcedure?.updatedAt);
+  window.localProcedureRecovery?.markDurable?.(activeProcedure);
   updateSaveState("saved");
 }
-
 if (activeProcedure) {
   activeProcedure.procedureId = activeProcedure.procedureId || procedureId;
   activeProcedure.procedureType = activeProcedure.procedureType || selectedProcedure?.type || "";
@@ -295,9 +297,9 @@ function normalizeProcedure(procedure) {
     : [["Rev.", "Data", "Alterações", "Elaboração", "Aprovação"]];
   normalizeRevisionNumbers(procedure);
   procedure.qualityInfo = {
-    documentType: "Instrução de trabalho",
+    documentType: documentTypes.find((item) => item.active !== false)?.label || "Instrução de trabalho",
     status: "Em elaboração",
-    area: "Produção",
+    area: sectors.find((item) => item.active !== false)?.label || "Produção",
     executionOwner: "Operador de montagem",
     objective: `Orientar a montagem do equipamento ${procedure.equipmentName || procedure.equipmentCode} com sequência padronizada, materiais identificados e pontos de atenção.`,
     application: `Aplicável à montagem interna do equipamento ${procedure.equipmentName || procedure.equipmentCode}.`,
@@ -468,21 +470,22 @@ function saveProcedure() {
   markProcedureChanged();
   window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
   if (!qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
-  updateSaveState("pending");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
+    updateSaveState("pending");
     const pendingSave = savePromise
       .then(() => {
         if (!activeProcedure) return null; const snapshot = createProcedureSaveSnapshot(activeProcedure);
         return apiRequest("/api/procedures/save", {
           method: "POST",
+          headers: getProcedureLockHeaders(),
           body: JSON.stringify({ procedure: snapshot }),
         });
       })
       .then(applySavedProcedureVersion);
     savePromise = pendingSave.catch(handleSaveFailure);
-  }, 250);
+  }, AUTO_SAVE_DELAY_MS);
   return savePromise;
 }
 
@@ -490,12 +493,14 @@ async function flushProcedureSave() {
   if (!activeProcedure || !qualityToken) return;
   clearTimeout(saveTimer);
   saveTimer = null;
+  updateSaveState("pending");
   window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
   const pendingSave = savePromise
     .then(() => {
       if (!activeProcedure) return null; const snapshot = createProcedureSaveSnapshot(activeProcedure);
       return apiRequest("/api/procedures/save", {
         method: "POST",
+        headers: getProcedureLockHeaders(),
         body: JSON.stringify({ procedure: snapshot }),
       });
     })
@@ -514,20 +519,19 @@ async function authenticateQuality(password) {
   sessionStorage.setItem("procedure-user-role", data.user?.role || "manager");
   return true;
 }
-
 async function loadProcedureFromServer() {
   if (!procedureId || procedureId === "default" || params.get("novo") === "1") return false;
   const data = await apiRequest(`/api/procedures/load?id=${encodeURIComponent(procedureId)}`);
   activeProcedure = data.procedure;
   normalizeProcedure(activeProcedure); if (typeof resetProcedurePdfCache === "function") resetProcedurePdfCache();
-  markProcedureJsonClean();
+  markProcedureSaved(activeProcedure.updatedAt);
   return true;
 }
-
 async function publishProcedure() {
   await flushProcedureSave();
   const data = await apiRequest("/api/procedures/publish", {
     method: "POST",
+    headers: getProcedureLockHeaders(),
     body: JSON.stringify({ procedure: activeProcedure }),
   });
   activeProcedure = data.procedure;
@@ -544,10 +548,9 @@ function setProcedureStatus(status) {
 
 async function deleteCurrentProcedure() {
   await flushProcedureSave();
-  await apiRequest(`/api/procedures/delete?id=${encodeURIComponent(procedureId)}`, { method: "DELETE" });
+  await apiRequest(`/api/procedures/delete?id=${encodeURIComponent(procedureId)}`, { method: "DELETE", headers: getProcedureLockHeaders() });
   window.location.href = "index.html";
 }
-
 function createSlug(section) {
   return `sec-${section.number.replaceAll(".", "-")}`;
 }
@@ -585,10 +588,8 @@ function classifyInstructionTone(instruction) {
   ) {
     return "warning";
   }
-
   return "success";
 }
-
 function getToneLabel(tone) {
   return {
     success: "Verde",

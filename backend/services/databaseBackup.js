@@ -1,4 +1,5 @@
 const { getDatabasePool } = require("./procedureDatabase");
+const { ensureProcedureConfiguration } = require("./procedureConfiguration");
 
 const BACKUP_VERSION = 1;
 const TABLES = ["masterDocuments", "procedureDocuments", "sequences", "reservations", "configuration", "users", "audit", "actionPlans", "instruments"];
@@ -115,6 +116,7 @@ async function restoreDatabaseBackup(input) {
     }
     await client.query(`SELECT setval(pg_get_serial_sequence('document_audit_log', 'audit_id'), COALESCE(MAX(audit_id), 1), MAX(audit_id) IS NOT NULL) FROM document_audit_log`);
     await client.query("COMMIT");
+    await ensureProcedureConfiguration();
     const counts = Object.fromEntries(TABLES.map((table) => [table, backup.tables[table].length]));
     if (!userCredentialsIncluded) counts.users = 0;
     return { restored: true, userCredentialsRestored: userCredentialsIncluded, counts };

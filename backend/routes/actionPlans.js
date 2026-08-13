@@ -6,10 +6,14 @@ const { createActionPlan, deleteActionPlan, getActionPlan, listActionPlans, upda
 const { createActionPlanPdf } = require("../services/actionPlanPdf");
 const { getProcedureConfiguration } = require("../services/procedureConfiguration");
 const { sendError } = require("../services/httpResponse");
+const sharedStorage = require("../services/sharedProcedureStorage");
 
 const router = express.Router();
 
 function handleError(res, error) { sendError(res, error); }
+async function assertSharedLock(req, id) {
+  if (sharedStorage.isConfigured()) await sharedStorage.assertModuleLock("planos-acao", id, getRequestUser(req), req.get("X-Module-Lock"));
+}
 
 router.get("/", requireProcedureEditor, async (_req, res) => {
   try { res.json({ plans: await listActionPlans() }); } catch (error) { handleError(res, error); }
@@ -18,6 +22,10 @@ router.get("/", requireProcedureEditor, async (_req, res) => {
 router.get("/new", requireProcedureEditor, (req, res) => {
   res.json({ plan: createBlankActionPlan(getRequestUser(req).displayName) });
 });
+
+router.post("/:id/lock", requireProcedureEditor, async (req, res) => { try { res.json(await sharedStorage.acquireModuleLock("planos-acao", req.params.id, getRequestUser(req))); } catch (error) { handleError(res, error); } });
+router.post("/:id/lock/heartbeat", requireProcedureEditor, async (req, res) => { try { res.json(await sharedStorage.refreshModuleLock("planos-acao", req.params.id, getRequestUser(req), req.get("X-Module-Lock"))); } catch (error) { handleError(res, error); } });
+router.delete("/:id/lock", requireProcedureEditor, async (req, res) => { try { res.json(await sharedStorage.releaseModuleLock("planos-acao", req.params.id, getRequestUser(req), req.get("X-Module-Lock"))); } catch (error) { handleError(res, error); } });
 
 router.get("/:id/pdf", requireProcedureEditor, async (req, res) => {
   try {
@@ -49,6 +57,7 @@ router.post("/", requireProcedureEditor, async (req, res) => {
 
 router.put("/:id", requireProcedureEditor, async (req, res) => {
   try {
+    await assertSharedLock(req, req.params.id);
     const plan = await updateActionPlan(req.params.id, validateActionPlan({ ...(req.body?.plan || req.body), planId: req.params.id }), getRequestUser(req));
     await recordAudit({ procedureId: plan.planId, action: "action-plan-updated", user: getRequestUser(req), details: { documentCode: plan.documentCode, status: plan.status } });
     res.json({ plan });
@@ -57,6 +66,7 @@ router.put("/:id", requireProcedureEditor, async (req, res) => {
 
 router.delete("/:id", requireManager, async (req, res) => {
   try {
+    await assertSharedLock(req, req.params.id);
     await deleteActionPlan(req.params.id);
     await recordAudit({ procedureId: req.params.id, action: "action-plan-deleted", user: getRequestUser(req) });
     res.json({ ok: true });

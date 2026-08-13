@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { getDatabasePool } = require("./procedureDatabase");
 const { normalizePlan } = require("./actionPlanRules");
+const sharedStorage = require("./sharedProcedureStorage");
 
 function createId() { return `pac-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`; }
 
@@ -29,6 +30,13 @@ async function reserveCode(client) {
 }
 
 async function listActionPlans() {
+  if (sharedStorage.isConfigured()) {
+    const records = await sharedStorage.listModuleRecords("planos-acao");
+    return Promise.all(records.map(async (record) => {
+      const lock = await sharedStorage.getModuleLock("planos-acao", record.planId);
+      return { ...metadata({ ...record, content: record, updatedAt: record.updatedAt }), ...(lock ? { editingBy: lock.displayName, editingMachine: lock.machine, editingAt: lock.acquiredAt } : {}) };
+    }));
+  }
   const result = await getDatabasePool().query(`
     SELECT plan_id AS "planId", document_code AS "documentCode", title, status, content,
       updated_at AS "updatedAt"
@@ -38,6 +46,11 @@ async function listActionPlans() {
 }
 
 async function getActionPlan(planId) {
+  if (sharedStorage.isConfigured()) {
+    const record = await sharedStorage.loadModuleRecord("planos-acao", planId);
+    if (!record) return null;
+    return { ...normalizePlan(record), planId: record.planId, documentCode: record.documentCode, title: record.title, status: record.status, updatedAt: record.updatedAt };
+  }
   const result = await getDatabasePool().query(`
     SELECT plan_id AS "planId", document_code AS "documentCode", title, status, content,
       updated_at AS "updatedAt"
@@ -49,6 +62,12 @@ async function getActionPlan(planId) {
 }
 
 async function createActionPlan(input, user) {
+  if (sharedStorage.isConfigured()) {
+    const planId = createId();
+    const code = await sharedStorage.reserveModuleCode("planos-acao", "PAC-");
+    const content = normalizePlan({ ...input, planId, documentCode: code, createdBy: user.displayName, updatedBy: user.displayName });
+    return sharedStorage.saveModuleRecord("planos-acao", content);
+  }
   const client = await getDatabasePool().connect();
   const planId = createId();
   try {
@@ -68,6 +87,12 @@ async function createActionPlan(input, user) {
 }
 
 async function updateActionPlan(planId, input, user) {
+  if (sharedStorage.isConfigured()) {
+    const current = await sharedStorage.loadModuleRecord("planos-acao", planId);
+    if (!current) throw Object.assign(new Error("Plano de aÃ§Ã£o nÃ£o encontrado."), { status: 404 });
+    const content = normalizePlan({ ...input, planId: String(planId || ""), documentCode: current.documentCode, createdBy: current.createdBy || user.displayName, updatedBy: user.displayName });
+    return sharedStorage.saveModuleRecord("planos-acao", content, input.updatedAt || null);
+  }
   const content = normalizePlan({ ...input, planId: String(planId || "") });
   const result = await getDatabasePool().query(`
     UPDATE action_plan_documents SET title = $2, status = $3, content = $4::jsonb,
@@ -79,6 +104,10 @@ async function updateActionPlan(planId, input, user) {
 }
 
 async function deleteActionPlan(planId) {
+  if (sharedStorage.isConfigured()) {
+    if (!await sharedStorage.deleteModuleRecord("planos-acao", planId)) throw Object.assign(new Error("Plano de aÃ§Ã£o nÃ£o encontrado."), { status: 404 });
+    return;
+  }
   const result = await getDatabasePool().query("DELETE FROM action_plan_documents WHERE plan_id = $1", [String(planId || "")]);
   if (!result.rowCount) throw Object.assign(new Error("Plano de ação não encontrado."), { status: 404 });
 }

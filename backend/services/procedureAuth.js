@@ -95,15 +95,31 @@ function createSession(user) {
 }
 
 function createQualitySession(password) {
+  if (sharedStorage().isConfigured()) {
+    return (async () => {
+      const account = (await sharedStorage().listUsers()).find((item) => item.username === "qualidade" && item.active !== false);
+      if (!account || !(await verifyPassword(password, account.passwordHash))) throw authError("Senha da qualidade incorreta.");
+      return createSession({ userId: account.userId, username: account.username, displayName: account.displayName || "Qualidade", role: "manager" });
+    })();
+  }
   const expectedPassword = process.env.QUALITY_PASSWORD;
   if (!expectedPassword) throw authError("A senha da qualidade nao foi configurada no servidor.", 503);
   if (typeof password !== "string" || password.length > MAX_CREDENTIAL_LENGTH || !safeEqual(password, expectedPassword)) throw authError("Senha incorreta.");
-  return createSession({ username: "qualidade", displayName: "Qualidade", role: "manager" });
+  return createSession({ username: "qualidade", displayName: process.env.QUALITY_DISPLAY_NAME || "Qualidade", role: "manager" });
+}
+
+function sharedStorage() {
+  return require("./sharedProcedureStorage");
 }
 
 async function createUserSession(username, password) {
   const normalizedUsername = String(username || "").trim().toLowerCase();
   if (!normalizedUsername || typeof password !== "string" || !password || normalizedUsername.length > 60 || password.length > MAX_CREDENTIAL_LENGTH) throw authError("Usuario ou senha incorretos.");
+  if (sharedStorage().isConfigured()) {
+    const account = (await sharedStorage().listUsers()).find((item) => item.username === normalizedUsername && item.active !== false);
+    if (!account || !(await verifyPassword(password, account.passwordHash))) throw authError("Usuario ou senha incorretos.");
+    return createSession({ userId: account.userId, username: account.username, displayName: account.displayName, role: account.role });
+  }
   const { getDatabasePool } = require("./procedureDatabase");
   const result = await getDatabasePool().query(`
     SELECT user_id AS "userId", username, display_name AS "displayName", password_hash AS "passwordHash", role
@@ -122,6 +138,11 @@ async function getValidSession(token) {
     return null;
   }
   if (session.user.userId) {
+    if (sharedStorage().isConfigured()) {
+      const account = (await sharedStorage().listUsers()).find((item) => String(item.userId) === String(session.user.userId));
+      if (!account?.active) { sessions.delete(token); return null; }
+      session.user = { ...session.user, displayName: account.displayName, role: account.role };
+    } else {
     const { getDatabasePool } = require("./procedureDatabase");
     const result = await getDatabasePool().query("SELECT display_name AS \"displayName\", role, active FROM app_users WHERE user_id = $1", [session.user.userId]);
     const account = result.rows[0];
@@ -130,6 +151,7 @@ async function getValidSession(token) {
       return null;
     }
     session.user = { ...session.user, displayName: account.displayName, role: account.role };
+    }
   }
   if (!sessions.has(token)) sessions.set(token, session);
   return session;

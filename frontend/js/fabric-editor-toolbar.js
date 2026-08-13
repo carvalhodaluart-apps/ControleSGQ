@@ -84,6 +84,11 @@
     toolbar.classList.toggle("is-empty", !element);
     toolbar.innerHTML = element ? toolbarHtml(element) : "";
     toolbar.hidden = false;
+    const cardNode = session.canvasElement.closest("[data-step-card]");
+    const undoButton = cardNode?.querySelector('[data-fabric-history="undo"]');
+    const redoButton = cardNode?.querySelector('[data-fabric-history="redo"]');
+    if (undoButton) undoButton.disabled = !(session.history?.undoStack?.length);
+    if (redoButton) redoButton.disabled = !(session.history?.redoStack?.length);
   }
 
   function ensure(session, callbacks) {
@@ -102,7 +107,7 @@
     ribbon.dataset.fabricRibbonReady = "true";
     ["mousedown", "pointerdown"].forEach((type) => {
       ribbon.addEventListener(type, (event) => {
-        if (!event.target?.closest?.("[data-fabric-action], [data-fabric-tool], [data-add-step-block], [data-fabric-select]")) return;
+        if (!event.target?.closest?.("[data-fabric-action], [data-fabric-tool], [data-add-step-block], [data-fabric-select], [data-fabric-history]")) return;
         event.preventDefault();
         event.stopPropagation();
       });
@@ -112,13 +117,15 @@
       const imageButton = event.target?.closest?.("[data-add-step-block]");
       const toolButton = event.target?.closest?.("[data-fabric-tool]");
       const actionButton = event.target?.closest?.("[data-fabric-action]");
-      if (!selectButton && !imageButton && !toolButton && !actionButton) return;
+      const historyButton = event.target?.closest?.("[data-fabric-history]");
+      if (!selectButton && !imageButton && !toolButton && !actionButton && !historyButton) return;
       event.preventDefault();
       event.stopPropagation();
       callbacks.setActive(session);
       if (selectButton) return callbacks.select(session);
       if (imageButton) return callbacks.addImage(session);
       if (toolButton) return callbacks.activateTool(session, toolButton.dataset.fabricTool, toolButton.dataset.tone || "success");
+      if (historyButton) return callbacks.history?.(session, historyButton.dataset.fabricHistory);
       return callbacks.handleAction(session, actionButton.dataset.fabricAction, actionButton.dataset);
     });
   }

@@ -28,13 +28,13 @@ function isManager() { return ["manager", "quality"].includes(sessionStorage.get
 
 async function request(path, options = {}) {
   const token = sessionStorage.getItem(tokenKey) || "";
-  const response = await fetch(`/api/action-plans${path}`, { ...options, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } });
+  const response = await fetch(`/api/action-plans${path}`, { ...options, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(window.SharedModuleLock?.headers?.() || {}), ...(options.headers || {}) } });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(data.error || "Não foi possível concluir a operação."); error.status = response.status; throw error; }
   return data;
 }
 
-function showList() { listPanel.classList.remove("is-hidden"); editorPanel.classList.add("is-hidden"); window.history.replaceState({}, "", "planos-acao.html"); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function showList() { window.SharedModuleLock?.release?.(); listPanel.classList.remove("is-hidden"); editorPanel.classList.add("is-hidden"); window.history.replaceState({}, "", "planos-acao.html"); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function showEditor() { listPanel.classList.add("is-hidden"); editorPanel.classList.remove("is-hidden"); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function setUrl(mode, id = "") { window.history.replaceState({}, "", `planos-acao.html?modo=${mode}${id ? `&id=${encodeURIComponent(id)}` : ""}`); }
 function statusClass(value) { return `action-plan-status action-plan-status-${String(value || "rascunho").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll(" ", "-")}`; }
@@ -104,8 +104,8 @@ function collectData() {
 }
 
 async function loadRecords() { records = (await request("/")).plans || []; renderList(); }
-async function openNew() { try { renderEditor((await request("/new")).plan); setUrl("novo"); } catch (error) { formError.textContent = error.message; } }
-async function openExisting(id) { try { renderEditor((await request(`/${encodeURIComponent(id)}`)).plan); setUrl("editar", id); } catch (error) { formError.textContent = error.message; } }
+async function openNew() { try { await window.SharedModuleLock?.release?.(); renderEditor((await request("/new")).plan); setUrl("novo"); } catch (error) { formError.textContent = error.message; } }
+async function openExisting(id) { try { renderEditor((await request(`/${encodeURIComponent(id)}`)).plan); await window.SharedModuleLock?.acquire?.("planos-acao", id); setUrl("editar", id); } catch (error) { formError.textContent = error.message; } }
 
 function confirmDelete() {
   return new Promise((resolve) => {
@@ -159,7 +159,7 @@ form.addEventListener("submit", async (event) => {
     const data = collectData();
     const path = current?.planId ? `/${encodeURIComponent(current.planId)}` : "/";
     const response = await request(path, { method: current?.planId ? "PUT" : "POST", body: JSON.stringify({ plan: data }) });
-    renderEditor(response.plan); setUrl("editar", response.plan.planId); await loadRecords(); saveStatus.textContent = "Salvo";
+    renderEditor(response.plan); await window.SharedModuleLock?.acquire?.("planos-acao", response.plan.planId); setUrl("editar", response.plan.planId); await loadRecords(); saveStatus.textContent = "Salvo";
   } catch (error) { formError.textContent = error.message; formError.scrollIntoView({ behavior: "smooth", block: "center" }); } finally { if (submit) submit.disabled = false; }
 });
 
@@ -194,6 +194,6 @@ async function boot() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("modo") === "novo") await openNew();
     if (params.get("modo") === "editar" && params.get("id")) await openExisting(params.get("id"));
-  } catch (error) { if (error.status === 401 || error.status === 403) window.location.href = "index.html"; else { list.innerHTML = `<div class="action-plan-empty"><strong>Não foi possível carregar o módulo.</strong><span>${escapeHtml(error.message)}</span></div>`; } }
+  } catch (error) { if (error.status === 401 || error.status === 403) window.location.href = "index.html"; else { list.innerHTML = `<div class="action-plan-empty"><strong>Não foi possível carregar o módulo.</strong><span>${escapeHtml(error.message)}</span></div>`; window.AppBoot?.error(error.message, () => boot()); } }
 }
-boot();
+boot().finally(() => window.AppBoot?.ready());

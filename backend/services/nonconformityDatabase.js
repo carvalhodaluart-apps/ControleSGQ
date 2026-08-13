@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { getDatabasePool } = require("./procedureDatabase");
 const { normalizeNonconformity } = require("./nonconformityRules");
+const sharedStorage = require("./sharedProcedureStorage");
 
 function createId() {
   return `nc-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
@@ -31,6 +32,13 @@ async function reserveCode(client) {
 }
 
 async function listNonconformities() {
+  if (sharedStorage.isConfigured()) {
+    const records = await sharedStorage.listModuleRecords("nao-conformidades");
+    return Promise.all(records.map(async (record) => {
+      const lock = await sharedStorage.getModuleLock("nao-conformidades", record.nonconformityId);
+      return { ...metadata({ ...record, content: record, updatedAt: record.updatedAt }), ...(lock ? { editingBy: lock.displayName, editingMachine: lock.machine, editingAt: lock.acquiredAt } : {}) };
+    }));
+  }
   const result = await getDatabasePool().query(`
     SELECT nonconformity_id AS "nonconformityId", document_code AS "documentCode", title,
       status, content, updated_at AS "updatedAt"
@@ -41,6 +49,11 @@ async function listNonconformities() {
 }
 
 async function getNonconformity(nonconformityId) {
+  if (sharedStorage.isConfigured()) {
+    const record = await sharedStorage.loadModuleRecord("nao-conformidades", nonconformityId);
+    if (!record) return null;
+    return { ...normalizeNonconformity(record), documentCode: record.documentCode, title: record.title, status: record.status, nonconformityId: record.nonconformityId, updatedAt: record.updatedAt };
+  }
   const result = await getDatabasePool().query(`
     SELECT nonconformity_id AS "nonconformityId", document_code AS "documentCode", title,
       status, content, updated_at AS "updatedAt"
@@ -52,6 +65,12 @@ async function getNonconformity(nonconformityId) {
 }
 
 async function createNonconformity(input, user) {
+  if (sharedStorage.isConfigured()) {
+    const id = createId();
+    const code = await sharedStorage.reserveModuleCode("nao-conformidades", "NC_");
+    const content = normalizeNonconformity({ ...input, nonconformityId: id, documentCode: code });
+    return sharedStorage.saveModuleRecord("nao-conformidades", { ...content, createdBy: user.displayName, updatedBy: user.displayName });
+  }
   const client = await getDatabasePool().connect();
   const id = createId();
   try {
@@ -73,6 +92,12 @@ async function createNonconformity(input, user) {
 }
 
 async function updateNonconformity(nonconformityId, input, user) {
+  if (sharedStorage.isConfigured()) {
+    const current = await sharedStorage.loadModuleRecord("nao-conformidades", nonconformityId);
+    if (!current) throw Object.assign(new Error("NÃ£o conformidade nÃ£o encontrada."), { status: 404 });
+    const content = normalizeNonconformity({ ...input, nonconformityId: String(nonconformityId || ""), documentCode: current.documentCode });
+    return sharedStorage.saveModuleRecord("nao-conformidades", { ...content, createdBy: current.createdBy || user.displayName, updatedBy: user.displayName }, input.updatedAt || null);
+  }
   const content = normalizeNonconformity({ ...input, nonconformityId: String(nonconformityId || "") });
   const result = await getDatabasePool().query(`
     UPDATE nonconformity_documents
@@ -85,6 +110,10 @@ async function updateNonconformity(nonconformityId, input, user) {
 }
 
 async function deleteNonconformity(nonconformityId) {
+  if (sharedStorage.isConfigured()) {
+    if (!await sharedStorage.deleteModuleRecord("nao-conformidades", nonconformityId)) throw Object.assign(new Error("NÃ£o conformidade nÃ£o encontrada."), { status: 404 });
+    return;
+  }
   const result = await getDatabasePool().query("DELETE FROM nonconformity_documents WHERE nonconformity_id = $1", [String(nonconformityId || "")]);
   if (!result.rowCount) throw Object.assign(new Error("Não conformidade não encontrada."), { status: 404 });
 }

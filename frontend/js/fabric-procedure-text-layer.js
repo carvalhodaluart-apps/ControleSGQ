@@ -263,7 +263,7 @@
     component.range = restoreTextSelection(component.content, start, end).cloneRange();
     component.content.focus({ preventScroll: true });
     syncModel(component);
-    updateProcedureTextBoxLayout(component, { autoHeight: false });
+      updateProcedureTextBoxLayout(component, { autoHeight: true });
   }
 
   function componentMarkup(element) {
@@ -292,6 +292,7 @@
   function createComponent(session, element) {
     const component = { ...componentMarkup(element), session, element, range: null, pendingBold: false, suppressClick: false };
     component.content.innerHTML = htmlFromElement(element);
+    component.content.dataset.placeholder = "Digite o texto";
     component.root.dataset.sceneId = element.id;
     component.root.addEventListener("pointerdown", (event) => handlePointerDown(component, event));
     component.root.addEventListener("click", (event) => {
@@ -300,7 +301,12 @@
     component.root.addEventListener("dblclick", (event) => {
       if (event.target?.closest?.(".procedure-text-content, .procedure-text-box")) enterEdit(session, component);
     });
-    component.content.addEventListener("pointerdown", (event) => startPointerSelection(component, event));
+    component.content.addEventListener("pointerdown", (event) => {
+      if (!component.root.classList.contains("is-editing")) {
+        enterEdit(session, component, { point: { x: event.clientX, y: event.clientY }, selectPlaceholder: false });
+      }
+      startPointerSelection(component, event);
+    });
     component.content.addEventListener("click", (event) => {
       const point = { x: event.clientX, y: event.clientY };
       if (component.root.classList.contains("is-editing")) {
@@ -320,7 +326,7 @@
     });
     component.content.addEventListener("input", () => {
       syncModel(component);
-      updateProcedureTextBoxLayout(component, { autoHeight: false });
+      updateProcedureTextBoxLayout(component, { autoHeight: true });
       session.textLayerCallbacks.live?.(session, component);
     });
     component.content.addEventListener("keydown", (event) => {
@@ -394,8 +400,6 @@
       if (!component.root.contains(event.target)) finishEdit(session, component, true);
     };
     document.addEventListener("pointerdown", component.outsideListener, true);
-    document.addEventListener("mousedown", component.outsideListener, true);
-    document.addEventListener("click", component.outsideListener, true);
     session.textLayerCallbacks.editing?.(session, component);
   }
 
@@ -413,8 +417,6 @@
     }
     document.removeEventListener("selectionchange", component.selectionListener);
     document.removeEventListener("pointerdown", component.outsideListener, true);
-    document.removeEventListener("mousedown", component.outsideListener, true);
-    document.removeEventListener("click", component.outsideListener, true);
     clearNativeSelection();
     component.range = null;
     component.content.contentEditable = "false";
@@ -444,14 +446,16 @@
     select(session, component);
     session.history.begin(session.card);
     const scale = sceneScale(session);
-    const start = { x: event.clientX, y: event.clientY, elementX: component.element.x, elementY: component.element.y, width: component.element.width };
+    const start = { x: event.clientX, y: event.clientY, elementX: component.element.x, elementY: component.element.y, width: component.element.width, height: component.element.height };
     const move = (moveEvent) => {
       const dx = (moveEvent.clientX - start.x) / scale;
       if (mode === "move") {
         component.element.x = Math.max(0, Math.min(session.card.scene.size.width - component.element.width, start.elementX + dx));
         component.element.y = Math.max(0, Math.min(session.card.scene.size.height - component.element.height, start.elementY + (moveEvent.clientY - start.y) / scale));
-      } else component.element.width = Math.max(MIN_WIDTH, Math.min(session.card.scene.size.width - component.element.x, start.width + dx));
-      updateProcedureTextBoxLayout(component, { autoHeight: false });
+      } else {
+        component.element.width = Math.max(MIN_WIDTH, Math.min(session.card.scene.size.width - component.element.x, start.width + dx));
+        updateProcedureTextBoxLayout(component, { width: component.element.width, height: start.height, autoHeight: false });
+      }
       session.card.blocks = Core.sceneToBlocks(session.card.scene, session.card);
       session.textLayerCallbacks.live?.(session, component);
     };
@@ -476,7 +480,7 @@
       component.element = element;
       if (!component.root.parentElement) session.textLayer.appendChild(component.root);
       if (!session.isEditingText) component.content.innerHTML = htmlFromElement(element);
-      updateProcedureTextBoxLayout(component, { autoHeight: false });
+      updateProcedureTextBoxLayout(component, { width: element.width, height: element.height, autoHeight: false });
       component.root.classList.toggle("is-selected", session.selection?.elementId === element.id);
     });
     session.textComponents.forEach((component, id) => {

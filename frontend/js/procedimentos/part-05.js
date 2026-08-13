@@ -270,9 +270,13 @@ procedureRoot.addEventListener("click", async (event) => {
     return;
   }
 
-  const exportButton = event.target?.closest?.("[data-export-json]");
-  if (exportButton) {
-    await withActionButtonLoading(exportButton, "Baixando...", () => exportProcedure());
+  const saveButton = event.target?.closest?.("[data-save-procedure]");
+  if (saveButton) {
+    try {
+      await withActionButtonLoading(saveButton, "Salvando...", () => flushProcedureSave());
+    } catch (error) {
+      console.error("Falha ao salvar procedimento:", error);
+    }
     return;
   }
 
