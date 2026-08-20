@@ -59,7 +59,7 @@ async function authorizeElaboration() {
   try {
     const data = await apiRequest("/api/procedures/authorize", {
       method: "POST",
-      body: JSON.stringify({ procedure: activeProcedure }),
+      body: window.ProcedurePayloadAssets.stringifyRequest(activeProcedure),
     });
     activeProcedure = data.procedure;
     normalizeProcedure(activeProcedure);
@@ -201,7 +201,7 @@ procedureRoot.addEventListener("change", async (event) => {
     const importedProcedure = JSON.parse(await jsonInput.files[0].text());
     const data = await apiRequest("/api/procedures/import", {
       method: "POST",
-      body: JSON.stringify({ procedure: importedProcedure }),
+      body: window.ProcedurePayloadAssets.stringifyRequest(importedProcedure),
     });
     activeProcedure = data.procedure;
     normalizeProcedure(activeProcedure);

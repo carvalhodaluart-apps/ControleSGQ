@@ -69,13 +69,16 @@ function updateHomeAccess() {
 
 async function apiPost(path, payload) {
   const qualityToken = sessionStorage.getItem(qualityTokenKey) || "";
+  const requestPayload = payload?.procedure
+    ? { ...payload, procedure: window.ProcedurePayloadAssets.packProcedure(payload.procedure) }
+    : payload;
   const response = await fetch(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(qualityToken ? { Authorization: `Bearer ${qualityToken}` } : {}),
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestPayload),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
@@ -83,7 +86,9 @@ async function apiPost(path, payload) {
     error.status = response.status;
     throw error;
   }
-  return response.json();
+  const data = await response.json();
+  if (data?.procedure) data.procedure = window.ProcedurePayloadAssets.unpackProcedure(data.procedure);
+  return data;
 }
 
 async function apiGet(path) {
@@ -98,7 +103,9 @@ async function apiGet(path) {
     error.status = response.status;
     throw error;
   }
-  return response.json();
+  const data = await response.json();
+  if (data?.procedure) data.procedure = window.ProcedurePayloadAssets.unpackProcedure(data.procedure);
+  return data;
 }
 
 function escapeText(value) {

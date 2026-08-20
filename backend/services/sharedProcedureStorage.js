@@ -4,6 +4,7 @@ const fsp = fs.promises;
 const os = require("os");
 const path = require("path");
 const { safeName, writeAtomic } = require("./localFiles");
+const { packEmbeddedAssets, unpackEmbeddedAssets } = require("./procedurePayloadAssets");
 
 const LOCK_TTL_MS = 90 * 1000;
 
@@ -151,7 +152,8 @@ async function listProcedures() {
   const entries = await fsp.readdir(directories.procedures, { withFileTypes: true });
   const procedures = [];
   for (const entry of entries.filter((item) => item.isFile() && item.name.endsWith(".json"))) {
-    const procedure = await readJson(path.join(directories.procedures, entry.name));
+    const stored = await readJson(path.join(directories.procedures, entry.name));
+    const procedure = stored ? unpackEmbeddedAssets(stored) : null;
     if (procedure?.procedureId) procedures.push(procedure);
   }
   return procedures;
@@ -160,7 +162,8 @@ async function listProcedures() {
 async function loadProcedure(procedureId) {
   if (!isConfigured()) return null;
   await ensureSharedDirectories();
-  return readJson(procedurePath(procedureId));
+  const stored = await readJson(procedurePath(procedureId));
+  return stored ? unpackEmbeddedAssets(stored) : null;
 }
 
 async function saveProcedure(procedure, expectedUpdatedAt = null) {
@@ -173,7 +176,8 @@ async function saveProcedure(procedure, expectedUpdatedAt = null) {
     throw error;
   }
   const saved = { ...procedure, updatedAt: new Date().toISOString() };
-  await writeAtomic(procedurePath(procedure.procedureId), `${JSON.stringify(saved, null, 2)}\n`);
+  const packed = packEmbeddedAssets(saved);
+  await writeAtomic(procedurePath(procedure.procedureId), `${JSON.stringify(packed, null, 2)}\n`);
   const assetFolder = path.join(getDirectories().assets, safeName(procedure.procedureId));
   const assets = new Map();
   const visit = (value) => {
@@ -189,7 +193,7 @@ async function saveProcedure(procedure, expectedUpdatedAt = null) {
     if (!fs.existsSync(filePath)) await writeAtomic(filePath, asset.data);
   }));
   const historyFolder = path.join(getDirectories().history, safeName(procedure.procedureId));
-  await writeAtomic(path.join(historyFolder, `${saved.updatedAt.replace(/[:.]/g, "-")}.json`), `${JSON.stringify(saved, null, 2)}\n`);
+  await writeAtomic(path.join(historyFolder, `${saved.updatedAt.replace(/[:.]/g, "-")}.json`), `${JSON.stringify(packed, null, 2)}\n`);
   return saved;
 }
 

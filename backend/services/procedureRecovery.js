@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { getLocalDirectories, safeName, writeAtomic } = require("./localFiles");
+const { packEmbeddedAssets, unpackEmbeddedAssets } = require("./procedurePayloadAssets");
 
 function isLocalMode() {
   return String(process.env.DATABASE_DRIVER || "").toLowerCase() === "sqlite";
@@ -12,7 +13,7 @@ function recoveryPath(procedureId) {
 
 async function saveProcedureRecovery(procedure) {
   if (!isLocalMode() || !procedure?.procedureId) return { saved: false };
-  const snapshot = { procedureId: procedure.procedureId, savedAt: new Date().toISOString(), procedure };
+  const snapshot = { procedureId: procedure.procedureId, savedAt: new Date().toISOString(), procedure: packEmbeddedAssets(procedure) };
   const filePath = recoveryPath(procedure.procedureId);
   await writeAtomic(filePath, `${JSON.stringify(snapshot, null, 2)}\n`);
   return { saved: true, savedAt: snapshot.savedAt };
@@ -21,7 +22,9 @@ async function saveProcedureRecovery(procedure) {
 async function loadProcedureRecovery(procedureId) {
   if (!isLocalMode() || !procedureId) return null;
   try {
-    return JSON.parse(await fs.promises.readFile(recoveryPath(procedureId), "utf8"));
+    const snapshot = JSON.parse(await fs.promises.readFile(recoveryPath(procedureId), "utf8"));
+    if (snapshot?.procedure) snapshot.procedure = unpackEmbeddedAssets(snapshot.procedure);
+    return snapshot;
   } catch (error) {
     if (error.code === "ENOENT") return null;
     throw error;

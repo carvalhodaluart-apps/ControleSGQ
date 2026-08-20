@@ -331,17 +331,16 @@ function resizeImage(file) {
       const image = new Image();
       image.onerror = reject;
       image.onload = () => {
-        const maxSize = 1400;
+        const maxSize = 1280;
         const scale = Math.min(1, maxSize / image.width, maxSize / image.height);
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(image.width * scale);
         canvas.height = Math.round(image.height * scale);
         const context = canvas.getContext("2d");
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        // WebP mantém transparência e reduz bastante o payload; navegadores
-        // sem suporte continuam usando PNG como fallback.
-        const webp = canvas.toDataURL("image/webp", 0.86);
-        resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/png"));
+        // WebP reduz bastante o payload; navegadores sem suporte usam JPEG.
+        const webp = canvas.toDataURL("image/webp", 0.8);
+        resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.82));
       };
       image.src = reader.result;
     };
@@ -361,7 +360,7 @@ async function exportProcedure(asDraft = true) {
   }
   const data = await apiRequest("/api/procedures/export-json", {
     method: "POST",
-    body: JSON.stringify({ procedure: exportData }),
+    body: window.ProcedurePayloadAssets.stringifyRequest(exportData),
   });
   const procedure = data.procedure;
   let secureSave = { saved: false };
@@ -417,7 +416,7 @@ async function requestProcedurePdf(shouldSave = true, procedure = activeProcedur
       "Content-Type": "application/json",
       Authorization: `Bearer ${qualityToken}`,
     },
-    body: JSON.stringify({ procedure }),
+    body: window.ProcedurePayloadAssets.stringifyRequest(procedure),
     signal,
   });
   if (!response.ok) {
@@ -566,7 +565,7 @@ async function downloadPublishedProcedureFiles() {
       "Content-Type": "application/json",
       Authorization: `Bearer ${qualityToken}`,
     },
-    body: JSON.stringify({ procedure: snapshot }),
+    body: window.ProcedurePayloadAssets.stringifyRequest(snapshot),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));

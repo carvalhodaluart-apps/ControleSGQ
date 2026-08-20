@@ -87,6 +87,7 @@ app.use(helmet({
   },
 }));
 app.use("/api/procedures/auth", express.json({ limit: process.env.AUTH_JSON_BODY_LIMIT || "32kb" }));
+app.use("/api/procedures", express.json({ limit: process.env.PROCEDURE_JSON_BODY_LIMIT || "100mb" }));
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "50mb" }));
 app.use("/api", apiLimiter);
 app.use("/api/procedures/auth", qualityAuthLimiter);

@@ -19,6 +19,7 @@ const { restoreDatabaseBackup } = require("../services/databaseBackup");
 const { deleteProcedureRecovery, loadProcedureRecovery, saveProcedureRecovery } = require("../services/procedureRecovery");
 const { sendError } = require("../services/httpResponse");
 const sharedStorage = require("../services/sharedProcedureStorage");
+const { packEmbeddedAssets, unpackEmbeddedAssets } = require("../services/procedurePayloadAssets");
 const {
   databaseConfigured,
   deleteMasterDocument,
@@ -39,7 +40,7 @@ function handleError(res, error) {
 }
 
 function getProcedureBody(req) {
-  return validateProcedurePayload(req.body?.procedure || req.body);
+  return unpackEmbeddedAssets(validateProcedurePayload(req.body?.procedure || req.body));
 }
 
 function createProcedureId() {
@@ -168,7 +169,7 @@ router.post("/authorize", requireProcedureEditor, async (req, res) => {
     await saveProcedure(procedure);
     await upsertMasterDocument(procedure);
     await recordAudit({ procedureId: procedure.procedureId, action: "elaboration-authorized", user: getRequestUser(req) });
-    res.status(201).json({ ok: true, procedure });
+    res.status(201).json({ ok: true, procedure: packEmbeddedAssets(procedure) });
   } catch (error) {
     handleError(res, error);
   }
@@ -184,7 +185,7 @@ router.post("/continue", requireProcedureEditor, async (req, res) => {
   try {
     const draftProcedureId = String(req.body?.draftProcedureId || "").trim();
     if (sharedStorage.isConfigured() && req.headers["x-procedure-lock"]) await sharedStorage.assertLock(draftProcedureId, getRequestUser(req), String(req.headers["x-procedure-lock"]));
-    const received = normalizeProcedure(validateProcedurePayload(req.body?.procedure));
+    const received = normalizeProcedure(unpackEmbeddedAssets(validateProcedurePayload(req.body?.procedure)));
     const stored = await loadProcedure(draftProcedureId);
     const expected = stored ? normalizeProcedure(stored) : null;
     if (!expected || expected.documentStatus !== STATUS_DRAFT || expected.elaborationAuthorized !== true) {
@@ -203,7 +204,7 @@ router.post("/continue", requireProcedureEditor, async (req, res) => {
     await saveProcedure(received);
     await upsertMasterDocument(received);
     await recordAudit({ procedureId: received.procedureId, action: "draft-continued", user: getRequestUser(req) });
-    res.json({ ok: true, procedure: received });
+    res.json({ ok: true, procedure: packEmbeddedAssets(received) });
   } catch (error) {
     handleError(res, error);
   }
@@ -211,7 +212,9 @@ router.post("/continue", requireProcedureEditor, async (req, res) => {
 
 router.get("/recovery", requireProcedureEditor, async (req, res) => {
   try {
-    res.json({ recovery: await loadProcedureRecovery(String(req.query.id || "")) });
+    const recovery = await loadProcedureRecovery(String(req.query.id || ""));
+    if (recovery?.procedure) recovery.procedure = packEmbeddedAssets(recovery.procedure);
+    res.json({ recovery });
   } catch (error) {
     handleError(res, error);
   }
@@ -219,7 +222,8 @@ router.get("/recovery", requireProcedureEditor, async (req, res) => {
 
 router.post("/recovery", requireProcedureEditor, async (req, res) => {
   try {
-    res.json(await saveProcedureRecovery(req.body?.procedure));
+    const procedure = unpackEmbeddedAssets(validateProcedurePayload(req.body?.procedure));
+    res.json(await saveProcedureRecovery(procedure));
   } catch (error) {
     handleError(res, error);
   }
@@ -261,7 +265,7 @@ router.post("/restore", requireProcedureEditor, async (req, res) => {
   try {
     const draftProcedureId = String(req.body?.draftProcedureId || "").trim();
     if (sharedStorage.isConfigured() && req.headers["x-procedure-lock"]) await sharedStorage.assertLock(draftProcedureId, getRequestUser(req), String(req.headers["x-procedure-lock"]));
-    const received = normalizeProcedure(validateProcedurePayload(req.body?.procedure));
+    const received = normalizeProcedure(unpackEmbeddedAssets(validateProcedurePayload(req.body?.procedure)));
     const stored = await loadProcedure(draftProcedureId);
     const expected = stored ? normalizeProcedure(stored) : null;
     if (!expected || expected.documentStatus !== STATUS_DRAFT || expected.elaborationAuthorized !== true) {
@@ -287,7 +291,7 @@ router.post("/restore", requireProcedureEditor, async (req, res) => {
     await saveProcedure(received, { allowVersionMismatch: true });
     await upsertMasterDocument(received);
     await recordAudit({ procedureId: received.procedureId, action: "draft-restored-from-json", user: getRequestUser(req) });
-    res.json({ ok: true, procedure: received });
+    res.json({ ok: true, procedure: packEmbeddedAssets(received) });
   } catch (error) {
     handleError(res, error);
   }
@@ -332,7 +336,7 @@ router.post("/import", requireProcedureEditor, async (req, res) => {
     await saveProcedure(procedure);
     if (hasProcedureContent(procedure)) await upsertMasterDocument(procedure);
     await recordAudit({ procedureId: procedure.procedureId, action: "imported", user: getRequestUser(req) });
-    res.status(201).json({ procedure });
+    res.status(201).json({ procedure: packEmbeddedAssets(procedure) });
   } catch (error) {
     handleError(res, error);
   }
@@ -342,7 +346,7 @@ router.get("/load", requireProcedureEditor, async (req, res) => {
   try {
     const stored = await loadProcedure(req.query.id);
     if (!stored) return res.status(404).json({ error: "Procedimento não encontrado." });
-    res.json({ procedure: normalizeProcedure(stored) });
+    res.json({ procedure: packEmbeddedAssets(normalizeProcedure(stored)) });
   } catch (error) {
     handleError(res, error);
   }
@@ -409,7 +413,7 @@ router.post("/save", requireProcedureEditor, async (req, res) => {
     if (hasContent) await upsertMasterDocument(procedure);
     else await deleteMasterDocument(procedure.procedureId);
     await recordAudit({ procedureId: procedure.procedureId, action: "saved", user: getRequestUser(req), details: { hasContent } });
-    res.json({ ok: true, procedure });
+    res.json({ ok: true, procedure: { procedureId: procedure.procedureId, updatedAt: procedure.updatedAt } });
   } catch (error) {
     handleError(res, error);
   }
@@ -426,7 +430,7 @@ router.post("/publish", requireQuality, async (req, res) => {
     await saveProcedure(procedure);
     await upsertMasterDocument(procedure);
     await recordAudit({ procedureId: procedure.procedureId, action: "published", user: getRequestUser(req), details: { approvalDate: procedure.qualityInfo.approvalDate } });
-    res.json({ ok: true, procedure });
+    res.json({ ok: true, procedure: packEmbeddedAssets(procedure) });
   } catch (error) {
     handleError(res, error);
   }
@@ -448,7 +452,7 @@ router.delete("/delete", requireQuality, async (req, res) => {
 
 router.post("/export-json", requireProcedureEditor, (req, res) => {
   try {
-    res.json({ procedure: normalizeProcedure(getProcedureBody(req)) });
+    res.json({ procedure: packEmbeddedAssets(normalizeProcedure(getProcedureBody(req))) });
   } catch (error) {
     handleError(res, error);
   }

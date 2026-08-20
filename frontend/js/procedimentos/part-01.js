@@ -106,7 +106,7 @@ async function apiRequest(path, options = {}) {
     }
     throw Object.assign(new Error(data?.error || `Erro ${response.status} ao acessar ${path}.`), { status: response.status, path });
   }
-  return response.json();
+  const data = await response.json(); if (data?.procedure) data.procedure = window.ProcedurePayloadAssets.unpackProcedure(data.procedure); return data;
 }
 function handleSaveFailure(error) {
   const message = error.status === 401 ? "Sessao expirada" : error.status === 409 ? "Conflito de edicao. Recarregue antes de salvar." : error.status >= 500 ? "Servidor indisponivel. Tente salvar novamente." : undefined;
@@ -480,7 +480,7 @@ function saveProcedure() {
         return apiRequest("/api/procedures/save", {
           method: "POST",
           headers: getProcedureLockHeaders(),
-          body: JSON.stringify({ procedure: snapshot }),
+          body: window.ProcedurePayloadAssets.stringifyRequest(snapshot),
         });
       })
       .then(applySavedProcedureVersion);
@@ -501,7 +501,7 @@ async function flushProcedureSave() {
       return apiRequest("/api/procedures/save", {
         method: "POST",
         headers: getProcedureLockHeaders(),
-        body: JSON.stringify({ procedure: snapshot }),
+        body: window.ProcedurePayloadAssets.stringifyRequest(snapshot),
       });
     })
     .then(applySavedProcedureVersion);
@@ -532,7 +532,7 @@ async function publishProcedure() {
   const data = await apiRequest("/api/procedures/publish", {
     method: "POST",
     headers: getProcedureLockHeaders(),
-    body: JSON.stringify({ procedure: activeProcedure }),
+    body: window.ProcedurePayloadAssets.stringifyRequest(activeProcedure),
   });
   activeProcedure = data.procedure;
   normalizeProcedure(activeProcedure); if (typeof resetProcedurePdfCache === "function") resetProcedurePdfCache();

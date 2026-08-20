@@ -4,6 +4,7 @@ const path = require("path");
 const { getDatabasePool } = require("./procedureDatabase");
 const { getLocalDirectories, persistEmbeddedAssets, persistProcedureVersion, safeName, writeAtomic } = require("./localFiles");
 const sharedStorage = require("./sharedProcedureStorage");
+const { packEmbeddedAssets, unpackEmbeddedAssets } = require("./procedurePayloadAssets");
 
 const STORAGE_ROOT = process.env.APP_FILES_DIR
   ? getLocalDirectories().drafts
@@ -43,13 +44,14 @@ async function saveProcedure(procedure, options = {}) {
     : "date_trunc('milliseconds', procedure_documents.updated_at) = $4::timestamptz";
   const updatedAtExpression = isLocalDatabase ? "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')" : "NOW()";
   delete content.updatedAt;
+  const packedContent = packEmbeddedAssets(content);
   const result = await getDatabasePool().query(`
     INSERT INTO procedure_documents (procedure_id, content)
     VALUES ($1, $2::jsonb)
     ON CONFLICT (procedure_id) DO UPDATE SET content = EXCLUDED.content, updated_at = ${updatedAtExpression}
       WHERE $3::boolean OR $4::timestamptz IS NULL OR ${versionPredicate}
     RETURNING updated_at AS "updatedAt"
-  `, [procedure.procedureId, JSON.stringify(content), allowVersionMismatch, expectedUpdatedAt]);
+  `, [procedure.procedureId, JSON.stringify(packedContent), allowVersionMismatch, expectedUpdatedAt]);
   if (!result.rows.length) {
     const error = new Error("O procedimento foi alterado em outra janela. Recarregue antes de salvar.");
     error.status = 409;
@@ -58,9 +60,10 @@ async function saveProcedure(procedure, options = {}) {
   procedure.updatedAt = toIso(result.rows[0].updatedAt);
   const filePath = getProcedurePath(procedure.procedureId);
   try {
-    await writeAtomic(filePath, `${JSON.stringify(procedure, null, 2)}\n`);
+    const packedProcedure = packEmbeddedAssets(procedure);
+    await writeAtomic(filePath, `${JSON.stringify(packedProcedure, null, 2)}\n`);
     await persistEmbeddedAssets(procedure);
-    await persistProcedureVersion(procedure);
+    await persistProcedureVersion(packedProcedure);
   } catch (error) {
     console.warn(`N\u00e3o foi poss\u00edvel atualizar o espelho local do procedimento: ${error.message}`);
   }
@@ -70,11 +73,11 @@ async function saveProcedure(procedure, options = {}) {
 async function loadProcedure(procedureId) {
   if (sharedStorage.isConfigured()) return sharedStorage.loadProcedure(procedureId);
   const result = await getDatabasePool().query("SELECT content, updated_at AS \"updatedAt\" FROM procedure_documents WHERE procedure_id = $1", [String(procedureId || "")]);
-  if (result.rows[0]?.content) return { ...result.rows[0].content, updatedAt: toIso(result.rows[0].updatedAt) };
+  if (result.rows[0]?.content) return { ...unpackEmbeddedAssets(result.rows[0].content), updatedAt: toIso(result.rows[0].updatedAt) };
   const filePath = getProcedurePath(procedureId);
   try {
     const content = await fsp.readFile(filePath, "utf8");
-    return JSON.parse(content);
+    return unpackEmbeddedAssets(JSON.parse(content));
   } catch (error) {
     if (error.code === "ENOENT") return null;
     throw error;

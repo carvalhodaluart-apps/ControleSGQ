@@ -48,7 +48,7 @@
   async function saveSnapshot(procedure) {
     const procedureId = snapshotKey(procedure);
     if (!procedureId || procedure?.documentStatus === "Publicado") return;
-    const snapshot = { procedureId, savedAt: new Date().toISOString(), procedure: snapshotProcedure(procedure) };
+    const snapshot = { procedureId, savedAt: new Date().toISOString(), procedure: window.ProcedurePayloadAssets.packProcedure(snapshotProcedure(procedure)) };
     const serialized = JSON.stringify(snapshot);
     try {
       if (serialized.length <= SMALL_RECOVERY_LIMIT) localStorage.setItem(`controle-sgq-recovery:${procedureId}`, serialized);
@@ -88,7 +88,9 @@
     try { browserLocal = JSON.parse(localStorage.getItem(`controle-sgq-recovery:${procedureId}`) || "null"); } catch (_error) { browserLocal = null; }
     const [local, remote] = await Promise.all([storeGet(procedureId).catch(() => null), getRemote(procedureId)]);
     const recovery = [browserLocal, local, remote].filter(Boolean).sort((first, second) => String(second.savedAt || "").localeCompare(String(first.savedAt || "")))[0];
-    if (!recovery?.procedure || JSON.stringify(recovery.procedure) === JSON.stringify(activeProcedure)) return;
+    if (!recovery?.procedure) return;
+    recovery.procedure = window.ProcedurePayloadAssets.unpackProcedure(recovery.procedure);
+    if (JSON.stringify(recovery.procedure) === JSON.stringify(activeProcedure)) return;
     const choice = await showConfirmDialog({
       title: "Foi encontrada uma edi\u00e7\u00e3o n\u00e3o salva",
       message: `Existe uma c\u00f3pia de recupera\u00e7\u00e3o criada em ${new Date(recovery.savedAt).toLocaleString("pt-BR")}. Ela pode conter altera\u00e7\u00f5es mais recentes do que a \u00faltima vers\u00e3o salva. Escolha qual vers\u00e3o deseja abrir:`,
@@ -110,7 +112,7 @@
   window.localProcedureRecovery = { schedule, markDurable: clear, discard: clear, checkForRecovery };
   window.addEventListener("pagehide", () => {
     if (!activeProcedure?.procedureId || activeProcedure?.documentStatus === "Publicado") return;
-    const snapshot = { procedureId: activeProcedure.procedureId, savedAt: new Date().toISOString(), procedure: snapshotProcedure(activeProcedure) };
+    const snapshot = { procedureId: activeProcedure.procedureId, savedAt: new Date().toISOString(), procedure: window.ProcedurePayloadAssets.packProcedure(snapshotProcedure(activeProcedure)) };
     try {
       const serialized = JSON.stringify(snapshot);
       if (serialized.length <= SMALL_RECOVERY_LIMIT) localStorage.setItem(`controle-sgq-recovery:${snapshot.procedureId}`, serialized);

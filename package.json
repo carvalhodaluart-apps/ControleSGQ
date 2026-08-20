@@ -1,6 +1,6 @@
 {
   "name": "criador-procedimentos",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "author": "Controle SGQ",
   "description": "Webapp para criar procedimentos internos e exportar PDF/JSON.",

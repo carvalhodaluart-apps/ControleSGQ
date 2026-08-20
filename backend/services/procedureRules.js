@@ -368,8 +368,8 @@ function validateProcedurePayload(procedure) {
   }
 
   const serializedSize = Buffer.byteLength(JSON.stringify(procedure), "utf8");
-  if (serializedSize > 50 * 1024 * 1024) {
-    const error = new Error("O procedimento ultrapassa o limite de 50 MB.");
+  if (serializedSize > 90 * 1024 * 1024) {
+    const error = new Error("O procedimento ultrapassa o limite de 90 MB mesmo após compactar as imagens.");
     error.status = 413;
     throw error;
   }

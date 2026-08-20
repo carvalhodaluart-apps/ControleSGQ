@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
+const { packEmbeddedAssets } = require("./procedurePayloadAssets");
 
 const DEFAULT_PROCEDURE_VERSION_LIMIT = 10;
 
@@ -88,7 +89,8 @@ async function persistProcedureVersion(procedure) {
   const folder = path.join(directories.versions, safeName(procedure.procedureId));
   const filename = `${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
   const filePath = path.join(folder, filename);
-  await writeAtomic(filePath, `${JSON.stringify(procedure, null, 2)}\n`);
+  const storedProcedure = procedure?._embeddedAssets ? procedure : packEmbeddedAssets(procedure);
+  await writeAtomic(filePath, `${JSON.stringify(storedProcedure, null, 2)}\n`);
   const entries = (await fsp.readdir(folder, { withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
     .map((entry) => entry.name)
