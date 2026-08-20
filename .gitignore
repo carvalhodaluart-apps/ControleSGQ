@@ -7,3 +7,6 @@ backups/
 tmp/
 temp-video-frame.png
 release*/
+dados_locais/
+/app.zip
+/$destination/

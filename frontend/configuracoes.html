@@ -74,6 +74,11 @@
             <input type="file" id="coverImageInput" accept="image/png,image/jpeg,image/webp">
           </label>
           <button type="button" class="secondary-button" id="clearCoverImage">Remover imagem</button>
+          <label class="configuration-file-button">
+            <span>Selecionar logo dos PDFs</span>
+            <input type="file" id="watermarkImageInput" accept="image/png,image/jpeg,image/webp">
+          </label>
+          <button type="button" class="secondary-button" id="clearWatermarkImage">Remover logo</button>
           <div class="configuration-position-control">
             <span>Posição das informações</span>
             <div class="configuration-position-grid" role="group" aria-label="Posição das informações na capa">
@@ -88,7 +93,7 @@
               <button type="button" data-cover-position="bottom-right" aria-label="Inferior direita">↘</button>
             </div>
           </div>
-          <small class="configuration-cover-note">A imagem será ajustada automaticamente ao espaço da capa.</small>
+          <small class="configuration-cover-note">A imagem da capa e o logo são aplicados nos documentos gerados.</small>
         </div>
       </div>
     </details>
@@ -160,7 +165,7 @@
       <small class="configuration-cover-note">A restauração substitui os dados atuais e deve ser usada apenas com um backup confiável.</small>
     </details>
 
-    <details class="configuration-card">
+    <details class="configuration-card" id="sharedFolderConfigurationCard">
       <summary class="configuration-card-heading">
         <div>
           <h2>Pasta compartilhada dos procedimentos</h2>

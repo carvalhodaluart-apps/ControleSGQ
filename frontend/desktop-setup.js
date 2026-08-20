@@ -25,6 +25,17 @@
   const sharedSkip = document.querySelector("#sharedFolderSetupSkip");
   const sharedError = document.querySelector("#sharedFolderSetupError");
 
+  if (!window.desktopSharedFolder?.supported) {
+    createShared?.closest("label")?.classList.add("is-hidden");
+    if (createShared) {
+      createShared.checked = false;
+      createShared.disabled = true;
+    }
+    sharedFields?.classList.add("is-hidden");
+    sharedBackdrop?.classList.add("is-hidden");
+    hostResult?.classList.add("is-hidden");
+  }
+
   function showError(message) {
     errorMessage.textContent = message || "Nao foi possivel concluir a configuracao.";
   }
@@ -101,6 +112,7 @@
     if (password.value !== confirmation.value) return showError("As senhas nao conferem.");
     if (role?.value === "editor" && !/^[a-z0-9][a-z0-9._-]{2,59}$/i.test(username?.value.trim() || "")) return showError("Informe um usuario de editor valido.");
     if (createShared?.checked && role?.value !== "manager") return showError("Somente o gestor pode configurar o computador central.");
+    if (createShared?.checked && !window.desktopSharedFolder?.supported) return showError("Esta versao usa apenas dados locais.");
     if (createShared?.checked) {
       if (sharedPassword.value.length < 8) return showError("A senha da pasta deve ter pelo menos 8 caracteres.");
       if (sharedPassword.value !== sharedPasswordConfirm.value) return showError("As senhas da pasta nao conferem.");

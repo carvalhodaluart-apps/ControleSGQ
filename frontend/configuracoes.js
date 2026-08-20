@@ -18,10 +18,12 @@ const coverPreview = document.querySelector("#coverPreview");
 const coverEmpty = document.querySelector("#coverEmpty");
 const coverOverlay = document.querySelector("#coverOverlay");
 const coverImageInput = document.querySelector("#coverImageInput");
+const watermarkImageInput = document.querySelector("#watermarkImageInput");
 const sharedFolderName = document.querySelector("#sharedFolderName");
 const sharedFolderStatus = document.querySelector("#sharedFolderStatus");
 const sharedFolderNetworkPath = document.querySelector("#sharedFolderNetworkPath");
 const copySharedFolderPathButton = document.querySelector("#copySharedFolderPath");
+const sharedFolderConfigurationCard = document.querySelector("#sharedFolderConfigurationCard");
 const selectSharedFolderButton = document.querySelector("#selectSharedFolder");
 const testSharedFolderButton = document.querySelector("#testSharedFolder");
 const forgetSharedFolderButton = document.querySelector("#forgetSharedFolder");
@@ -139,6 +141,8 @@ function resizeCoverImage(file) {
   });
 }
 
+function resizeWatermarkImage(file) { return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => { const target = 320; const scale = Math.min(1, target / Math.max(image.naturalWidth, image.naturalHeight)); const canvas = document.createElement("canvas"); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale)); canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(image.src); resolve(canvas.toDataURL("image/webp", 0.86)); }; image.onerror = () => reject(new Error("Não foi possível abrir o logo.")); image.src = URL.createObjectURL(file); }); }
+
 function collectRows(selector, kind) {
   return [...document.querySelectorAll(`${selector} .configuration-row`)].map((row) => ({
     key: row.querySelector("[data-config-key]").value,
@@ -222,7 +226,8 @@ async function loadConfiguration() {
   const data = await request("/api/configuration");
   configuration = data.configuration;
   configurationDirty = false;
-  configuration.cover ||= { imageData: "", overlayPosition: "center", overlayX: 0.5, overlayY: 0.5 };
+  configuration.cover ||= { imageData: "", logoData: "", overlayPosition: "center", overlayX: 0.5, overlayY: 0.5 };
+  configuration.cover.logoData ||= "";
   configuration.nonconformity ||= {
     origins: ["Auditoria interna", "Cliente", "Fornecedor", "Processo", "Produto", "Documento", "Outro"].map((label) => ({ key: label.toLowerCase().replaceAll(" ", "-"), label, active: true })),
     sections: ["Identifica\u00e7\u00e3o", "Descri\u00e7\u00e3o e evid\u00eancias", "Corre\u00e7\u00e3o e conten\u00e7\u00e3o", "An\u00e1lise de causa", "Plano de a\u00e7\u00e3o corretiva", "Verifica\u00e7\u00e3o de efic\u00e1cia", "Encerramento e contexto"].map((label, index) => ({ key: ["identification", "description", "containment", "cause", "actions", "effectiveness", "closure"][index], label, active: true })),
@@ -253,12 +258,14 @@ function renderSharedFolderStatus(status) {
   testSharedFolderButton.disabled = !supported || !configured;
   forgetSharedFolderButton.disabled = !supported || !configured;
   if (!supported) {
+    sharedFolderConfigurationCard?.setAttribute("hidden", "");
     sharedFolderName.textContent = "Disponível apenas no aplicativo instalado";
     sharedFolderStatus.textContent = "Abra o Controle SGQ pelo instalador para selecionar uma pasta de rede.";
     sharedFolderNetworkPath.classList.add("is-hidden");
     copySharedFolderPathButton.classList.add("is-hidden");
     return;
   }
+  sharedFolderConfigurationCard?.removeAttribute("hidden");
   if (!configured) {
     sharedFolderName.textContent = "Nenhuma pasta configurada";
     sharedFolderStatus.textContent = "Selecione uma pasta de rede com leitura e gravação.";
@@ -378,10 +385,26 @@ coverImageInput.addEventListener("change", async () => {
     coverImageInput.value = "";
   }
 });
+watermarkImageInput?.addEventListener("change", async () => {
+  if (!watermarkImageInput.files?.[0]) return;
+  try {
+    configuration.cover.logoData = await resizeWatermarkImage(watermarkImageInput.files[0]);
+    markConfigurationDirty();
+    statusMessage.textContent = "Logo pronto para salvar.";
+  } catch (requestError) {
+    errorMessage.textContent = requestError.message;
+    watermarkImageInput.value = "";
+  }
+});
 document.querySelector("#clearCoverImage").addEventListener("click", () => {
   configuration.cover.imageData = "";
   coverImageInput.value = "";
   updateCoverPreview();
+});
+document.querySelector("#clearWatermarkImage")?.addEventListener("click", () => {
+  configuration.cover.logoData = "";
+  watermarkImageInput.value = "";
+  markConfigurationDirty();
 });
 document.querySelectorAll("[data-cover-position]").forEach((button) => button.addEventListener("click", () => {
   configuration.cover.overlayPosition = button.dataset.coverPosition;

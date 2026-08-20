@@ -23,6 +23,10 @@
     return ["image", "arrow", "circle", "square"].includes(element?.type);
   }
 
+  function markupShadow(element) {
+    return undefined;
+  }
+
   function commonProps(element, interactive) {
     const centered = usesCenteredOrigin(element);
     return {
@@ -32,9 +36,12 @@
       originY: centered ? "center" : "top",
       angle: element.rotation || 0,
       opacity: element.opacity ?? 1,
+      shadow: markupShadow(element),
       selectable: Boolean(interactive) && !element.locked,
       evented: Boolean(interactive) && !element.locked,
       hasRotatingPoint: Boolean(interactive),
+      snapAngle: 15,
+      snapThreshold: 7.5,
       cornerStyle: "circle",
       cornerSize: 12,
       touchCornerSize: 24,
@@ -142,11 +149,34 @@
     const headWidth = 24;
     const headCenter = Math.max(headWidth / 2, element.width - headWidth / 2);
     const lineEnd = Math.max(1, headCenter - headWidth / 2);
+    const contourLine = new Fabric.Line([0, element.height / 2, lineEnd, element.height / 2], {
+      stroke: tone.fill,
+      strokeWidth: stroke + 4,
+      strokeLineCap: "round",
+      strokeUniform: true,
+      selectable: false,
+      evented: false,
+    });
     const line = new Fabric.Line([0, element.height / 2, lineEnd, element.height / 2], {
       stroke: tone.stroke,
       strokeWidth: stroke,
       strokeLineCap: "round",
       strokeUniform: true,
+    });
+    const contourHead = new Fabric.Triangle({
+      left: headCenter,
+      top: element.height / 2,
+      width: headWidth,
+      height: headWidth,
+      fill: tone.stroke,
+      stroke: tone.fill,
+      strokeWidth: 4,
+      strokeUniform: true,
+      angle: 90,
+      originX: "center",
+      originY: "center",
+      selectable: false,
+      evented: false,
     });
     const head = new Fabric.Triangle({
       left: headCenter,
@@ -158,41 +188,31 @@
       originX: "center",
       originY: "center",
     });
-    const group = new Fabric.Group([line, head], {
+    const group = new Fabric.Group([contourLine, contourHead, line, head], {
       ...commonProps(element, options.interactive),
       lockScalingY: Boolean(options.interactive),
     });
     group.objectRole = "procedure-arrow";
-    group.arrowParts = { line, head };
+    group.arrowParts = { line, head, contourLine, contourHead };
     if (options.interactive) configureArrowControls(group);
     return group;
   }
 
   function shapeObject(element, options) {
     const tone = toneOf(element.tone);
-    const props = {
-      ...commonProps(element, options.interactive),
-      fill: element.fill || "transparent",
-      stroke: tone.stroke,
-      strokeWidth: element.borderWidth,
-      strokeUniform: true,
-    };
+    const borderWidth = Math.max(1, Number(element.borderWidth) || 3);
+    const childProps = { fill: element.fill || "transparent", strokeUniform: true, originX: "center", originY: "center", left: 0, top: 0, selectable: false, evented: false };
     if (element.type === "circle") {
       const diameter = Math.max(1, Math.max(element.width, element.height));
-      const circle = new Fabric.Circle({
-        ...props,
-        radius: diameter / 2,
-        lockUniScaling: Boolean(options.interactive),
-      });
-      circle.baseWidth = diameter;
-      circle.baseHeight = diameter;
-      return circle;
+      const contour = new Fabric.Circle({ ...childProps, radius: diameter / 2, stroke: tone.fill, strokeWidth: borderWidth + 4 });
+      const circle = new Fabric.Circle({ ...childProps, radius: diameter / 2, stroke: tone.stroke, strokeWidth: borderWidth });
+      const group = new Fabric.Group([contour, circle], { ...commonProps(element, options.interactive), lockUniScaling: Boolean(options.interactive) });
+      group.baseWidth = diameter; group.baseHeight = diameter; return group;
     }
-    return new Fabric.Rect({
-      ...props,
-      width: element.width,
-      height: element.height,
-    });
+    const contour = new Fabric.Rect({ ...childProps, width: element.width, height: element.height, stroke: tone.fill, strokeWidth: borderWidth + 4 });
+    const rect = new Fabric.Rect({ ...childProps, width: element.width, height: element.height, stroke: tone.stroke, strokeWidth: borderWidth });
+    const group = new Fabric.Group([contour, rect], commonProps(element, options.interactive));
+    group.baseWidth = element.width; group.baseHeight = element.height; return group;
   }
 
   async function imageObject(element, options) {
@@ -249,13 +269,40 @@
     return group;
   }
 
-  function markerObjects(element, annotation) {
-    const x = element.x + (Number(annotation.x) || 0) * element.width / 100;
-    const y = element.y + (Number(annotation.y) || 0) * element.height / 100;
+  function annotationPoint(element, annotation) {
+    const centerX = element.x + element.width / 2;
+    const centerY = element.y + element.height / 2;
+    const localX = ((Number(annotation.x) || 0) - 50) * element.width / 100;
+    const localY = ((Number(annotation.y) || 0) - 50) * element.height / 100;
+    const flippedX = localX * (element.flipX ? -1 : 1);
+    const flippedY = localY * (element.flipY ? -1 : 1);
+    const angle = (Number(element.rotation) || 0) * Math.PI / 180;
+    return {
+      x: centerX + flippedX * Math.cos(angle) - flippedY * Math.sin(angle),
+      y: centerY + flippedX * Math.sin(angle) + flippedY * Math.cos(angle),
+    };
+  }
+
+  function annotationAngle(element, annotation) {
+    const localAngle = (Number(annotation.rotation) || 0) * Math.PI / 180;
+    const flippedX = Math.cos(localAngle) * (element.flipX ? -1 : 1);
+    const flippedY = Math.sin(localAngle) * (element.flipY ? -1 : 1);
+    const imageAngle = (Number(element.rotation) || 0) * Math.PI / 180;
+    return Math.atan2(
+      flippedX * Math.sin(imageAngle) + flippedY * Math.cos(imageAngle),
+      flippedX * Math.cos(imageAngle) - flippedY * Math.sin(imageAngle),
+    ) * 180 / Math.PI;
+  }
+
+  function markerObjects(element, annotation, annotationIndex) {
+    const point = annotationPoint(element, annotation);
     const objects = [
       new Fabric.Circle({
-        left: x,
-        top: y,
+        left: point.x,
+        top: point.y,
+        angle: Number(element.rotation) || 0,
+        scaleX: element.flipX ? -1 : 1,
+        scaleY: element.flipY ? -1 : 1,
         radius: 16,
         originX: "center",
         originY: "center",
@@ -266,8 +313,11 @@
         evented: false,
       }),
       new Fabric.Text(String(annotation.number || ""), {
-        left: x,
-        top: y,
+        left: point.x,
+        top: point.y,
+        angle: Number(element.rotation) || 0,
+        scaleX: element.flipX ? -1 : 1,
+        scaleY: element.flipY ? -1 : 1,
         width: 32,
         fontFamily: "Arial, Helvetica, sans-serif",
         fontSize: String(annotation.number || "").length > 1 ? 15 : 18,
@@ -280,14 +330,17 @@
         evented: false,
       }),
     ];
-    objects.forEach((object) => { object.annotationOwnerId = element.id; });
+    objects.forEach((object) => {
+      object.annotationOwnerId = element.id;
+      object.annotationIndex = annotationIndex;
+      object.annotationKind = "marker";
+    });
     return objects;
   }
 
-  function annotationArrowObject(element, annotation) {
+  function annotationArrowObject(element, annotation, annotationIndex) {
     const tone = toneOf(annotation.tone || "success");
-    const x = element.x + (Number(annotation.x) || 0) * element.width / 100;
-    const y = element.y + (Number(annotation.y) || 0) * element.height / 100;
+    const point = annotationPoint(element, annotation);
     const object = new Fabric.Group([
       new Fabric.Line([0, 0, 78, 0], {
         stroke: tone.stroke,
@@ -306,22 +359,44 @@
         originY: "center",
       }),
     ], {
-      left: x,
-      top: y,
-      angle: Number(annotation.rotation) || 0,
+      left: point.x,
+      top: point.y,
+      angle: annotationAngle(element, annotation),
       selectable: false,
       evented: false,
     });
     object.annotationOwnerId = element.id;
+    object.annotationIndex = annotationIndex;
+    object.annotationKind = "arrow";
     return object;
   }
 
   function annotationObjects(element) {
-    return (element.annotations || []).flatMap((annotation) => {
-      if (annotation.type === "marker") return markerObjects(element, annotation);
-      if (annotation.type === "arrow") return [annotationArrowObject(element, annotation)];
+    return (element.annotations || []).flatMap((annotation, annotationIndex) => {
+      if (annotation.type === "marker") return markerObjects(element, annotation, annotationIndex);
+      if (annotation.type === "arrow") return [annotationArrowObject(element, annotation, annotationIndex)];
       return [];
     });
+  }
+
+  function syncAnnotationObject(element, object) {
+    const annotation = element?.annotations?.[Number(object?.annotationIndex)];
+    if (!annotation || object?.annotationOwnerId !== element.id) return;
+    const point = annotationPoint(element, annotation);
+    object.set({
+      left: point.x,
+      top: point.y,
+      angle: object.annotationKind === "arrow" ? annotationAngle(element, annotation) : Number(element.rotation) || 0,
+      ...(object.annotationKind === "marker" ? {
+        scaleX: element.flipX ? -1 : 1,
+        scaleY: element.flipY ? -1 : 1,
+      } : {}),
+    });
+    object.setCoords?.();
+  }
+
+  function syncAnnotationObjects(element, objects) {
+    (objects || []).forEach((object) => syncAnnotationObject(element, object));
   }
 
   async function create(element, options = {}) {
@@ -340,5 +415,5 @@
     return object ? [object, ...annotations] : annotations;
   }
 
-  window.FabricObjectFactory = { create, createWithAnnotations, annotationObjects, plainText, toneOf };
+  window.FabricObjectFactory = { create, createWithAnnotations, annotationObjects, plainText, syncAnnotationObjects, toneOf };
 }());

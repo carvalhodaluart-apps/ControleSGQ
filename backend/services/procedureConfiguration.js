@@ -97,6 +97,7 @@ function normalizeCover(cover, defaults) {
   const coordinate = (value, fallback) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : fallback;
   return {
     imageData,
+    logoData: sanitizeImageData(text(cover?.logoData)) || "",
     overlayPosition: validPositions.has(cover?.overlayPosition) ? cover.overlayPosition : defaults.overlayPosition,
     overlayX: coordinate(cover?.overlayX, defaults.overlayX),
     overlayY: coordinate(cover?.overlayY, defaults.overlayY),

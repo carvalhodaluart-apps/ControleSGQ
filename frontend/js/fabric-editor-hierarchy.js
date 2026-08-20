@@ -79,23 +79,29 @@
     return null;
   }
 
-  function objectRect(object, left = object.left, top = object.top) {
-    const coordinates = object?.getCoords?.() || [];
-    if (coordinates.length) {
-      const xs = coordinates.map((point) => point.x);
-      const ys = coordinates.map((point) => point.y);
-      return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
-    }
-    const width = Math.abs(Number(object.width) || 0) * Math.abs(Number(object.scaleX) || 1);
-    const height = Math.abs(Number(object.height) || 0) * Math.abs(Number(object.scaleY) || 1);
-    if (object.originX === "center") left -= width / 2;
-    if (object.originY === "center") top -= height / 2;
-    return {
-      left,
-      top,
-      right: left + width,
-      bottom: top + height,
-    };
+  function polygonFor(object) {
+    object?.setCoords?.();
+    return object?.getCoords?.() || [];
+  }
+
+  function polygonOverlaps(first, second) {
+    if (first.length < 3 || second.length < 3) return false;
+    const polygons = [first, second];
+    const axes = polygons.flatMap((polygon) => polygon.map((point, index) => {
+      const next = polygon[(index + 1) % polygon.length];
+      const axisX = -(next.y - point.y);
+      const axisY = next.x - point.x;
+      const length = Math.hypot(axisX, axisY) || 1;
+      return { x: axisX / length, y: axisY / length };
+    }));
+    return !axes.some((axis) => {
+      const projections = polygons.map((polygon) => polygon.map((point) => point.x * axis.x + point.y * axis.y));
+      const firstMin = Math.min(...projections[0]);
+      const firstMax = Math.max(...projections[0]);
+      const secondMin = Math.min(...projections[1]);
+      const secondMax = Math.max(...projections[1]);
+      return firstMax <= secondMin || secondMax <= firstMin;
+    });
   }
 
   function captureTransform(object) {
@@ -110,11 +116,11 @@
 
   function constrainImageObject(object, canvas, previous) {
     if (!object || object.sceneType !== "image") return captureTransform(object);
-    const current = objectRect(object);
+    const current = polygonFor(object);
     const collision = canvas.getObjects().some((other) => (
       other !== object
       && other.sceneType === "image"
-      && overlaps(current, objectRect(other))
+      && polygonOverlaps(current, polygonFor(other))
     ));
     if (!collision) return captureTransform(object);
     if (previous) object.set(previous);

@@ -428,9 +428,9 @@ function createBlockId(type) {
 }
 
 function createProcedureSaveSnapshot(procedure) {
-  const snapshot = cloneData(procedure);
+  window.FabricEditorLiveSync?.syncMountedScenes?.(procedure); const snapshot = cloneData(procedure);
   window.SceneGraphCore?.syncProcedureScenes?.(snapshot);
-  return snapshot;
+  return window.removeTransientPdfExports?.(snapshot) || snapshot;
 }
 
 function createBlankProcedure() {
@@ -467,7 +467,7 @@ function createBlankProcedure() {
 
 function saveProcedure() {
   if (!activeProcedure) return savePromise; if (typeof markProcedurePdfOutdated === "function") markProcedurePdfOutdated();
-  markProcedureChanged();
+  markProcedureChanged(); window.FabricEditorLiveSync?.syncMountedScenes?.(activeProcedure);
   window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
   if (!qualityToken || (builderMode && !elaborationAuthorized)) return savePromise;
   clearTimeout(saveTimer);
@@ -493,7 +493,7 @@ async function flushProcedureSave() {
   if (!activeProcedure || !qualityToken) return;
   clearTimeout(saveTimer);
   saveTimer = null;
-  updateSaveState("pending");
+  updateSaveState("pending"); window.FabricEditorLiveSync?.syncMountedScenes?.(activeProcedure);
   window.SceneGraphCore?.syncProcedureScenes?.(activeProcedure);
   const pendingSave = savePromise
     .then(() => {

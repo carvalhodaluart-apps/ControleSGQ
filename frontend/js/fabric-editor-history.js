@@ -4,15 +4,40 @@
   }
 
   class CanvasHistory {
-    constructor(limit = 50) {
+    constructor(limit = 30) {
       this.limit = limit;
       this.undoStack = [];
       this.redoStack = [];
       this.before = null;
+      this.imageCache = new Map();
+      this.imageSequence = 0;
     }
 
     snapshot(card) {
-      return clone(card?.scene || null);
+      return this.compact(clone(card?.scene || null));
+    }
+
+    compact(scene) {
+      if (!scene) return scene;
+      scene.elements?.forEach((element) => {
+        if (element.type !== "image" || typeof element.image !== "string" || element.image.length < 1024) return;
+        let token = this.imageCache.get(element.image);
+        if (!token) {
+          token = `__history_image_${++this.imageSequence}__`;
+          this.imageCache.set(element.image, token);
+          this.imageCache.set(token, element.image);
+        }
+        element.image = token;
+      });
+      return scene;
+    }
+
+    materialize(scene) {
+      const result = clone(scene);
+      result?.elements?.forEach((element) => {
+        if (typeof element.image === "string" && this.imageCache.has(element.image)) element.image = this.imageCache.get(element.image);
+      });
+      return result;
     }
 
     begin(card) {
@@ -40,14 +65,14 @@
       const command = this.undoStack.pop();
       if (!command) return null;
       this.redoStack.push(command);
-      return clone(command.before);
+      return this.materialize(command.before);
     }
 
     redo() {
       const command = this.redoStack.pop();
       if (!command) return null;
       this.undoStack.push(command);
-      return clone(command.after);
+      return this.materialize(command.after);
     }
   }
 

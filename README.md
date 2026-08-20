@@ -16,7 +16,7 @@ set SESSION_SECRET=um_segredo_longo_para_assinar_sessoes
 set DATABASE_URL=postgresql://usuario:senha@servidor:5432/controle_sgq
 set POSTGRES_PASSWORD=uma_senha_forte_apenas_para_o_docker_local
 set APP_HOST=127.0.0.1
-npm start
+npm run start:local
 ```
 
 Em producao no Render, configure pelo menos:

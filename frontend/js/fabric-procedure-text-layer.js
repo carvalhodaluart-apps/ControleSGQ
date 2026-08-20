@@ -44,6 +44,43 @@
       .replace(/\r/g, "");
   }
 
+  function visualRenderLines(content) {
+    const lines = [];
+    let line = [];
+    let word = null;
+    let lineTop = null;
+    const finishWord = () => {
+      if (word?.text) line.push(word);
+      word = null;
+    };
+    const finishLine = () => {
+      finishWord();
+      if (line.length) lines.push(line);
+      line = [];
+    };
+    const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const bold = Boolean(node.parentElement?.closest("strong, b"));
+      [...node.nodeValue].forEach((char, index) => {
+        if (/\s/.test(char)) return finishWord();
+        const range = document.createRange();
+        range.setStart(node, index);
+        range.setEnd(node, index + 1);
+        const rect = range.getClientRects()[0];
+        if (rect && lineTop !== null && Math.abs(rect.top - lineTop) > 1.5) finishLine();
+        if (rect) lineTop = rect.top;
+        if (!word || word.bold !== bold) {
+          finishWord();
+          word = { text: "", bold };
+        }
+        word.text += char;
+      });
+    }
+    finishLine();
+    return lines;
+  }
+
   function sceneScale(session) {
     const size = session.card.scene.size;
     const rect = session.textLayer.getBoundingClientRect();
@@ -82,6 +119,7 @@
     const { element, content, session } = component;
     element.html = sanitizeHtml(content.innerHTML);
     element.text = plainText(content);
+    element.renderLines = visualRenderLines(content);
     session.card.blocks = Core.sceneToBlocks(session.card.scene, session.card);
     return element;
   }
@@ -274,7 +312,7 @@
       <div class="procedure-text-panel" aria-hidden="true"></div>
       <div class="procedure-text-stripe" aria-hidden="true"></div>
       <button type="button" class="procedure-text-move-handle" title="Mover caixa de texto" aria-label="Mover caixa de texto"><span aria-hidden="true"></span></button>
-      <div class="procedure-text-content" contenteditable="false" spellcheck="true"></div>
+      <div class="procedure-text-content" contenteditable="false" spellcheck="true" lang="pt-BR"></div>
       <button type="button" class="procedure-text-resize-handle" title="Redimensionar caixa de texto" aria-label="Redimensionar caixa de texto"><span aria-hidden="true"></span></button>
     `;
     root.style.setProperty("--procedure-fill", tone.fill);
@@ -325,8 +363,8 @@
       }
     });
     component.content.addEventListener("input", () => {
-      syncModel(component);
       updateProcedureTextBoxLayout(component, { autoHeight: true });
+      syncModel(component);
       session.textLayerCallbacks.live?.(session, component);
     });
     component.content.addEventListener("keydown", (event) => {
@@ -382,6 +420,8 @@
     component.before = session.history.snapshot(session.card);
     component.root.classList.add("is-editing");
     component.content.contentEditable = "true";
+    component.content.spellcheck = true;
+    component.content.lang = "pt-BR";
     component.content.focus({ preventScroll: true });
     if (component.element.text === "Digite o texto" && options.selectPlaceholder !== false) {
       const selection = window.getSelection();
@@ -452,11 +492,12 @@
       if (mode === "move") {
         component.element.x = Math.max(0, Math.min(session.card.scene.size.width - component.element.width, start.elementX + dx));
         component.element.y = Math.max(0, Math.min(session.card.scene.size.height - component.element.height, start.elementY + (moveEvent.clientY - start.y) / scale));
+        updateProcedureTextBoxLayout(component, { width: component.element.width, height: component.element.height, autoHeight: false });
       } else {
         component.element.width = Math.max(MIN_WIDTH, Math.min(session.card.scene.size.width - component.element.x, start.width + dx));
-        updateProcedureTextBoxLayout(component, { width: component.element.width, height: start.height, autoHeight: false });
+        updateProcedureTextBoxLayout(component, { width: component.element.width, autoHeight: true });
       }
-      session.card.blocks = Core.sceneToBlocks(session.card.scene, session.card);
+      syncModel(component);
       session.textLayerCallbacks.live?.(session, component);
     };
     const up = () => {
@@ -481,6 +522,7 @@
       if (!component.root.parentElement) session.textLayer.appendChild(component.root);
       if (!session.isEditingText) component.content.innerHTML = htmlFromElement(element);
       updateProcedureTextBoxLayout(component, { width: element.width, height: element.height, autoHeight: false });
+      if (!session.isEditingText) element.renderLines = visualRenderLines(component.content);
       component.root.classList.toggle("is-selected", session.selection?.elementId === element.id);
     });
     session.textComponents.forEach((component, id) => {
@@ -515,9 +557,19 @@
       return true;
     }
     const before = session.history.snapshot(session.card);
-    component.element.fontWeight = Number(component.element.fontWeight) >= 700 ? 400 : 800;
-    component.element.html = component.element.fontWeight >= 700 ? `<strong>${escapeHtml(component.element.text)}</strong>` : escapeHtml(component.element.text);
-    component.content.innerHTML = htmlFromElement(component.element);
+    syncModel(component);
+    const allBold = rangeIsBold(component.content);
+    if (allBold) {
+      unwrapStrong(component.content);
+      component.element.fontWeight = 400;
+    } else {
+      const strong = document.createElement("strong");
+      while (component.content.firstChild) strong.append(component.content.firstChild);
+      component.content.replaceChildren(strong);
+      component.element.fontWeight = 800;
+    }
+    component.element.styles = {};
+    syncModel(component);
     updateProcedureTextBoxLayout(component, { autoHeight: true });
     session.history.push(before, session.history.snapshot(session.card));
     session.textLayerCallbacks.save?.();

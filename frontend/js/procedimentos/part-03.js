@@ -296,6 +296,10 @@ function renderProcedure(procedure) {
             </a>
           `).join("")}
         </nav>
+        <button type="button" class="procedure-nav-top-button" data-scroll-procedure-top title="Voltar ao topo" aria-label="Voltar ao topo">
+          <span aria-hidden="true">↑</span>
+          <span>Topo</span>
+        </button>
       </aside>
 
       <div class="procedure-content">

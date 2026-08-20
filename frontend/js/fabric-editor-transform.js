@@ -12,6 +12,14 @@
     return cardinal ?? angle;
   }
 
+  function nearestRightAngle(value) {
+    return normalizedAngle(Math.round((Number(value) || 0) / 90) * 90);
+  }
+
+  function snapRotation(value, step = 15) {
+    return normalizedAngle(Math.round((Number(value) || 0) / step) * step);
+  }
+
   function sceneSize(card) {
     return card?.scene?.size || Core.STEP_SCENE_SIZE;
   }
@@ -56,6 +64,24 @@
     return { left, top, right: left + width, bottom: top + height };
   }
 
+  function captureTransform(object) {
+    return {
+      left: object.left,
+      top: object.top,
+      scaleX: object.scaleX,
+      scaleY: object.scaleY,
+      angle: object.angle,
+    };
+  }
+
+  function isWithinCanvas(object, size, tolerance = 0.5) {
+    const bounds = objectBounds(object);
+    return bounds.left >= -tolerance
+      && bounds.top >= -tolerance
+      && bounds.right <= size.width + tolerance
+      && bounds.bottom <= size.height + tolerance;
+  }
+
   function scaleObjectToFit(object, size) {
     const bounds = objectBounds(object);
     const width = bounds.right - bounds.left;
@@ -77,12 +103,15 @@
     const bounds = objectBounds(object);
     const width = bounds.right - bounds.left;
     const height = bounds.bottom - bounds.top;
+    // Quando a caixa rotacionada é maior que o canvas, não existe uma posição
+    // que mantenha todos os pontos dentro dele. Nesse caso, preserve o gesto
+    // do usuário em vez de prender o objeto em uma das bordas.
     const deltaX = width <= size.width
       ? (bounds.left < 0 ? -bounds.left : bounds.right > size.width ? size.width - bounds.right : 0)
-      : -bounds.left;
+      : 0;
     const deltaY = height <= size.height
       ? (bounds.top < 0 ? -bounds.top : bounds.bottom > size.height ? size.height - bounds.bottom : 0)
-      : -bounds.top;
+      : 0;
     if (deltaX || deltaY) {
       object.set({
         left: (Number(object.left) || 0) + deltaX,
@@ -140,7 +169,7 @@
     // A normalização definitiva continua acontecendo em object:modified.
     if (!options.live) normalizeScaleByType(object);
     if (options.keepInside !== false) {
-      scaleObjectToFit(object, size);
+      if (options.fit) scaleObjectToFit(object, size);
       keepInsideBounds(object, size);
       if (options.snap) snapIfStillInside(object, size);
       keepInsideBounds(object, size);
@@ -157,7 +186,7 @@
     const element = elementFor(card, object);
     if (!element) return null;
     const size = sceneSize(card);
-    normalizeObjectTransform(object, size, { snap: true, ...options });
+    if (options.normalize !== false) normalizeObjectTransform(object, size, { snap: true, ...options });
     const baseWidth = Math.max(1, Number(object.baseWidth) || Number(object.width) || element.width || 1);
     const baseHeight = Math.max(1, Number(object.baseHeight) || Number(object.height) || element.height || 1);
     let width = baseWidth * Math.abs(Number(object.scaleX) || 1);
@@ -174,25 +203,48 @@
       height = Math.max(40, Number(object.height) || height);
     }
 
-    element.width = Math.min(size.width, Math.max(1, width));
-    element.height = Math.min(size.height, Math.max(1, height));
+    // Width and height are stored in the object's local (unrotated) axes.
+    // At 90 degrees a local height may legitimately be as large as the
+    // canvas width. Capping each axis by the matching canvas axis truncates
+    // rotated images when they are saved (for example 275x1080 -> 275x560).
+    const maxLocalExtent = Math.hypot(size.width, size.height);
+    element.width = Math.min(maxLocalExtent, Math.max(1, width));
+    element.height = Math.min(maxLocalExtent, Math.max(1, height));
     const centeredOrigin = ["image", "arrow", "circle", "square"].includes(element.type);
     const originOffsetX = centeredOrigin ? element.width / 2 : 0;
     const originOffsetY = centeredOrigin ? element.height / 2 : 0;
-    element.x = clamp((Number(object.left) || 0) - originOffsetX, 0, Math.max(0, size.width - Math.min(element.width, size.width)));
-    element.y = clamp((Number(object.top) || 0) - originOffsetY, 0, Math.max(0, size.height - Math.min(element.height, size.height)));
-    element.rotation = normalizedAngle(object.angle);
+    const positionX = (Number(object.left) || 0) - originOffsetX;
+    const positionY = (Number(object.top) || 0) - originOffsetY;
+    if (options.preservePosition) {
+      element.x = positionX;
+      element.y = positionY;
+    } else {
+      element.x = clamp(positionX, 0, Math.max(0, size.width - Math.min(element.width, size.width)));
+      element.y = clamp(positionY, 0, Math.max(0, size.height - Math.min(element.height, size.height)));
+    }
+    element.rotation = snapRotation(object.angle);
     syncBlocks(card);
     return element;
+  }
+
+  function fitAngleInside(card, object, angle) {
+    object.set({ angle: snapRotation(angle, 15) });
+    normalizeObjectTransform(object, sceneSize(card), { fit: true, keepInside: true, live: true });
+    return syncElementFromObject(card, object, { normalize: false, preservePosition: true });
   }
 
   window.FabricEditorTransform = {
     GRID_SIZE,
     clamp,
+    captureTransform,
     elementFor,
+    fitAngleInside,
+    isWithinCanvas,
     normalizeObjectTransform,
+    nearestRightAngle,
     pointerFor,
     resizeCanvas,
+    snapRotation,
     sceneSize,
     syncBlocks,
     syncElementFromObject,

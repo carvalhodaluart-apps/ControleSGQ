@@ -2,7 +2,7 @@ const PDFDocument = require("pdfkit");
 const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
-const { getProcedureConfiguration } = require("./procedureConfiguration");
+const { getProcedureConfiguration } = require("./procedureConfiguration"); const { drawWatermark } = require("./pdfBranding");
 const { ITEM_SCENE_SIZE, STEP_SCENE_SIZE, renderProcedureItemBoards, renderProcedureStepCards } = require("./procedureSceneGraph");
 
 const COLORS = {
@@ -183,14 +183,35 @@ function toneColors(tone) {
   if (tone === "danger") return { line: COLORS.danger, fill: COLORS.dangerSoft };
   return { line: COLORS.success, fill: COLORS.successSoft };
 }
+function positiveNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+function sceneCanvasSize(card) {
+  const size = card?.scene?.size;
+  return {
+    width: positiveNumber(size?.width, STEP_SCENE_SIZE.width),
+    height: positiveNumber(size?.height, STEP_SCENE_SIZE.height),
+  };
+}
+
+function removeTransientSceneExports(procedure) {
+  (procedure?.sections || []).forEach((section) => {
+    delete section.sceneExport;
+    (section.stepCards || []).forEach((card) => delete card.sceneExport);
+  });
+  return procedure;
+}
 
 async function createProcedurePdf(procedure) {
-  const source = await convertLegacyImages(procedure);
+  // Raster exports are snapshots and can belong to a previous crop. Render
+  // directly from the normalized scene so the PDF uses the current frame.
+  const source = removeTransientSceneExports(await convertLegacyImages(procedure));
   const configuration = await convertLegacyImages(await getProcedureConfiguration());
   const needsItemBoardFallback = (source.sections || [])
-    .some((section) => section.kind === "items" && section.images?.[0] && !section.sceneExport?.image);
+    .some((section) => section.kind === "items" && section.images?.[0]);
   const needsStepCardFallback = (source.sections || [])
-    .some((section) => (section.stepCards || []).some((card) => !card.sceneExport?.image));
+    .some((section) => (section.stepCards || []).some((card) => card.scene?.elements?.length));
   const renderedItemBoards = needsItemBoardFallback ? await renderProcedureItemBoards(source) : new Map();
   const renderedStepCards = needsStepCardFallback ? await renderProcedureStepCards(source) : new Map();
   return new Promise((resolve, reject) => {
@@ -205,7 +226,7 @@ async function createProcedurePdf(procedure) {
     const info = source.qualityInfo || {};
     const cover = configuration.cover || {};
     const imageBufferCache = new Map();
-    const getImageBuffer = (value) => dataUriToBuffer(value, imageBufferCache);
+    const getImageBuffer = (value) => dataUriToBuffer(value, imageBufferCache); const watermarkBuffer = getImageBuffer(cover.logoData);
     let y = 0;
     let pageNumber = 0;
 
@@ -233,7 +254,7 @@ async function createProcedurePdf(procedure) {
       document.text("CÓPIA CONTROLADA", margin, pageHeight - 65, { width: 250, lineBreak: false });
       setFont("Helvetica", 6.5, COLORS.muted);
       document.text("Não é permitida cópia, reprodução ou divulgação deste documento sem consultar ao SGQ", margin, pageHeight - 53, { width: contentWidth - 92, lineBreak: false });
-      document.text(`Página ${pageNumber}`, margin, pageHeight - 65, { width: contentWidth, align: "right", lineBreak: false });
+      document.text(`Página ${pageNumber}`, margin, pageHeight - 65, { width: contentWidth, align: "right", lineBreak: false }); drawWatermark(document, watermarkBuffer);
     };
     const nextPage = () => {
       finishPage();
@@ -340,7 +361,7 @@ async function createProcedurePdf(procedure) {
       if (image) {
         const imageHeight = contentWidth * (ITEM_SCENE_SIZE.height / ITEM_SCENE_SIZE.width);
         ensureSpace(imageHeight + 12);
-        const renderedBoard = getImageBuffer(section.sceneExport?.image) || renderedItemBoards.get(String(sectionIndex));
+        const renderedBoard = renderedItemBoards.get(String(sectionIndex));
         if (renderedBoard) document.image(renderedBoard, margin, y, { fit: [contentWidth, imageHeight] });
         else {
           drawImage(image, margin, y, contentWidth, imageHeight);
@@ -390,18 +411,21 @@ async function createProcedurePdf(procedure) {
       const centerX = x + width / 2;
       const centerY = top + height / 2;
       const borderWidth = Math.max(0.5, (Number(block.borderWidth) || 3) * unitScale);
-      document.save().translate(centerX, centerY).rotate(Number(block.rotation) || 0).translate(-centerX, -centerY).lineWidth(borderWidth).strokeColor(colors.line);
-      if (block.type === "circle") document.circle(centerX, centerY, Math.min(width, height) * 0.43).stroke();
-      if (block.type === "square") document.rect(x + width * 0.12, top + height * 0.12, width * 0.76, height * 0.76).stroke();
-      if (block.type === "arrow") {
+      const drawGraphic = (lineWidth, color, contour = false) => {
+        document.lineWidth(lineWidth).strokeColor(color);
+        if (block.type === "circle") document.circle(centerX, centerY, Math.min(width, height) * 0.43).stroke();
+        if (block.type === "square") document.rect(x + width * 0.12, top + height * 0.12, width * 0.76, height * 0.76).stroke();
+        if (block.type !== "arrow") return;
         const headWidth = Math.min(Math.max(borderWidth * 5.3, 11 * unitScale), width * 0.30);
         const headHeight = Math.min(Math.max(borderWidth * 6.6, 11 * unitScale), height * 0.50);
         const padding = 2 * unitScale;
         const tipX = x + width - padding;
         const baseX = tipX - headWidth;
         document.lineCap("round").moveTo(x + padding, centerY).lineTo(baseX, centerY).stroke();
-        document.moveTo(baseX, centerY - headHeight / 2).lineTo(tipX, centerY).lineTo(baseX, centerY + headHeight / 2).closePath().fillColor(colors.line).fill();
-      }
+        const path = document.moveTo(baseX, centerY - headHeight / 2).lineTo(tipX, centerY).lineTo(baseX, centerY + headHeight / 2).closePath().fillColor(colors.line);
+        if (contour) path.lineWidth(4 * unitScale).strokeColor(color).fillAndStroke(); else path.fill();
+      };
+      document.save().translate(centerX, centerY).rotate(Number(block.rotation) || 0).translate(-centerX, -centerY); drawGraphic(borderWidth + 4 * unitScale, colors.fill, true); drawGraphic(borderWidth, colors.line);
       document.restore();
     };
     const stepCanvas = (card, sectionIndex, cardIndex) => {
@@ -414,14 +438,15 @@ async function createProcedurePdf(procedure) {
         y += 66;
         return;
       }
-      const editorCanvasWidth = STEP_SCENE_SIZE.width;
-      const editorCanvasHeight = STEP_SCENE_SIZE.height;
+      const editorCanvasSize = sceneCanvasSize(card);
+      const editorCanvasWidth = editorCanvasSize.width;
+      const editorCanvasHeight = editorCanvasSize.height;
       const canvasHeight = contentWidth * (editorCanvasHeight / editorCanvasWidth);
       const canvasScale = canvasHeight / editorCanvasHeight;
       ensureSpace(canvasHeight + 30);
       const x = margin;
       const top = y;
-      const renderedCard = getImageBuffer(card.sceneExport?.image) || renderedStepCards.get(`${sectionIndex}:${cardIndex}`);
+      const renderedCard = renderedStepCards.get(`${sectionIndex}:${cardIndex}`);
       if (renderedCard) {
         document.image(renderedCard, x, top, { fit: [contentWidth, canvasHeight] });
         y += canvasHeight + 12;
@@ -494,7 +519,7 @@ async function createProcedurePdf(procedure) {
       document.text(coverTitle, horizontal + 14, vertical + 30, { width: textWidth, lineGap: 2 });
       setFont("Helvetica", 9, COLORS.muted);
       const coverMeta = [cleanText(source.documentCode) || "Sem código", displayEquipmentName(source)].filter(Boolean).join("  |  ");
-      document.text(coverMeta, horizontal + 14, vertical + 78, { width: textWidth });
+      document.text(coverMeta, horizontal + 14, vertical + 78, { width: textWidth }); drawWatermark(document, watermarkBuffer);
       document.addPage();
       startPage();
     } else {
@@ -548,34 +573,27 @@ async function createProcedurePdf(procedure) {
       const estimatedImageHeight = hasItemsImage
         ? contentWidth * (ITEM_SCENE_SIZE.height / ITEM_SCENE_SIZE.width) + 12
         : 0;
+      const firstCard = section.stepCards?.[0];
+      const firstCardSpace = firstCard ? (getBlocks(firstCard).length ? contentWidth * (sceneCanvasSize(firstCard).height / sceneCanvasSize(firstCard).width) + 30 : 68) : 0;
       const minimumSpace = section.kind === "items"
         ? Math.max(200, 54 + estimatedImageHeight + estimatedListHeight + 8)
-        : section.stepCards?.length ? 380 : 80;
+        : section.stepCards?.length ? 54 + firstCardSpace : 80;
       ensureSpace(minimumSpace);
       heading(`${cleanText(section.number || "")}  ${cleanText(section.title || "Seção")}`, section.kind === "items" ? "Materiais, identificação e quantidade" : "Sequência operacional e pontos de controle");
       if (section.kind === "items") itemsSection(section, sectionIndex);
-      (section.instructions || []).forEach((instruction, index) => {
-        const colors = toneColors(section.instructionTones?.[index]);
-        const instructionText = cleanText(instruction);
-        setFont("Helvetica", 9, COLORS.stepText);
-        const instructionHeight = Math.max(30, document.heightOfString(instructionText, { width: contentWidth - 44, lineGap: 1 }) + 16);
+      (section.instructions || []).forEach((instruction, index) => { const colors = toneColors(section.instructionTones?.[index]); const instructionText = cleanText(instruction);
+        setFont("Helvetica", 9, COLORS.stepText); const instructionHeight = Math.max(30, document.heightOfString(instructionText, { width: contentWidth - 44, lineGap: 1 }) + 16);
         ensureSpace(instructionHeight + 8);
         document.save().roundedRect(margin, y, contentWidth, instructionHeight, 5).fillColor(colors.fill).fill().lineWidth(2).strokeColor(colors.line).stroke().restore();
         setFont("Helvetica-Bold", 8.5, colors.line);
-        document.text(`${index + 1}.`, margin + 10, y + 8, { width: 20 });
-        document.text(instructionText, margin + 34, y + 8, { width: contentWidth - 44, lineGap: 1 });
+        document.text(`${index + 1}.`, margin + 10, y + 8, { width: 20 }); document.text(instructionText, margin + 34, y + 8, { width: contentWidth - 44, lineGap: 1 });
         y += instructionHeight + 8;
       });
-      (section.stepCards || []).forEach((card, cardIndex) => {
-        ensureSpace(330);
-        stepCanvas(card, sectionIndex, cardIndex);
-      });
+      (section.stepCards || []).forEach((card, cardIndex) => stepCanvas(card, sectionIndex, cardIndex));
       if (!(section.instructions || []).length && !(section.stepCards || []).length && section.kind !== "items") paragraph("Nenhum conteúdo operacional informado nesta etapa.", 9, COLORS.muted);
     });
 
-    finishPage();
-    document.end();
+    finishPage(); document.end();
   });
 }
-
 module.exports = { createProcedurePdf };

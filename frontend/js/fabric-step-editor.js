@@ -1,6 +1,5 @@
 (function () {
-  const Core = window.SceneGraphCore;
-  const Fabric = window.fabric;
+  const Core = window.SceneGraphCore; const Fabric = window.fabric;
   const Factory = window.FabricObjectFactory;
   const Session = window.FabricEditorSession;
   const Toolbar = window.FabricEditorToolbar;
@@ -9,10 +8,8 @@
   const Hierarchy = window.FabricEditorHierarchy;
   const TextLayer = window.FabricProcedureTextLayer;
   if (!Core || !Fabric || !Factory || !Session || !Toolbar || !Transform || !ImageEditor || !Hierarchy || !TextLayer) return;
-  const TOOL_TYPES = ["text", "arrow", "circle", "square"];
-  const MARKUP_TYPES = ["arrow", "circle", "square"];
-  const objectFromElement = (element) => Factory.create(element, { interactive: true });
-  const createSceneId = (type) => `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const TOOL_TYPES = ["text", "arrow", "circle", "square"]; const MARKUP_TYPES = ["arrow", "circle", "square"];
+  const objectFromElement = (element) => Factory.create(element, { interactive: true }); const createSceneId = (type) => `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const saveProcedureSafely = () => {
     if (typeof saveProcedure === "function") saveProcedure();
   };
@@ -249,7 +246,10 @@
     if (object) return Transform.elementFor(session?.card, object);
     return session?.card?.scene?.elements?.find((item) => item.id === session?.selection?.elementId) || null;
   }
+  function setAngleInside(session, object, angle) { const element = Transform.fitAngleInside(session.card, object, angle); window.FabricAnnotationLayer?.sync?.(session.canvas, element); return element; }
   function resolveSelection(session) {
+    const activeObject = session?.canvas?.getActiveObject?.();
+    if (!session?.selection?.object && activeObject?.sceneId) session.selection = { object: activeObject };
     if (session?.selection?.elementId) {
       const element = selectedElement(session);
       return element ? { object: null, element, component: session.selection.component } : null;
@@ -264,13 +264,15 @@
     return { object, element: selectedElement(session) };
   }
   async function rebuildCanvas(session) {
+    const generation = (session.renderGeneration || 0) + 1; session.renderGeneration = generation;
     session.canvas.clear();
     session.canvas.backgroundColor = "#ffffff";
     const scene = Core.normalizeCardScene(session.card, session.sectionIndex, session.cardIndex);
-    for (const element of scene.elements) await addObjectToCanvas(session, element);
+    for (const element of scene.elements) { if (session.disposed || session.renderGeneration !== generation) return false; await addObjectToCanvas(session, element); if (session.disposed || session.renderGeneration !== generation) return false; }
     Hierarchy.enforceCanvasOrder(session.canvas, scene);
     TextLayer.render(session);
     session.canvas.requestRenderAll();
+    return true;
   }
   async function replaceObject(session, oldObject, element) {
     const canvas = session.canvas;
@@ -376,20 +378,20 @@
         return;
       }
       Object.assign(element, fitted);
-    } else if (action === "fit" && element.type === "image") element.fit = "contain";
+    } else if (action === "snap-rotation" && (element.type === "image" || MARKUP_TYPES.includes(element.type))) setAngleInside(session, object, Transform.nearestRightAngle(object.angle));
     else if (action === "tone" && element.type !== "image") element.tone = dataset.tone || element.tone;
     else if (action === "font-down" && element.type === "text") element.fontSize = Math.max(8, (element.fontSize || 20) - 1);
     else if (action === "font-up" && element.type === "text") element.fontSize = Math.min(72, (element.fontSize || 20) + 1);
     else if (action === "stroke-down" && MARKUP_TYPES.includes(element.type)) element.borderWidth = Math.max(1, (element.borderWidth || 3) - 1);
     else if (action === "stroke-up" && MARKUP_TYPES.includes(element.type)) element.borderWidth = Math.min(16, (element.borderWidth || 3) + 1);
-    else if (action === "rotate-left") element.rotation = ((element.rotation || 0) - 15 + 360) % 360;
-    else if (action === "rotate-right") element.rotation = ((element.rotation || 0) + 15) % 360;
+    else if (action === "rotate-left") setAngleInside(session, object, ((element.rotation || 0) - 15 + 360) % 360);
+    else if (action === "rotate-right") setAngleInside(session, object, ((element.rotation || 0) + 15) % 360);
     else return;
     Core.enforceSceneOrder(session.card.scene);
     Transform.syncBlocks(session.card);
     session.history.push(before, session.history.snapshot(session.card));
-    saveProcedureSafely();
     await replaceObject(session, object, element);
+    saveProcedureSafely();
     Toolbar.render(session, selectedElement);
   }
   function bindEvents(session) {
@@ -399,13 +401,14 @@
       if (endpointTransform) session.lastTransformType = "arrow-endpoint";
       if (ImageEditor.handleCropTransform(session, object)) return;
       Transform.normalizeObjectTransform(object, Transform.sceneSize(session.card), { snap: false, live: true, keepInside: !endpointTransform, ...options });
-      if (object?.sceneType === "image") {
+      if (object?.sceneType === "image" && !options.skipImageCollision) {
         session.lastValidTransform = Hierarchy.constrainImageObject(object, canvas, session.lastValidTransform);
       }
+      if (object?.sceneType === "image") { const element = Transform.syncElementFromObject(session.card, object, { normalize: false, keepInside: false, preservePosition: true }); window.FabricAnnotationLayer?.sync?.(canvas, element); }
     };
     canvas.on("object:moving", (event) => { session.lastTransformType = "move"; liveNormalize(event); });
-    canvas.on("object:scaling", (event) => { session.lastTransformType = event.target?.__arrowEndpointTransform ? "arrow-endpoint" : "scale"; liveNormalize(event); });
-    canvas.on("object:rotating", (event) => { session.lastTransformType = "rotate"; liveNormalize(event, { keepInside: false }); });
+    canvas.on("object:scaling", (event) => { session.lastTransformType = event.target?.__arrowEndpointTransform ? "arrow-endpoint" : "scale"; liveNormalize(event, event.target?.sceneType === "image" ? { fit: true } : {}); });
+    canvas.on("object:rotating", (event) => { const object = event.target; session.lastTransformType = "rotate"; setAngleInside(session, object, object.angle); session.lastValidTransform = Transform.captureTransform(object); });
     canvas.on("mouse:down", (event) => {
       Session.setActive(session);
       if (session.isEditingText) return;
@@ -416,9 +419,8 @@
         canvas.requestRenderAll();
         return;
       }
-      if (event.target.sceneType === "image") {
-        session.lastValidTransform = Hierarchy.constrainImageObject(event.target, canvas);
-      }
+      session.lastValidTransform = Transform.captureTransform(event.target);
+      if (event.target.sceneType === "image") session.lastValidTransform = Hierarchy.constrainImageObject(event.target, canvas, session.lastValidTransform);
       session.history.begin(session.card);
     });
     canvas.on("selection:created", (event) => {
@@ -436,8 +438,9 @@
       session.lastTransformType = null; object.__arrowEndpointGesture = null; object.__arrowEndpointTransform = false;
       if (ImageEditor.handleCropTransform(session, object)) return;
       if (!object?.sceneId || object.sceneType === "text-editor") return;
-      const preserveManualRotation = transformType === "rotate" && (object.sceneType === "image" || MARKUP_TYPES.includes(object.sceneType)); const preserveEndpointTransform = transformType === "arrow-endpoint";
-      const element = Transform.syncElementFromObject(session.card, object, { keepInside: !(preserveManualRotation || preserveEndpointTransform) });
+      const preserveManualTransform = (object.sceneType === "image" || MARKUP_TYPES.includes(object.sceneType)) && ["move", "rotate", "scale"].includes(transformType); const preserveEndpointTransform = transformType === "arrow-endpoint";
+      const element = Transform.syncElementFromObject(session.card, object, { keepInside: !(preserveManualTransform || preserveEndpointTransform), preservePosition: preserveManualTransform, fit: transformType === "scale" && object.sceneType === "image" });
+      window.FabricAnnotationLayer?.sync?.(canvas, element);
       Core.enforceSceneOrder(session.card.scene);
       Hierarchy.enforceCanvasOrder(canvas, session.card.scene);
       session.history.commit(session.card);
@@ -460,7 +463,7 @@
         selectObject(session, object);
         return;
       }
-      if (preserveManualRotation) {
+      if (preserveManualTransform) {
         selectObject(session, object);
         return;
       }
@@ -499,7 +502,7 @@
       select: (item) => deactivateTool(item),
       setActive: Session.setActive,
     });
-    await rebuildCanvas(session);
+    if (!await rebuildCanvas(session) || session.disposed) return;
     bindEvents(session);
     canvas.renderAll();
   }
@@ -539,11 +542,8 @@
       selection.element.x = nextX;
       selection.element.y = nextY;
     });
-    const objectPosition = ["image", "arrow", "circle", "square"].includes(selection.element.type)
-      ? { left: selection.element.x + selection.element.width / 2, top: selection.element.y + selection.element.height / 2 }
-      : { left: selection.element.x, top: selection.element.y };
-    selection.object.set(objectPosition);
-    selection.object.setCoords();
+    if (selection.object) { const objectPosition = ["image", "arrow", "circle", "square"].includes(selection.element.type) ? { left: selection.element.x + selection.element.width / 2, top: selection.element.y + selection.element.height / 2 } : { left: selection.element.x, top: selection.element.y }; selection.object.set(objectPosition); selection.object.setCoords(); }
+    else if (selection.element.type === "text") TextLayer.render(session);
     session.canvas.requestRenderAll();
     Toolbar.render(session, selectedElement);
   }
@@ -577,7 +577,7 @@
       return undoRedo(session, true);
     }
     const selection = resolveSelection(session);
-    if (!selection?.object) return;
+    if (!selection?.element) return;
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       return deleteObject(session);

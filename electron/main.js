@@ -2,18 +2,21 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron");
 const { checkForUpdates } = require("./update-check.js");
+const { createPortugueseSpellChecker } = require("./portuguese-spellcheck.js");
 
 let backend = null;
 let mainWindow = null;
 const SHARED_FOLDER_USER_NAME = "sgq-rede";
+const LOCAL_ONLY_DESKTOP = true;
 
 function sharedFolderConfigPath() {
   return path.join(app.getPath("userData"), "shared-folder.json");
 }
 
 function readSharedFolderPath() {
+  if (LOCAL_ONLY_DESKTOP) return "";
   try {
     const value = JSON.parse(fs.readFileSync(sharedFolderConfigPath(), "utf8"));
     return typeof value.path === "string" ? value.path.trim() : "";
@@ -23,6 +26,7 @@ function readSharedFolderPath() {
 }
 
 function readSharedFolderNetworkPath() {
+  if (LOCAL_ONLY_DESKTOP) return "";
   try {
     const value = JSON.parse(fs.readFileSync(sharedFolderConfigPath(), "utf8"));
     return typeof value.networkPath === "string" ? value.networkPath.trim() : "";
@@ -32,7 +36,7 @@ function readSharedFolderNetworkPath() {
 }
 
 function applySharedFolderPath(folderPath = readSharedFolderPath()) {
-  process.env.APP_SHARED_PROCEDURE_DIR = String(folderPath || "").trim();
+  process.env.APP_SHARED_PROCEDURE_DIR = LOCAL_ONLY_DESKTOP ? "" : String(folderPath || "").trim();
   return process.env.APP_SHARED_PROCEDURE_DIR;
 }
 
@@ -167,11 +171,13 @@ exit 0
 }
 
 ipcMain.handle("shared-folder:status", async () => {
+  if (LOCAL_ONLY_DESKTOP) return { configured: false, accessible: false, name: "", path: "", networkPath: "" };
   const folderPath = applySharedFolderPath();
   try { return { ...(await inspectSharedFolder(folderPath)), networkPath: readSharedFolderNetworkPath() }; } catch (error) { return { configured: Boolean(folderPath), accessible: false, name: path.basename(folderPath) || folderPath, path: folderPath, networkPath: readSharedFolderNetworkPath(), error: error.message }; }
 });
 
 ipcMain.handle("shared-folder:select", async () => {
+  if (LOCAL_ONLY_DESKTOP) throw new Error("Esta versao usa apenas dados locais.");
   const result = await dialog.showOpenDialog(mainWindow, { title: "Selecionar pasta compartilhada", properties: ["openDirectory", "createDirectory"] });
   if (result.canceled || !result.filePaths[0]) return { canceled: true };
   const folderPath = result.filePaths[0];
@@ -179,6 +185,7 @@ ipcMain.handle("shared-folder:select", async () => {
 });
 
 ipcMain.handle("shared-folder:create-host", async (_event, options = {}) => {
+  if (LOCAL_ONLY_DESKTOP) throw new Error("Esta versao usa apenas dados locais.");
   const password = String(options.password || "");
   if (password.length < 8) throw new Error("A senha da pasta deve ter pelo menos 8 caracteres.");
   const folderPath = "C:\\ControleSGQCompartilhado";
@@ -186,9 +193,13 @@ ipcMain.handle("shared-folder:create-host", async (_event, options = {}) => {
   return configureSharedFolderPath(folderPath, `\\\\${os.hostname()}\\ControleSGQ`);
 });
 
-ipcMain.handle("shared-folder:test", async () => ({ ...(await inspectSharedFolder(applySharedFolderPath())), networkPath: readSharedFolderNetworkPath() }));
+ipcMain.handle("shared-folder:test", async () => {
+  if (LOCAL_ONLY_DESKTOP) return { configured: false, accessible: false, name: "", path: "", networkPath: "" };
+  return { ...(await inspectSharedFolder(applySharedFolderPath())), networkPath: readSharedFolderNetworkPath() };
+});
 
 ipcMain.handle("shared-folder:forget", async () => {
+  if (LOCAL_ONLY_DESKTOP) return { configured: false, accessible: false, name: "", path: "", networkPath: "" };
   applySharedFolderPath("");
   await fs.promises.unlink(sharedFolderConfigPath()).catch(() => {});
   return { configured: false, accessible: false, name: "", path: "" };
@@ -223,6 +234,101 @@ function ensureEnvironmentPath() {
   return envPath;
 }
 
+const portugueseSpellChecker = createPortugueseSpellChecker(projectRoot());
+
+function wordAtContext(webContents, params) {
+  const point = JSON.stringify({ x: Number(params.x) || 0, y: Number(params.y) || 0 });
+  return webContents.executeJavaScript(`(() => {
+    const point = ${point};
+    const selection = window.getSelection();
+    let node = selection?.anchorNode || null;
+    let offset = selection?.anchorOffset || 0;
+    const rangeAtPoint = document.caretRangeFromPoint?.(point.x, point.y);
+    if (rangeAtPoint) { node = rangeAtPoint.startContainer; offset = rangeAtPoint.startOffset; }
+    if (node?.nodeType !== Node.TEXT_NODE) node = node?.firstChild;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return "";
+    const value = node.textContent || "";
+    const isLetter = (character) => /[\\p{L}\\p{M}]/u.test(character);
+    let start = Math.max(0, Math.min(offset, value.length));
+    let end = start;
+    while (start > 0 && isLetter(value[start - 1])) start -= 1;
+    while (end < value.length && isLetter(value[end])) end += 1;
+    return value.slice(start, end);
+  })()`, true).catch(() => "");
+}
+
+function replaceWordAtContext(webContents, params, suggestion) {
+  const payload = JSON.stringify({ x: Number(params.x) || 0, y: Number(params.y) || 0, suggestion: String(suggestion || "") });
+  return webContents.executeJavaScript(`(() => {
+    const context = ${payload};
+    const selection = window.getSelection();
+    let range = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    const pointRange = document.caretRangeFromPoint?.(context.x, context.y);
+    if (pointRange) range = pointRange;
+    if (!range) return false;
+    let node = range.startContainer;
+    let offset = range.startOffset;
+    if (node?.nodeType !== Node.TEXT_NODE) node = node?.firstChild;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return false;
+    const value = node.textContent || "";
+    const isLetter = (character) => /[\\p{L}\\p{M}]/u.test(character);
+    let start = Math.max(0, Math.min(offset, value.length));
+    let end = start;
+    while (start > 0 && isLetter(value[start - 1])) start -= 1;
+    while (end < value.length && isLetter(value[end])) end += 1;
+    range.setStart(node, start); range.setEnd(node, end); range.deleteContents();
+    const replacement = document.createTextNode(context.suggestion);
+    range.insertNode(replacement); range.setStartAfter(replacement); range.collapse(true);
+    selection.removeAllRanges(); selection.addRange(range);
+    const editor = node.parentElement?.closest?.('[contenteditable="true"]');
+    editor?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: context.suggestion }));
+    return true;
+  })()`, true).catch(() => false);
+}
+
+function installSpellcheckContextMenu(window) {
+  const { webContents } = window;
+  const session = webContents.session;
+  session.setSpellCheckerEnabled(true);
+  const available = session.availableSpellCheckerLanguages || [];
+  const portuguese = available.find((language) => String(language).toLowerCase() === "pt-br")
+    || available.find((language) => String(language).toLowerCase().startsWith("pt"));
+  if (portuguese) session.setSpellCheckerLanguages([portuguese]);
+  webContents.on("context-menu", async (event, params) => {
+    if (!params.isEditable) return;
+    event.preventDefault();
+    const contextWord = params.misspelledWord || params.selectionText || await wordAtContext(webContents, params);
+    const hasNativeSuggestions = Array.isArray(params.dictionarySuggestions) && params.dictionarySuggestions.length > 0;
+    const suggestions = hasNativeSuggestions
+      ? params.dictionarySuggestions.slice(0, 6)
+      : await portugueseSpellChecker.suggestions(contextWord);
+    const menuItems = [];
+    if (contextWord && suggestions.length) {
+      suggestions.forEach((suggestion) => menuItems.push({
+        label: `Usar "${suggestion}"`,
+        click: () => hasNativeSuggestions ? webContents.replaceMisspelling(suggestion) : replaceWordAtContext(webContents, params, suggestion),
+      }));
+      menuItems.push({
+        label: "Adicionar ao dicion\u00e1rio",
+        click: () => session.addWordToSpellCheckerDictionary(params.misspelledWord || contextWord),
+      });
+      menuItems.push({ type: "separator" });
+    }
+    const flags = params.editFlags || {};
+    if (flags.canUndo) menuItems.push({ role: "undo" });
+    if (flags.canRedo) menuItems.push({ role: "redo" });
+    if (flags.canUndo || flags.canRedo) menuItems.push({ type: "separator" });
+    if (flags.canCut) menuItems.push({ role: "cut" });
+    if (flags.canCopy) menuItems.push({ role: "copy" });
+    if (flags.canPaste) menuItems.push({ role: "paste" });
+    menuItems.push({ role: "selectAll" });
+    Menu.buildFromTemplate(menuItems).popup({ window });
+  });
+  webContents.once("did-finish-load", () => {
+    setTimeout(() => { void portugueseSpellChecker.preload(); }, 1200);
+  });
+}
+
 function createMainWindow(url) {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -240,6 +346,7 @@ function createMainWindow(url) {
       preload: path.join(__dirname, "preload.js"),
     },
   });
+  installSpellcheckContextMenu(mainWindow);
 
   mainWindow.webContents.setWindowOpenHandler(({ url: target }) => {
     if (!target.startsWith(url)) shell.openExternal(target);

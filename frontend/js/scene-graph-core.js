@@ -286,7 +286,10 @@
 
   function itemSectionToScene(section, sectionIndex = 0) {
     const image = section.images?.[0] || "";
-    const annotations = image ? (section.annotations?.[image] || []) : [];
+    const annotationGroups = section.annotations || {};
+    const annotations = image
+      ? (annotationGroups[image] || Object.values(annotationGroups).find(Array.isArray) || [])
+      : [];
     const elements = image ? [{
       id: `items-${sectionIndex}-image`,
       type: "image",
@@ -318,14 +321,14 @@
 
   function wordWidth(word, fontSize) {
     const weight = word.bold ? 1.08 : 1;
-    return [...String(word.text)].reduce((total, char) => total + glyphWidth(char) * fontSize * weight, 0);
+    return [...String(word.text)].reduce((total, char) => total + glyphWidth(char) * fontSize * weight, 0) * 1.22;
   }
 
   function wrapSegments(segments, maxWidth, fontSize) {
     const lines = [];
     let current = [];
     let width = 0;
-    const spaceWidth = fontSize * 0.25;
+    const spaceWidth = fontSize * 0.28;
     segments.flatMap((segment) => String(segment.text).split(/\s+/).filter(Boolean).map((text) => ({ text, bold: segment.bold }))).forEach((word) => {
       const next = width + (current.length ? spaceWidth : 0) + wordWidth(word, fontSize);
       if (current.length && next > maxWidth) {
@@ -356,28 +359,19 @@
     }).filter((line) => line.length);
   }
 
-  function lineWidth(line, fontSize) {
-    const spaceWidth = fontSize * 0.23;
-    return line.reduce((total, word, index) => total + (index ? spaceWidth : 0) + wordWidth(word, fontSize), 0);
-  }
-
   function renderText(element) {
     const tone = TONES[element.tone] || TONES.success;
     const fontSize = Math.max(8, Number(element.fontSize) || 20);
-    const textPadding = 8;
-    const textWidth = Math.max(8, element.width - textPadding * 2);
+    const textPadding = 14;
+    const stripeWidth = 8;
+    const textWidth = Math.max(8, element.width - stripeWidth - textPadding * 2);
+    const textCenterX = element.x + stripeWidth + textPadding + textWidth / 2;
     const explicitLines = normalizeRenderLines(element.renderLines);
     const lines = explicitLines.length ? explicitLines : wrapSegments(inlineSegments(element.html || element.text), textWidth, fontSize);
     const lineHeight = fontSize * 1.35;
     const textHeight = Math.max(lineHeight, lines.length * lineHeight);
     const startY = element.y + Math.max(fontSize, (element.height - textHeight) / 2 + fontSize * 0.95);
-    const text = lines.map((line, index) => {
-      const estimatedWidth = lineWidth(line, fontSize);
-      const fitScale = explicitLines.length && estimatedWidth >= textWidth * 0.78
-        ? Math.max(0.84, Math.min(1, textWidth / (estimatedWidth * 1.28)))
-        : 1;
-      return `<text x="${element.x + element.width / 2}" y="${startY + index * lineHeight}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize * fitScale}" fill="${tone.text}" xml:space="preserve">${line.map((word, wordIndex) => `<tspan font-weight="${word.bold ? 800 : 400}">${escapeXml(`${wordIndex ? " " : ""}${word.text}`)}</tspan>`).join("")}</text>`;
-    }).join("");
+    const text = lines.map((line, index) => `<text x="${textCenterX}" y="${startY + index * lineHeight}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" fill="${tone.text}" xml:space="preserve">${line.map((word, wordIndex) => `<tspan font-weight="${word.bold ? 800 : 400}">${escapeXml(`${wordIndex ? " " : ""}${word.text}`)}</tspan>`).join("")}</text>`).join("");
     return `<g transform="rotate(${element.rotation} ${element.x + element.width / 2} ${element.y + element.height / 2})"><rect x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" rx="8" fill="${tone.fill}" stroke="${tone.stroke}" stroke-width="2"></rect><rect x="${element.x}" y="${element.y}" width="8" height="${element.height}" rx="8" fill="${tone.stroke}"></rect>${text}</g>`;
   }
 
@@ -404,15 +398,16 @@
       const imageSource = safeImageSource(element.image);
       if (!imageSource) return "";
       const flip = element.flipX || element.flipY ? ` translate(${cx} ${cy}) scale(${element.flipX ? -1 : 1} ${element.flipY ? -1 : 1}) translate(${-cx} ${-cy})` : "";
-      return `<g transform="${transform}${flip}"><image href="${escapeXml(imageSource)}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" preserveAspectRatio="xMidYMid meet"></image>${renderAnnotations(element)}</g>`;
+      const preserveAspectRatio = element.fit === "cover" ? "xMidYMid slice" : "xMidYMid meet";
+      return `<g transform="${transform}${flip}"><image href="${escapeXml(imageSource)}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" preserveAspectRatio="${preserveAspectRatio}"></image>${renderAnnotations(element)}</g>`;
     }
     if (element.type === "arrow") {
       const y = element.y + element.height / 2;
       const stroke = Math.max(1, Number(element.borderWidth) || 3);
-      return `<g transform="${transform}"><line x1="${element.x}" y1="${y}" x2="${element.x + element.width - 18}" y2="${y}" stroke="${tone.stroke}" stroke-width="${stroke}" stroke-linecap="round"></line><polygon points="${element.x + element.width},${y} ${element.x + element.width - 20},${y - 11} ${element.x + element.width - 20},${y + 11}" fill="${tone.stroke}"></polygon></g>`;
+      return `<g transform="${transform}"><line x1="${element.x}" y1="${y}" x2="${element.x + element.width - 18}" y2="${y}" stroke="${tone.fill}" stroke-width="${stroke + 4}" stroke-linecap="round"></line><polygon points="${element.x + element.width},${y} ${element.x + element.width - 20},${y - 11} ${element.x + element.width - 20},${y + 11}" fill="${tone.stroke}" stroke="${tone.fill}" stroke-width="4" stroke-linejoin="round"></polygon><line x1="${element.x}" y1="${y}" x2="${element.x + element.width - 18}" y2="${y}" stroke="${tone.stroke}" stroke-width="${stroke}" stroke-linecap="round"></line><polygon points="${element.x + element.width},${y} ${element.x + element.width - 20},${y - 11} ${element.x + element.width - 20},${y + 11}" fill="${tone.stroke}"></polygon></g>`;
     }
-    if (element.type === "circle") return `<ellipse transform="${transform}" cx="${cx}" cy="${cy}" rx="${Math.max(1, element.width / 2 - element.borderWidth)}" ry="${Math.max(1, element.height / 2 - element.borderWidth)}" fill="none" stroke="${tone.stroke}" stroke-width="${element.borderWidth}"></ellipse>`;
-    if (element.type === "square") return `<rect transform="${transform}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" fill="none" stroke="${tone.stroke}" stroke-width="${element.borderWidth}"></rect>`;
+    if (element.type === "circle") return `<g><ellipse transform="${transform}" cx="${cx}" cy="${cy}" rx="${Math.max(1, element.width / 2 - element.borderWidth / 2)}" ry="${Math.max(1, element.height / 2 - element.borderWidth / 2)}" fill="none" stroke="${tone.fill}" stroke-width="${Number(element.borderWidth) + 4}"></ellipse><ellipse transform="${transform}" cx="${cx}" cy="${cy}" rx="${Math.max(1, element.width / 2 - element.borderWidth / 2)}" ry="${Math.max(1, element.height / 2 - element.borderWidth / 2)}" fill="none" stroke="${tone.stroke}" stroke-width="${element.borderWidth}"></ellipse></g>`;
+    if (element.type === "square") return `<g><rect transform="${transform}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" fill="none" stroke="${tone.fill}" stroke-width="${Number(element.borderWidth) + 4}"></rect><rect transform="${transform}" x="${element.x}" y="${element.y}" width="${element.width}" height="${element.height}" fill="none" stroke="${tone.stroke}" stroke-width="${element.borderWidth}"></rect></g>`;
     return renderText(element);
   }
 

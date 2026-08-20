@@ -39,13 +39,19 @@
   function cropRectFor(element) {
     // Start with the complete image so applying without dragging is lossless.
     const inset = 0;
+    const center = {
+      x: element.x + element.width / 2,
+      y: element.y + element.height / 2,
+    };
+    const angle = Transform.snapRotation?.(element.rotation, 15) ?? 0;
     return new Fabric.Rect({
-      left: element.x + inset,
-      top: element.y + inset,
-      originX: "left",
-      originY: "top",
+      left: center.x,
+      top: center.y,
+      originX: "center",
+      originY: "center",
       width: Math.max(24, element.width - inset * 2),
       height: Math.max(24, element.height - inset * 2),
+      angle,
       fill: "rgba(21, 94, 239, .08)",
       stroke: "#155eef",
       strokeWidth: 2,
@@ -62,20 +68,54 @@
     });
   }
 
+  function localCropRect(element, rect) {
+    const width = Math.max(1, Number(rect.width) * Math.abs(Number(rect.scaleX) || 1));
+    const height = Math.max(1, Number(rect.height) * Math.abs(Number(rect.scaleY) || 1));
+    const centerX = Number(element.x) + Number(element.width) / 2;
+    const centerY = Number(element.y) + Number(element.height) / 2;
+    const radians = (Number(element.rotation) || 0) * Math.PI / 180;
+    const rectCenterX = Number.isFinite(Number(rect.left)) ? Number(rect.left) : centerX;
+    const rectCenterY = Number.isFinite(Number(rect.top)) ? Number(rect.top) : centerY;
+    const dx = rectCenterX - centerX;
+    const dy = rectCenterY - centerY;
+    const localCenterX = centerX + dx * Math.cos(radians) + dy * Math.sin(radians);
+    const localCenterY = centerY - dx * Math.sin(radians) + dy * Math.cos(radians);
+    return { left: localCenterX - width / 2, top: localCenterY - height / 2, width, height };
+  }
+
+  function canvasPointFromLocal(element, x, y) {
+    const centerX = Number(element.x) + Number(element.width) / 2;
+    const centerY = Number(element.y) + Number(element.height) / 2;
+    const radians = (Number(element.rotation) || 0) * Math.PI / 180;
+    const dx = x - centerX;
+    const dy = y - centerY;
+    return {
+      x: centerX + dx * Math.cos(radians) - dy * Math.sin(radians),
+      y: centerY + dx * Math.sin(radians) + dy * Math.cos(radians),
+    };
+  }
+
   function constrainCrop(session, rect) {
-    const element = session?.cropState?.element;
+    const element = session?.cropState?.cropElement;
     if (!element || !rect) return;
-    const width = Math.max(24, Number(rect.width) * Math.abs(Number(rect.scaleX) || 1));
-    const height = Math.max(24, Number(rect.height) * Math.abs(Number(rect.scaleY) || 1));
+    const local = localCropRect(element, rect);
+    const width = Math.min(local.width, Number(element.width));
+    const height = Math.min(local.height, Number(element.height));
+    const localCenterX = local.left + local.width / 2;
+    const localCenterY = local.top + local.height / 2;
+    const clampedCenterX = Transform.clamp(localCenterX, Number(element.x) + width / 2, Number(element.x) + Number(element.width) - width / 2);
+    const clampedCenterY = Transform.clamp(localCenterY, Number(element.y) + height / 2, Number(element.y) + Number(element.height) - height / 2);
+    const center = canvasPointFromLocal(element, clampedCenterX, clampedCenterY);
     const safeWidth = Math.min(width, element.width);
     const safeHeight = Math.min(height, element.height);
     rect.set({
-      left: Transform.clamp(Number(rect.left) || element.x, element.x, element.x + element.width - safeWidth),
-      top: Transform.clamp(Number(rect.top) || element.y, element.y, element.y + element.height - safeHeight),
+      left: center.x,
+      top: center.y,
       width: safeWidth,
       height: safeHeight,
       scaleX: 1,
       scaleY: 1,
+      angle: Number(element.rotation) || 0,
     });
     rect.setCoords();
     session.canvas.requestRenderAll();
@@ -83,8 +123,25 @@
 
   function startCrop(session, object, element) {
     if (!session || !object || !element || session.cropState) return false;
-    const rect = cropRectFor(element);
-    session.cropState = { object, element, rect };
+    // The crop overlay follows the current Fabric frame, but opening the
+    // tool must not mutate the persisted scene. A rotated image has local
+    // width/height different from its axis-aligned visual bounding box.
+    const visualWidth = Math.max(1, Number(object.getScaledWidth?.()) || Number(object.width) * Math.abs(Number(object.scaleX) || 1));
+    const visualHeight = Math.max(1, Number(object.getScaledHeight?.()) || Number(object.height) * Math.abs(Number(object.scaleY) || 1));
+    const center = object.getCenterPoint?.() || {
+      x: Number(element.x) + Number(element.width) / 2,
+      y: Number(element.y) + Number(element.height) / 2,
+    };
+    const cropElement = {
+      ...element,
+      x: center.x - visualWidth / 2,
+      y: center.y - visualHeight / 2,
+      width: visualWidth,
+      height: visualHeight,
+      rotation: Transform.snapRotation?.(object.angle, 15) ?? Number(element.rotation) ?? 0,
+    };
+    const rect = cropRectFor(cropElement);
+    session.cropState = { object, element, cropElement, rect };
     session.isCroppingImage = true;
     object.set({ selectable: false, evented: false });
     session.canvas.add(rect);
@@ -117,10 +174,11 @@
         const renderedHeight = image.height * scale;
         const offsetX = (element.width - renderedWidth) / 2;
         const offsetY = (element.height - renderedHeight) / 2;
-        const sourceX = Transform.clamp((rect.left - element.x - offsetX) / scale, 0, image.width);
-        const sourceY = Transform.clamp((rect.top - element.y - offsetY) / scale, 0, image.height);
-        const sourceWidth = Transform.clamp(rect.width / scale, 1, image.width - sourceX);
-        const sourceHeight = Transform.clamp(rect.height / scale, 1, image.height - sourceY);
+        const local = localCropRect(element, rect);
+        const sourceX = Transform.clamp((local.left - element.x - offsetX) / scale, 0, image.width);
+        const sourceY = Transform.clamp((local.top - element.y - offsetY) / scale, 0, image.height);
+        const sourceWidth = Transform.clamp(local.width / scale, 1, image.width - sourceX);
+        const sourceHeight = Transform.clamp(local.height / scale, 1, image.height - sourceY);
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(sourceWidth));
         canvas.height = Math.max(1, Math.round(sourceHeight));
@@ -136,11 +194,34 @@
     const state = session?.cropState;
     if (!state) return null;
     constrainCrop(session, state.rect);
-    const result = await cropSource(state.element.image, state.element, state.rect);
+    const result = await cropSource(state.cropElement.image, state.cropElement, state.rect);
     if (!result) return null;
-    const frame = { x: state.rect.left, y: state.rect.top, width: state.rect.width, height: state.rect.height };
+    const local = localCropRect(state.cropElement, state.rect);
+    const frame = { x: local.left, y: local.top, width: local.width, height: local.height };
     cancelCrop(session);
-    return { ...result, ...frame };
+    return {
+      ...result,
+      ...frame,
+      rotation: state.cropElement.rotation,
+      sourceWidth: result.width,
+      sourceHeight: result.height,
+    };
+  }
+
+  function frameForCroppedSource(result) {
+    const areaWidth = Math.max(1, Number(result.width) || 1);
+    const areaHeight = Math.max(1, Number(result.height) || 1);
+    const sourceWidth = Math.max(1, Number(result.sourceWidth) || areaWidth);
+    const sourceHeight = Math.max(1, Number(result.sourceHeight) || areaHeight);
+    const ratio = sourceWidth / sourceHeight;
+    const width = Math.min(areaWidth, areaHeight * ratio);
+    const height = width / ratio;
+    return {
+      x: Number(result.x) + (areaWidth - width) / 2,
+      y: Number(result.y) + (areaHeight - height) / 2,
+      width,
+      height,
+    };
   }
 
   async function applyCrop(session) {
@@ -153,10 +234,8 @@
     }
     Object.assign(state.element, {
       image: result.image,
-      x: result.x,
-      y: result.y,
-      width: result.width,
-      height: result.height,
+      ...frameForCroppedSource(result),
+      rotation: result.rotation,
       fit: "contain",
     });
     return { element: state.element, object: state.object };
@@ -195,8 +274,10 @@
     Core.enforceSceneOrder(session.card.scene);
     Transform.syncBlocks(session.card);
     session.history.push(before, session.history.snapshot(session.card));
-    if (typeof saveProcedure === "function") saveProcedure();
     await replace(cropped.object, cropped.element);
+    // Persist only after the new Fabric object is mounted. Otherwise the live
+    // synchronizer can read the old frame and overwrite the crop dimensions.
+    if (typeof saveProcedure === "function") saveProcedure();
     status("Imagem recortada.");
     render();
     return true;

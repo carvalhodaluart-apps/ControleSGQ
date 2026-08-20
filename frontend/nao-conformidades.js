@@ -179,9 +179,8 @@ function renderEditor(data) {
   editorTitle.textContent = data.nonconformityId ? `Editar ${data.documentCode}` : "Nova não conformidade";
   formError.textContent = "";
   saveStatus.textContent = "";
-  ["documentCode", "issueDate", "origin", "status", "title", "sector", "reporter", "responsible", "affectedItem", "description", "evidence", "containment", "containmentResponsible", "containmentDate", "causeMethod", "causeAnalysis", "rootCause", "effectivenessDate", "effectivenessVerifier", "effectivenessResult", "closureApprover", "closureDate", "climateJustification", "closureNotes"].forEach((field) => setField(field, data[field]));
+  ["documentCode", "issueDate", "origin", "status", "title", "sector", "reporter", "responsible", "affectedItem", "description", "evidence", "containment", "containmentResponsible", "containmentDate", "causeMethod", "causeAnalysis", "rootCause", "effectivenessDate", "effectivenessVerifier", "effectivenessResult", "closureApprover", "closureDate", "closureNotes"].forEach((field) => setField(field, data[field]));
   setField("effective", data.effective === null ? "" : String(data.effective));
-  setField("climateImpact", data.climateImpact);
   renderEvidenceImages(data.evidenceImages || (data.evidenceImage ? [data.evidenceImage] : []));
   renderActions(data.actions);
   [previewNcPdfButton, downloadNcPdfButton].forEach((button) => { button.disabled = !data.nonconformityId; });

@@ -1,5 +1,6 @@
 const PDFDocument = require("pdfkit");
 const sharp = require("sharp");
+const { drawWatermark } = require("./pdfBranding");
 
 const COLORS = {
   navy: "#17233d",
@@ -139,15 +140,17 @@ function actionTable(doc, actions = []) {
     const summary = [`Respons\u00e1vel: ${cleanText(action.responsible) || "N\u00e3o informado"}`, `Prazo: ${dateText(action.dueDate) || "-"}`, `Status: ${cleanText(action.status) || "Pendente"}`].join("  |  ");
     const evidence = cleanText(action.evidence);
     const descriptionHeight = doc.heightOfString(description, { width: 455, font: "Helvetica", fontSize: 9, lineGap: 1 });
+    const summaryHeight = doc.heightOfString(summary, { width: 455, font: "Helvetica", fontSize: 8, lineGap: 1 });
     const evidenceHeight = evidence ? doc.heightOfString(`Evid\u00eancia: ${evidence}`, { width: 455, font: "Helvetica", fontSize: 8, lineGap: 1 }) : 0;
-    const height = Math.max(64, descriptionHeight + evidenceHeight + (evidence ? 62 : 44));
+    const height = Math.max(64, 16 + descriptionHeight + 6 + summaryHeight + (evidence ? 5 + evidenceHeight : 0) + 12);
     ensureSpace(doc, height + 8);
     const y = doc.y;
     doc.roundedRect(42, y, 511, height, 5).fillAndStroke(index % 2 ? "#ffffff" : COLORS.soft, COLORS.line);
     doc.fillColor(COLORS.blue).font("Helvetica-Bold").fontSize(10).text(String(index + 1), 52, y + 10, { width: 18, align: "center" });
     doc.fillColor(COLORS.text).font("Helvetica").fontSize(9).text(description, 78, y + 8, { width: 455, lineGap: 1 });
-    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text(summary, 78, y + 13 + descriptionHeight, { width: 455 });
-    if (evidence) doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text(`Evid\u00eancia: ${evidence}`, 78, y + 35 + descriptionHeight, { width: 455, lineGap: 1 });
+    const summaryTop = y + 14 + descriptionHeight;
+    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text(summary, 78, summaryTop, { width: 455, lineGap: 1 });
+    if (evidence) doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text(`Evid\u00eancia: ${evidence}`, 78, summaryTop + summaryHeight + 5, { width: 455, lineGap: 1 });
     doc.y = y + height + 6;
   });
 }
@@ -180,7 +183,8 @@ async function createNonconformityPdf(input, configuration = {}) {
   const result = new Promise((resolve, reject) => { doc.on("end", () => resolve(Buffer.concat(chunks))); doc.on("error", reject); });
   const cover = configuration.cover || {};
   const coverBuffer = await toPdfImageBuffer(cover.imageData);
-  if (coverBuffer) { drawCover(doc, nc, cover, coverBuffer); doc.addPage(); }
+  const watermarkBuffer = await toPdfImageBuffer(cover.logoData);
+  if (coverBuffer) { drawCover(doc, nc, cover, coverBuffer); drawWatermark(doc, watermarkBuffer); doc.addPage(); }
 
   drawHeader(doc, nc);
   const sectionSettings = configuration.nonconformity?.sections || [];
@@ -203,14 +207,15 @@ async function createNonconformityPdf(input, configuration = {}) {
   if (isSectionActive("cause")) textBlock(doc, "An\u00e1lise de causa", `${nc.causeMethod ? `M\u00e9todo: ${nc.causeMethod}\n` : ""}${nc.causeAnalysis || ""}\nCausa raiz: ${nc.rootCause || "N\u00e3o informada"}`);
   if (isSectionActive("actions")) actionTable(doc, nc.actions);
   if (isSectionActive("effectiveness")) textBlock(doc, "Verifica\u00e7\u00e3o de efic\u00e1cia", `${nc.effectivenessDate ? `Data: ${dateText(nc.effectivenessDate)}\n` : ""}${nc.effectivenessVerifier ? `Verificado por: ${nc.effectivenessVerifier}\n` : ""}${nc.effective === true ? "Resultado: Eficaz" : nc.effective === false ? "Resultado: N\u00e3o eficaz" : "Resultado: Ainda n\u00e3o verificado"}\n${nc.effectivenessResult || ""}`);
-  if (isSectionActive("closure")) textBlock(doc, "Encerramento e contexto", `${nc.closureApprover ? `Aprovador: ${nc.closureApprover}\n` : ""}${nc.closureDate ? `Data: ${dateText(nc.closureDate)}\n` : ""}${nc.climateImpact ? `Impacto relacionado a mudan\u00e7as clim\u00e1ticas: ${nc.climateJustification || "Sim"}\n` : "Impacto relacionado a mudan\u00e7as clim\u00e1ticas: N\u00e3o informado\n"}${nc.closureNotes || ""}`);
+  if (isSectionActive("closure")) textBlock(doc, "Encerramento", `${nc.closureApprover ? `Aprovador: ${nc.closureApprover}\n` : ""}${nc.closureDate ? `Data: ${dateText(nc.closureDate)}\n` : ""}${nc.closureNotes || ""}`);
 
   const range = doc.bufferedPageRange();
   for (let index = range.start; index < range.start + range.count; index += 1) {
     doc.switchToPage(index);
     const generated = nc.generatedAt ? `Gerado em ${dateText(nc.generatedAt)}${nc.generatedBy ? ` por ${cleanText(nc.generatedBy)}` : ""}` : "";
     const footer = [cleanText(nc.documentCode || "NC"), generated, `P\u00e1gina ${index + 1} de ${range.count}`].filter(Boolean).join("  |  ");
-    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text(footer, 42, doc.page.height - 30, { width: 511, align: "right" });
+    doc.fillColor(COLORS.muted).font("Helvetica").fontSize(8).text(footer, 42, doc.page.height - doc.page.margins.bottom - 10, { width: 511, align: "right", lineBreak: false });
+    drawWatermark(doc, watermarkBuffer);
   }
   doc.end();
   return result;

@@ -101,8 +101,9 @@
   color: #155eef;
   font-size: 14px;
   font-weight: 900;
-  line-height: 18px;
+  line-height: 1;
   cursor: grab;
+  box-sizing: border-box;
 }
 
 .procedure-text-move-handle {
@@ -133,7 +134,8 @@
 
 .procedure-text-box.is-selected .procedure-text-move-handle,
 .procedure-text-box.is-selected .procedure-text-resize-handle {
-  display: block;
+  display: grid;
+  place-items: center;
 }
 
 .procedure-text-box.is-editing {

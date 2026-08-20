@@ -3,6 +3,8 @@
   const STORE_NAME = "snapshots";
   let saveTimer = null;
   let recoveryCheckStarted = false;
+  const RECOVERY_IDLE_DELAY = 7000;
+  const SMALL_RECOVERY_LIMIT = 1500000;
 
   function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -47,7 +49,11 @@
     const procedureId = snapshotKey(procedure);
     if (!procedureId || procedure?.documentStatus === "Publicado") return;
     const snapshot = { procedureId, savedAt: new Date().toISOString(), procedure: snapshotProcedure(procedure) };
-    try { localStorage.setItem(`controle-sgq-recovery:${procedureId}`, JSON.stringify(snapshot)); } catch (_error) { /* IndexedDB remains the primary local fallback. */ }
+    const serialized = JSON.stringify(snapshot);
+    try {
+      if (serialized.length <= SMALL_RECOVERY_LIMIT) localStorage.setItem(`controle-sgq-recovery:${procedureId}`, serialized);
+      else localStorage.removeItem(`controle-sgq-recovery:${procedureId}`);
+    } catch (_error) { /* IndexedDB remains the primary local fallback. */ }
     await storeSet(procedureId, snapshot);
     if (!qualityToken) return;
     await fetch("/api/procedures/recovery", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${qualityToken}` }, body: JSON.stringify({ procedure: snapshot.procedure }) }).catch(() => {});
@@ -55,7 +61,7 @@
 
   function schedule(procedure) {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => saveSnapshot(procedure).catch(() => {}), 900);
+    saveTimer = setTimeout(() => saveSnapshot(procedure).catch(() => {}), RECOVERY_IDLE_DELAY);
   }
 
   async function clear(procedure) {
@@ -105,7 +111,11 @@
   window.addEventListener("pagehide", () => {
     if (!activeProcedure?.procedureId || activeProcedure?.documentStatus === "Publicado") return;
     const snapshot = { procedureId: activeProcedure.procedureId, savedAt: new Date().toISOString(), procedure: snapshotProcedure(activeProcedure) };
-    try { localStorage.setItem(`controle-sgq-recovery:${snapshot.procedureId}`, JSON.stringify(snapshot)); } catch (_error) { return; }
+    try {
+      const serialized = JSON.stringify(snapshot);
+      if (serialized.length <= SMALL_RECOVERY_LIMIT) localStorage.setItem(`controle-sgq-recovery:${snapshot.procedureId}`, serialized);
+      else localStorage.removeItem(`controle-sgq-recovery:${snapshot.procedureId}`);
+    } catch (_error) { /* IndexedDB is not available during pagehide in every browser. */ }
     if (!qualityToken) return;
     fetch("/api/procedures/recovery", {
       method: "POST",

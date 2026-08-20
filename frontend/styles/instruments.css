@@ -50,6 +50,13 @@
 .span-two { grid-column: span 2; }
 .instrument-fields input, .instrument-fields select, .instrument-fields textarea, .instrument-maintenance-row input, .instrument-maintenance-row select, .instrument-maintenance-row textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line, #d7e1f0); border-radius: 8px; background: #fff; color: var(--text, #14213d); font: inherit; font-size: 13px; padding: 10px 11px; }
 .instrument-fields textarea, .instrument-maintenance-row textarea { min-height: 78px; resize: vertical; }
+.instrument-fields-three > label { align-self: start; }
+.instrument-fields-three > label.check-field { min-height: 40px; padding-top: 9px; box-sizing: border-box; }
+#instrument-calibration .instrument-fields-three { row-gap: 18px; }
+#instrument-calibration .instrument-fields-three > label:nth-of-type(7),
+#instrument-calibration .instrument-fields-three > label:nth-of-type(12),
+#instrument-calibration .instrument-fields-three > label:nth-of-type(15),
+#instrument-calibration .instrument-fields-three > label:nth-of-type(18) { padding-top: 14px; border-top: 1px solid var(--line, #d7e1f0); }
 .instrument-fields input:focus, .instrument-fields select:focus, .instrument-fields textarea:focus, .instrument-maintenance-row input:focus, .instrument-maintenance-row select:focus, .instrument-maintenance-row textarea:focus { border-color: #2b6df3; outline: 3px solid rgba(43, 109, 243, .12); }
 .check-field { display: flex !important; align-items: center; gap: 8px !important; min-height: 42px; }
 .check-field input { width: auto; }

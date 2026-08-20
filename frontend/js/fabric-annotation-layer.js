@@ -15,5 +15,13 @@
       .forEach((object) => canvas.remove(object));
   }
 
-  window.FabricAnnotationLayer = { refresh, remove };
+  function sync(canvas, element) {
+    if (!canvas || !element) return;
+    Factory.syncAnnotationObjects?.(
+      element,
+      canvas.getObjects().filter((object) => object.annotationOwnerId === element.id),
+    );
+  }
+
+  window.FabricAnnotationLayer = { refresh, remove, sync };
 }());

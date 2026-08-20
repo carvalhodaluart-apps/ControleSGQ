@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("desktopSharedFolder", {
-  supported: true,
+  supported: false,
   select: () => ipcRenderer.invoke("shared-folder:select"),
   createHost: (options) => ipcRenderer.invoke("shared-folder:create-host", options),
   getStatus: () => ipcRenderer.invoke("shared-folder:status"),

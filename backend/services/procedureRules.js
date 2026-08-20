@@ -71,6 +71,7 @@ const DEFAULT_QUALITY_FIELDS = [
 ];
 const DEFAULT_COVER = {
   imageData: "",
+  logoData: "",
   overlayPosition: "center",
   overlayX: 0.5,
   overlayY: 0.5,

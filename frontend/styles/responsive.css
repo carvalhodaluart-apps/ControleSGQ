@@ -29,6 +29,8 @@
     padding: 10px;
   }
 
+  .form-progress { flex: 0 0 205px; margin: 0; border-bottom: 0; }
+
   .procedure-nav h2,
   .nc-section-nav strong,
   .action-plan-section-nav strong,

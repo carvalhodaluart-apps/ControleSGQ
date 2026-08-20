@@ -1,6 +1,7 @@
 const PDFDocument = require("pdfkit");
 const sharp = require("sharp");
 const fs = require("fs");
+const { drawWatermark } = require("./pdfBranding");
 
 const FONT_REGULAR = fs.existsSync("C:\\Windows\\Fonts\\arial.ttf") ? "C:\\Windows\\Fonts\\arial.ttf" : "Helvetica";
 const FONT_BOLD = fs.existsSync("C:\\Windows\\Fonts\\arialbd.ttf") ? "C:\\Windows\\Fonts\\arialbd.ttf" : "Helvetica-Bold";
@@ -148,18 +149,20 @@ function actionCard(doc, action, index) {
     `Conclusão: ${Number(action.completionPercent) || 0}%`,
   ].join("  |  ");
   const evidence = clean(action.evidence);
-  doc.font(FONT_REGULAR).fontSize(9);
+  doc.font(FONT_BOLD).fontSize(10);
   const descriptionHeight = doc.heightOfString(description, { width: 455, lineGap: 1 });
-  const evidenceHeight = evidence ? doc.heightOfString(`Evidência: ${evidence}`, { width: 455, lineGap: 1 }) : 0;
-  const height = Math.max(76, descriptionHeight + evidenceHeight + (evidence ? 68 : 50));
+  const detailsHeight = doc.heightOfString(details, { width: 455, font: FONT_REGULAR, fontSize: 8, lineGap: 1 });
+  const evidenceHeight = evidence ? doc.heightOfString(`Evidência: ${evidence}`, { width: 455, font: FONT_REGULAR, fontSize: 8, lineGap: 1 }) : 0;
+  const height = Math.max(76, 16 + descriptionHeight + 6 + detailsHeight + (evidence ? 5 + evidenceHeight : 0) + 12);
   ensureSpace(doc, height + 10);
   const y = doc.y;
   doc.roundedRect(42, y, 511, height, 6).fillAndStroke(index % 2 ? "#ffffff" : COLORS.soft, COLORS.line);
   doc.circle(63, y + 20, 11).fill(COLORS.blue);
   doc.fillColor("#ffffff").font(FONT_BOLD).fontSize(9).text(String(index + 1), 57, y + 15, { width: 12, align: "center" });
   doc.fillColor(COLORS.text).font(FONT_BOLD).fontSize(10).text(description, 84, y + 11, { width: 455, lineGap: 1 });
-  doc.fillColor(COLORS.muted).font(FONT_REGULAR).fontSize(8).text(details, 84, y + 17 + descriptionHeight, { width: 455, lineGap: 1 });
-  if (evidence) doc.fillColor(COLORS.text).font(FONT_REGULAR).fontSize(8).text(`Evidência: ${evidence}`, 84, y + 39 + descriptionHeight, { width: 455, lineGap: 1 });
+  const detailsTop = y + 15 + descriptionHeight;
+  doc.fillColor(COLORS.muted).font(FONT_REGULAR).fontSize(8).text(details, 84, detailsTop, { width: 455, lineGap: 1 });
+  if (evidence) doc.fillColor(COLORS.text).font(FONT_REGULAR).fontSize(8).text(`Evidência: ${evidence}`, 84, detailsTop + detailsHeight + 5, { width: 455, lineGap: 1 });
   doc.y = y + height + 8;
 }
 
@@ -173,7 +176,7 @@ function footer(doc, plan, pageCount) {
   const range = doc.bufferedPageRange();
   for (let index = range.start; index < range.start + range.count; index += 1) {
     doc.switchToPage(index);
-    doc.fillColor(COLORS.muted).font(FONT_REGULAR).fontSize(8).text(`${clean(plan.documentCode || "PAC")}  |  ${clean(plan.title) || "Plano de ação"}  |  Página ${index + 1} de ${pageCount}`, 42, doc.page.height - 30, { width: 511, align: "right" });
+    doc.fillColor(COLORS.muted).font(FONT_REGULAR).fontSize(8).text(`${clean(plan.documentCode || "PAC")}  |  ${clean(plan.title) || "Plano de ação"}  |  Página ${index + 1} de ${pageCount}`, 42, doc.page.height - doc.page.margins.bottom - 10, { width: 511, align: "right", lineBreak: false });
   }
 }
 
@@ -184,7 +187,8 @@ async function createActionPlanPdf(plan, configuration = {}) {
   const result = new Promise((resolve, reject) => { doc.on("end", () => resolve(Buffer.concat(chunks))); doc.on("error", reject); });
   const cover = configuration.cover || {};
   const coverBuffer = await imageBuffer(cover.imageData);
-  if (coverBuffer) { drawCover(doc, plan, cover, coverBuffer); doc.addPage(); }
+  const watermarkBuffer = await imageBuffer(cover.logoData);
+  if (coverBuffer) { drawCover(doc, plan, cover, coverBuffer); drawWatermark(doc, watermarkBuffer); doc.addPage(); }
   drawHeader(doc, plan);
   sectionHeading(doc, "Identificação");
   metadataGrid(doc, [
@@ -203,6 +207,8 @@ async function createActionPlanPdf(plan, configuration = {}) {
   textBlock(doc, "Encerramento", [`Data: ${dateText(plan.closureDate) || "Não informada"}`, `Aprovador: ${plan.closureApprover || "Não informado"}`, effectiveness.newPlanNeeded ? "Necessidade de novo plano: Sim" : "Necessidade de novo plano: Não"].join("\n"));
   const pageCount = doc.bufferedPageRange().count;
   footer(doc, plan, pageCount);
+  const range = doc.bufferedPageRange();
+  for (let index = range.start; index < range.start + range.count; index += 1) { doc.switchToPage(index); drawWatermark(doc, watermarkBuffer); }
   doc.end();
   return result;
 }

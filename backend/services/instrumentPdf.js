@@ -1,5 +1,6 @@
 const PDFDocument = require("pdfkit");
 const sharp = require("sharp");
+const { drawWatermark } = require("./pdfBranding");
 const fs = require("fs");
 
 const FONT_REGULAR = fs.existsSync("C:\\Windows\\Fonts\\arial.ttf") ? "C:\\Windows\\Fonts\\arial.ttf" : "Helvetica";
@@ -169,7 +170,8 @@ async function createInstrumentPdf(instrument, configuration = {}) {
   const result = new Promise((resolve, reject) => { doc.on("end", () => resolve(Buffer.concat(chunks))); doc.on("error", reject); });
   const cover = configuration.cover || {};
   const coverBuffer = await imageBuffer(cover.imageData);
-  if (coverBuffer) { drawCover(doc, instrument, cover, coverBuffer); doc.addPage(); }
+  const watermarkBuffer = await imageBuffer(cover.logoData);
+  if (coverBuffer) { drawCover(doc, instrument, cover, coverBuffer); drawWatermark(doc, watermarkBuffer); doc.addPage(); }
   drawHeader(doc, instrument);
   sectionHeading(doc, "Cadastro do instrumento");
   metadataGrid(doc, [
@@ -248,6 +250,8 @@ async function createInstrumentPdf(instrument, configuration = {}) {
   else instrument.maintenances.forEach((item, index) => maintenanceCard(doc, item, index));
   const pageCount = doc.bufferedPageRange().count;
   footer(doc, instrument, pageCount);
+  const range = doc.bufferedPageRange();
+  for (let index = range.start; index < range.start + range.count; index += 1) { doc.switchToPage(index); drawWatermark(doc, watermarkBuffer); }
   doc.end();
   return result;
 }

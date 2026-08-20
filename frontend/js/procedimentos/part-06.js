@@ -212,6 +212,12 @@ procedureRoot.addEventListener("change", async (event) => {
 });
 
 procedureRoot.addEventListener("click", (event) => {
+  const topButton = event.target?.closest?.("[data-scroll-procedure-top]");
+  if (topButton) {
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
   if (event.target?.closest?.("[data-authorize-elaboration]")) {
     authorizeElaboration();
     return;

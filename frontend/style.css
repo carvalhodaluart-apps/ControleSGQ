@@ -1,10 +1,10 @@
 @import url("styles/part-01.css?v=20260811-warning-ffbf00-1");
-@import url("styles/part-02.css?v=20260811-warning-ffbf00-1");
+@import url("styles/part-02.css?v=20260818-canvas-persist-top-1");
 @import url("styles/part-03.css?v=20260811-warning-ffbf00-1");
 @import url("styles/part-04.css?v=20260811-warning-ffbf00-1");
 @import url("styles/part-05.css?v=20260811-leave-without-save-1");
 @import url("styles/part-06.css?v=20260811-loading-state-1");
-@import url("styles/scene-graph.css?v=20260811-selection-side-1");
+@import url("styles/scene-graph.css?v=20260817-rotation-snap-icon-1");
 @import url("styles/nonconformities.css");
 
 .app-boot-state {
@@ -33,6 +33,23 @@
 @keyframes app-boot-spin { to { transform: rotate(360deg); } }
 
 .creator-modules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+
+.procedure-nav-top-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 36px; margin-top: 12px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); color: var(--primary-dark); font: inherit; font-size: .82rem; font-weight: 800; cursor: pointer; }
+.procedure-nav-top-button:hover, .procedure-nav-top-button:focus-visible { border-color: var(--primary); background: #eaf1ff; outline: none; }
+.procedure-nav-top-button span:first-child { font-size: 1.1rem; line-height: 1; }
+
+.form-progress {
+  display: grid;
+  gap: 8px;
+  margin: -3px -2px 8px;
+  padding: 10px 8px 11px;
+  border-bottom: 1px solid var(--line, #d8e1ef);
+}
+.form-progress-heading { display: grid; gap: 3px; min-width: 0; }
+.form-progress-heading strong { display: block; margin: 0 !important; color: var(--text, #172033); font-size: .78rem; line-height: 1.25; overflow-wrap: anywhere; }
+.form-progress-heading span { color: var(--muted, #60708a); font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.form-progress-track { height: 4px; overflow: hidden; border-radius: 999px; background: #dfe8f5; }
+.form-progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--primary, #155eef); transition: width .2s ease; }
 .creator-module-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .creator-module-heading h2 { margin: 0 0 8px; font-size: 1.35rem; }
 .creator-module-card--upcoming .creator-module-description { max-width: 560px; }

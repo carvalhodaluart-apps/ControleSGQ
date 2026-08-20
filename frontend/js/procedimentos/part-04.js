@@ -338,8 +338,10 @@ function resizeImage(file) {
         canvas.height = Math.round(image.height * scale);
         const context = canvas.getContext("2d");
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        // PNG preserva o canal alpha de imagens sem fundo.
-        resolve(canvas.toDataURL("image/png"));
+        // WebP mantém transparência e reduz bastante o payload; navegadores
+        // sem suporte continuam usando PNG como fallback.
+        const webp = canvas.toDataURL("image/webp", 0.86);
+        resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/png"));
       };
       image.src = reader.result;
     };
@@ -544,10 +546,14 @@ function openPdfPreview(blob) {
 }
 
 async function exportProcedurePdf() {
+  markProcedurePdfOutdated();
+  await flushProcedureSave();
   openPdfPreview(await getProcedurePdfBlob());
 }
 
 async function downloadProcedurePdf() {
+  markProcedurePdfOutdated();
+  await flushProcedureSave();
   const blob = await getProcedurePdfBlob();
   triggerBlobDownload(blob, `${activeProcedure.documentCode || activeProcedure.title || "procedimento"}.pdf`);
 }
